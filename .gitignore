@@ -1,0 +1,12 @@
+# Common ignores
+node_modules
+.next/
+.DS_Store
+skills-lock.json
+.agents/
+.claude/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env*.local
