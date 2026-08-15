@@ -1,0 +1,242 @@
+'use client';
+
+import { Bookmark, Check, Globe, Play, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
+
+type Props = {
+  item: Media;
+  meta?: Meta;
+  inLibrary: boolean;
+  excludedQualities?: string[];
+  onClose: () => void;
+  onPlay: (item: Media, hub?: string) => void;
+  onToggleLibrary: (item: Media) => void;
+};
+
+export function DetailModal({
+  item,
+  meta,
+  inLibrary,
+  excludedQualities = [],
+  onClose,
+  onPlay,
+  onToggleLibrary,
+}: Props) {
+  const title = meta?.title || titleFor(item);
+  const synopsis = meta?.synopsis || 'No description available.';
+  const backdrop = meta?.image || item.image;
+  const poster = meta?.poster || meta?.image || item.image;
+  const logo = meta?.logo;
+  const imdb = meta?.imdbId;
+  const rating = meta?.rating?.replace(/\s*\/\s*10$/i, '').trim();
+  const entries = sortLinkListByQuality(meta?.linkList).filter((entry) => {
+    if (excludedQualities.length === 0) return true;
+    const q = (entry.quality || entry.title || '').toLowerCase();
+    return !excludedQualities.some((excluded) => q.includes(excluded.toLowerCase()));
+  });
+  const metadata = [...(meta?.tags ?? [])].filter(Boolean).map(String).slice(0, 6);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [readMore, setReadMore] = useState(false);
+  const [activeHub, setActiveHub] = useState<string | undefined>(undefined);
+
+  // Once meta arrives, default the selection to the best available quality.
+  // The modal mounts before meta resolves (onOpen fetches it async), so the
+  // picker can't pick a default from state initializers.
+  useEffect(() => {
+    if (activeHub) return;
+    const entry = entries[0];
+    const hub = entry?.directLinks?.[0]?.link ?? entry?.episodesLink;
+    if (hub) setActiveHub(hub);
+  }, [entries, activeHub]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-runs on purpose so a new logo resets the failure flag.
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logo]);
+
+  // Lock body scroll while the modal is mounted. Restored on unmount.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  const synopsisText =
+    synopsis.length > 240 && !readMore ? `${synopsis.slice(0, 240)}...` : synopsis;
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col bg-background pt-safe sm:grid sm:place-items-center sm:bg-background/80 sm:p-4 sm:backdrop-blur-sm sm:pt-0">
+      <div className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border bg-card sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:overflow-auto sm:rounded-2xl sm:border">
+        {/* Backdrop */}
+        <div className="relative h-56 w-full shrink-0 sm:h-64">
+          {backdrop || poster ? (
+            // biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here.
+            <img
+              src={backdrop || poster || undefined}
+              alt=""
+              className="absolute inset-0 size-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.opacity = '0';
+              }}
+            />
+          ) : null}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.10) 58%, var(--card) 100%)',
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            aria-label="Close"
+            className="touch-target absolute left-3 top-3 bg-background/70 backdrop-blur sm:left-4 sm:top-4"
+          >
+            <X className="size-5" />
+          </Button>
+        </div>
+
+        <div className="-mt-10 flex flex-1 flex-col gap-4 overflow-y-auto p-5 sm:gap-5 sm:overflow-visible sm:p-6">
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              {logo && !logoFailed ? (
+                // biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here.
+                <img
+                  src={logo}
+                  alt={title}
+                  className="mb-1 max-h-16 max-w-[220px] object-contain object-left"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <h2 className="line-clamp-2 text-xl font-semibold sm:text-2xl">{title}</h2>
+              )}
+              {!logo && (
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  {(meta?.type || item.type || 'Movie').toUpperCase()}
+                  {imdb ? ` · IMDb ${imdb}` : ''}
+                </p>
+              )}
+            </div>
+            {rating && (
+              <div className="flex shrink-0 items-baseline gap-1 pb-1">
+                <span className="text-2xl font-semibold sm:text-3xl">{rating}</span>
+                <span className="text-sm text-muted-foreground">/10</span>
+              </div>
+            )}
+          </div>
+
+          {metadata.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {metadata.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-lg bg-[#171717] px-2.5 py-1 text-xs font-semibold text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <p className="text-sm leading-6 text-muted-foreground sm:text-base">{synopsisText}</p>
+          {synopsis.length > 240 && (
+            <button
+              type="button"
+              onClick={() => setReadMore((r) => !r)}
+              className="touch-target -mt-2 w-fit text-sm font-semibold text-primary"
+            >
+              {readMore ? 'Show less' : 'Read more'}
+            </button>
+          )}
+
+          {entries.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {entries.some((e) => e.directLinks?.length) ? 'Quality' : 'Season'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {entries.map((entry) => {
+                  const hub = entry.directLinks?.[0]?.link ?? entry.episodesLink;
+                  const label = entry.title || entry.quality || 'Source';
+                  const selected = hub === activeHub;
+                  return (
+                    <button
+                      key={hub || label}
+                      type="button"
+                      onClick={() => hub && setActiveHub(hub)}
+                      aria-pressed={selected}
+                      className={cn(
+                        'touch-target rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                        selected
+                          ? 'bg-foreground text-background'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {meta?.cast && meta.cast.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Cast
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {meta.cast.slice(0, 8).map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:gap-3 sm:pt-0">
+            <Button
+              size="lg"
+              className="touch-target w-full justify-center sm:w-auto"
+              onClick={() => onPlay(item, activeHub)}
+            >
+              <Play className="size-4 fill-current" />
+              Watch now
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="touch-target w-full justify-center sm:w-auto"
+              onClick={() => onToggleLibrary(item)}
+            >
+              {inLibrary ? <Check className="size-4" /> : <Bookmark className="size-4" />}
+              {inLibrary ? 'Saved' : 'Save'}
+            </Button>
+            {meta?.webUrl && (
+              <Button
+                size="lg"
+                variant="ghost"
+                className="touch-target w-full justify-center sm:w-auto"
+                onClick={() => window.open(meta.webUrl ?? undefined, '_blank', 'noopener')}
+              >
+                <Globe className="size-4" />
+                Web
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
