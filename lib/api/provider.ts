@@ -1,12 +1,6 @@
 import type { ZodTypeAny, z } from 'zod';
-import {
-  DEFAULT_PROVIDER,
-  PROVIDER_BASES,
-  PROVIDER_MAX_ATTEMPTS,
-  PROVIDER_TIMEOUT_MS,
-} from './config';
+import { PROVIDER_BASES, PROVIDER_MAX_ATTEMPTS, PROVIDER_TIMEOUT_MS } from './config';
 import { ProviderError } from './errors';
-import { isValidProvider } from './providers';
 
 // Server-side fetcher for the upstream provider. All Next route handlers call
 // through this — never hit PROVIDER_BASE directly.
@@ -59,17 +53,19 @@ function isCoolingDown(base: string): boolean {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// The upstream is the source of truth for provider validity: unknown ids get
+// a 400 BAD_REQUEST there, and the frontend only ever sends ids from the live
+// provider list. When `provider` is empty the param is omitted entirely and
+// the upstream applies its own default.
 export async function providerFetch<T extends ZodTypeAny>(
   path: string,
   schema: T,
   params: Record<string, string | number | undefined> = {},
-  provider: string = DEFAULT_PROVIDER,
+  provider: string = '',
   revalidate?: number,
 ): Promise<z.infer<T>> {
-  const resolvedProvider = isValidProvider(provider) ? provider : DEFAULT_PROVIDER;
-
   const query = new URLSearchParams();
-  query.set('provider', resolvedProvider);
+  if (provider) query.set('provider', provider);
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue;
     query.set(key, String(value));
@@ -105,7 +101,7 @@ export async function providerFetch<T extends ZodTypeAny>(
           {
             base,
             path,
-            provider: resolvedProvider,
+            provider,
             attempt,
             durationMs: Date.now() - started,
           },
@@ -127,7 +123,7 @@ export async function providerFetch<T extends ZodTypeAny>(
           {
             base,
             path,
-            provider: resolvedProvider,
+            provider,
             attempt,
             status: lastError.status,
             code: lastError.code,

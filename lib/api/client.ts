@@ -3,7 +3,7 @@
 // browser call would be blocked.
 
 import { describeProviderError, ProviderError } from './errors';
-import { DEFAULT_PROVIDER_ID, PROVIDERS } from './providers';
+import { getAvailableProviders } from './providers';
 import {
   CategorySchema,
   type Episode,
@@ -17,7 +17,7 @@ import {
   sortLinkListByQuality,
 } from './types';
 
-export { DEFAULT_PROVIDER_ID, isValidProvider, PROVIDERS, providerById } from './providers';
+export { getAvailableProviders, providerById } from './providers';
 export type { Category, Episode, Media, Meta, Stream } from './types';
 export {
   imageFor,
@@ -85,14 +85,14 @@ export function safeErrorMessage(error: unknown): string {
 
 // --- Catalog ---
 
-export const getCategories = (provider: string = DEFAULT_PROVIDER_ID) =>
+export const getCategories = (provider: string = '') =>
   request<unknown>(`/api/catalog?provider=${encodeURIComponent(provider)}`).then((data) =>
     CategorySchema.array().parse(data),
   );
 
 // --- Search ---
 
-export const searchCatalog = (query: string, provider: string = DEFAULT_PROVIDER_ID) => {
+export const searchCatalog = (query: string, provider: string = '') => {
   const params = new URLSearchParams({ q: query, provider });
   return request<unknown>(`/api/search?${params.toString()}`).then((data) =>
     MediaSchema.array().parse(data),
@@ -111,21 +111,21 @@ export type FeaturedFeed = {
   series: Media[];
 };
 
-export const getFeatured = (provider: string = DEFAULT_PROVIDER_ID) =>
+export const getFeatured = (provider: string = '') =>
   request<unknown>(
     `/api/featured?provider=${encodeURIComponent(provider)}`,
   ) as Promise<FeaturedFeed>;
 
 // --- Meta ---
 
-export const getMeta = (link: string, provider: string = DEFAULT_PROVIDER_ID) =>
+export const getMeta = (link: string, provider: string = '') =>
   request<unknown>(
     `/api/media/${encodeURIComponent(link)}?provider=${encodeURIComponent(provider)}`,
   ).then((data) => MetaSchema.parse(data)) as Promise<Meta>;
 
 // --- Episodes ---
 
-export const getEpisodes = (link: string, provider: string = DEFAULT_PROVIDER_ID) =>
+export const getEpisodes = (link: string, provider: string = '') =>
   request<unknown>(
     `/api/media/${encodeURIComponent(link)}/episodes?provider=${encodeURIComponent(provider)}`,
   ).then((data) => EpisodeSchema.array().parse(data)) as Promise<Episode[]>;
@@ -135,11 +135,7 @@ export const getEpisodes = (link: string, provider: string = DEFAULT_PROVIDER_ID
 // Pass a hub URL extracted from `meta.linkList[].directLinks[0].link` (or
 // `episodesLink` for series). The route handler forwards to the upstream
 // which extracts the actual playable m3u8/mp4 URLs.
-export const getStream = (
-  hubUrl: string,
-  type = 'movie',
-  provider: string = DEFAULT_PROVIDER_ID,
-) => {
+export const getStream = (hubUrl: string, type = 'movie', provider: string = '') => {
   const params = new URLSearchParams({ hub: hubUrl, type, provider });
   return request<unknown>(`/api/stream?${params.toString()}`).then((data) =>
     StreamSchema.parse(data),
@@ -183,7 +179,7 @@ function providerCandidates(preferred: string): string[] {
     }
   };
   push(preferred);
-  for (const p of PROVIDERS) push(p.id);
+  for (const p of getAvailableProviders()) push(p.id);
   return list;
 }
 
@@ -212,7 +208,7 @@ function hubCandidates(meta: Pick<Meta, 'linkList'>): string[] {
 // candidate has been exhausted.
 export async function resolveMovieStream(
   meta: Pick<Meta, 'linkList'>,
-  preferredProvider: string = DEFAULT_PROVIDER_ID,
+  preferredProvider: string = '',
 ): Promise<Stream> {
   const candidates = hubCandidates(meta);
   const providers = providerCandidates(preferredProvider);
@@ -252,7 +248,7 @@ export async function resolveMovieStream(
 // dead episode hub cannot block playback of the series.
 export async function getStreamFallback(
   episodes: { link: string }[],
-  provider: string = DEFAULT_PROVIDER_ID,
+  provider: string = '',
 ): Promise<Stream> {
   let lastError: unknown;
   for (const episode of episodes) {
@@ -286,7 +282,7 @@ export async function getStreamFallback(
 // best-quality entry so a user can actually start watching.
 export async function resolveSeriesEpisodes(
   meta: Pick<Meta, 'linkList'>,
-  provider: string = DEFAULT_PROVIDER_ID,
+  provider: string = '',
   preferredHub?: string,
   depth = 0,
 ): Promise<Episode[]> {

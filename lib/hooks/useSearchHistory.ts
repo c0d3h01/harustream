@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { DEFAULT_PROVIDER_ID } from '@/lib/api/providers';
+
 
 // Recent-search history persisted in localStorage, mirroring the Android
 // app's MMKV-backed `searchHistory`. Newest first, capped. Scoped per
@@ -33,7 +33,7 @@ function writeAll(provider: string, items: string[]) {
   } catch {}
 }
 
-export function useSearchHistory(provider: string = DEFAULT_PROVIDER_ID) {
+export function useSearchHistory(provider: string = '') {
   const [items, setItems] = useState<string[]>([]);
 
   // Read persisted history after mount (avoids SSR/client hydration

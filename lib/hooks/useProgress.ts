@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
-import { DEFAULT_PROVIDER_ID } from '@/lib/api/providers';
+
 
 // Persist playback position per (item link, episode) so users can resume
 // where they left off across sessions. Records are scoped per provider so
@@ -94,7 +94,7 @@ function onStorage(e: StorageEvent) {
   }
 }
 
-export function useProgress(provider: string = DEFAULT_PROVIDER_ID) {
+export function useProgress(provider: string = '') {
   const data = useSyncExternalStore(
     subscribe,
     () => readAll(provider),
