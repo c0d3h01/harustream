@@ -7,7 +7,7 @@ import { PLAYBACK_RATES } from './usePlaybackRate';
 // app's `settingsStorage`. Kept in one localStorage object so "erase all
 // local data" can wipe everything in one call.
 
-const STORAGE_KEY = 'harustreams:settings';
+const STORAGE_KEY = 'harustream:settings';
 
 export const THEMES = ['black', 'midnight', 'graphite', 'ocean'] as const;
 export type Theme = (typeof THEMES)[number];

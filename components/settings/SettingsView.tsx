@@ -99,7 +99,7 @@ export const SettingsView = memo(function SettingsView({
 
   const eraseAll = () => {
     if (typeof window === 'undefined') return;
-    const prefix = 'harustreams:';
+    const prefix = 'harustream:';
     const keys: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
@@ -111,7 +111,7 @@ export const SettingsView = memo(function SettingsView({
 
   const clearProgress = () => {
     if (typeof window === 'undefined') return;
-    const prefix = 'harustreams:progress';
+    const prefix = 'harustream:progress';
     const keys: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
@@ -391,7 +391,7 @@ export const SettingsView = memo(function SettingsView({
             <div className="flex min-w-0 items-center gap-3">
               <Info className="size-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="text-sm font-medium">harustreams</p>
+                <p className="text-sm font-medium">harustream</p>
                 <p className="text-xs text-muted-foreground">
                   Streaming and metadata are provided by community-built provider sources.
                 </p>

@@ -2,7 +2,7 @@ import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'harustreams';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'harustream';
 
 // Resource origins to warm up on first paint: the provider API (featured
 // feed) plus any poster-artwork CDNs. All read from env so no third-party
@@ -61,7 +61,7 @@ export default function RootLayout({
             when nothing is stored. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=JSON.parse(localStorage.getItem('harustreams:settings')||'{}');var t=s&&s.theme;if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
+            __html: `try{var s=JSON.parse(localStorage.getItem('harustream:settings')||'{}');var t=s&&s.theme;if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
           }}
         />
         {/* Warm up the connections the home screen needs most: the provider

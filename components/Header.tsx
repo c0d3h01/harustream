@@ -53,7 +53,7 @@ export function Header({
           <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Play className="size-4 fill-current" />
           </span>
-          <span className="hidden sm:inline">harustreams</span>
+          <span className="hidden sm:inline">harustream</span>
         </button>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

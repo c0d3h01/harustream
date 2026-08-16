@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-
 // Recent-search history persisted in localStorage, mirroring the Android
 // app's MMKV-backed `searchHistory`. Newest first, capped. Scoped per
 // provider so each provider keeps its own query history.
 
-const STORAGE_PREFIX = 'harustreams:searchHistory';
+const STORAGE_PREFIX = 'harustream:searchHistory';
 const MAX = 12;
 
 function storageKey(provider: string) {

@@ -3,8 +3,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Media } from '@/lib/api/client';
 
-
-const STORAGE_PREFIX = 'harustreams:library';
+const STORAGE_PREFIX = 'harustream:library';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();

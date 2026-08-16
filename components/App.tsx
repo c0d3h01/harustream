@@ -130,7 +130,7 @@ export function App() {
     () =>
       providerById(settings.provider)?.name ??
       providers.providers.find((p) => p.id === settings.provider)?.name ??
-      'harustreams',
+      'harustream',
     [settings.provider, providers.providers],
   );
 
