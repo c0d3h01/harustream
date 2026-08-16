@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Media } from '@/lib/api/client';
-import { DEFAULT_PROVIDER_ID } from '@/lib/api/providers';
+
 
 const STORAGE_PREFIX = 'harustreams:library';
 
@@ -56,7 +56,7 @@ function subscribe(listener: Listener) {
   };
 }
 
-export function useLibrary(provider: string = DEFAULT_PROVIDER_ID) {
+export function useLibrary(provider: string = '') {
   const items = useSyncExternalStore(
     subscribe,
     () => getSnapshot(provider),

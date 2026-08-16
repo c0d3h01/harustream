@@ -6,6 +6,7 @@ import {
   Gauge,
   Info,
   Moon,
+  RefreshCw,
   RotateCcw,
   Save,
   Settings2,
@@ -13,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { memo, useState } from 'react';
-import { PROVIDERS } from '@/lib/api/providers';
+import type { Provider } from '@/lib/api/providers';
 import { PLAYBACK_RATES } from '@/lib/hooks/usePlaybackRate';
 import { ALL_QUALITIES, THEMES, type useSettings } from '@/lib/hooks/useSettings';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,11 @@ type Props = {
   settings: ReturnType<typeof useSettings>['settings'];
   update: ReturnType<typeof useSettings>['update'];
   toggleExcludedQuality: ReturnType<typeof useSettings>['toggleExcludedQuality'];
+  providers: Provider[];
+  providersLoading: boolean;
+  providersRefreshing: boolean;
+  providersError: string | null;
+  refreshProviders: () => Promise<void>;
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -83,6 +89,11 @@ export const SettingsView = memo(function SettingsView({
   settings,
   update,
   toggleExcludedQuality,
+  providers,
+  providersLoading,
+  providersRefreshing,
+  providersError,
+  refreshProviders,
 }: Props) {
   const [cleared, setCleared] = useState(false);
 
@@ -211,33 +222,61 @@ export const SettingsView = memo(function SettingsView({
               <div className="min-w-0">
                 <p className="text-sm font-medium">Streaming provider</p>
                 <p className="text-xs text-muted-foreground">
-                  Search and playback source. Your library, progress, and history are kept
-                  separately for each provider.
+                  {providersLoading
+                    ? 'Checking which providers are available…'
+                    : providers.length > 0
+                      ? `Live from the API — ${providers.length} available`
+                      : 'The API could not be reached — no providers available'}
                 </p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => void refreshProviders()}
+              disabled={providersRefreshing || providersLoading}
+              aria-label="Refresh provider list"
+              title="Refresh provider list"
+              className="touch-target rounded-lg bg-muted p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw
+                className={cn('size-4', providersRefreshing && 'animate-spin')}
+                aria-hidden="true"
+              />
+            </button>
           </Row>
           <div className="flex flex-wrap gap-2 px-4 pb-4 pt-1">
-            {PROVIDERS.map((p) => {
-              const selected = settings.provider === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => update({ provider: p.id })}
-                  className={cn(
-                    'touch-target rounded-2xl border px-4 py-2 text-sm font-medium transition-colors',
-                    selected
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/40 text-foreground',
-                  )}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
+            {providersLoading
+              ? Array.from({ length: 6 }, (_, i) => (
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static, stateless skeleton placeholders.
+                    key={i}
+                    aria-hidden="true"
+                    className="h-9 w-24 animate-pulse rounded-2xl bg-muted/60"
+                  />
+                ))
+              : providers.map((p) => {
+                  const selected = settings.provider === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => update({ provider: p.id })}
+                      className={cn(
+                        'touch-target rounded-2xl border px-4 py-2 text-sm font-medium transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-muted/40 text-foreground',
+                      )}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
           </div>
+          {!providersLoading && providersError && (
+            <p className="px-4 pb-4 text-xs text-muted-foreground">{providersError}</p>
+          )}
         </Section>
 
         <Section title="Appearance">

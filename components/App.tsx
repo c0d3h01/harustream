@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/client';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useLibrary } from '@/lib/hooks/useLibrary';
+import { useProviders } from '@/lib/hooks/useProviders';
 import { useSearchHistory } from '@/lib/hooks/useSearchHistory';
 import { useSettings } from '@/lib/hooks/useSettings';
 import { initialState, reducer, type View } from '@/lib/state/reducer';
@@ -62,6 +63,7 @@ const EMPTY_FEED: FeaturedFeed = {
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { settings, update, toggleExcludedQuality } = useSettings();
+  const providers = useProviders();
   const library = useLibrary(settings.provider);
   const history = useSearchHistory(settings.provider);
   const [feed, setFeed] = useState<FeaturedFeed | null>(null);
@@ -76,6 +78,17 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  // The persisted provider may no longer be served by the API (the picker
+  // reflects the live list, not a hardcoded registry). Once the live list is
+  // known, switch to the first available provider instead of leaving every
+  // request to 400 upstream.
+  useEffect(() => {
+    if (providers.loading) return;
+    if (providers.providers.length === 0) return;
+    if (providers.providers.some((p) => p.id === settings.provider)) return;
+    update({ provider: providers.providers[0].id });
+  }, [providers.loading, providers.providers, settings.provider, update]);
 
   // Featured feed loads on mount and whenever the active provider changes
   // (each provider serves a different catalog). Reset to the skeleton state
@@ -110,6 +123,16 @@ export function App() {
   }, [settings.provider]);
 
   const debouncedQuery = useDebounce(state.query, 300);
+
+  // Display name from the live registry (the persisted provider may be
+  // unknown until the API list loads — then the header shows the app name).
+  const providerName = useMemo(
+    () =>
+      providerById(settings.provider)?.name ??
+      providers.providers.find((p) => p.id === settings.provider)?.name ??
+      'harustreams',
+    [settings.provider, providers.providers],
+  );
 
   // Live search: as the user types (>= 2 chars) and we're on the search
   // view, fetch results without pressing Enter.
@@ -304,7 +327,7 @@ export function App() {
       <Header
         view={state.view}
         query={state.query}
-        providerName={providerById(settings.provider)?.name ?? 'harustreams'}
+        providerName={providerName}
         mobileSearchOpen={mobileSearchOpen}
         onSetMobileSearchOpen={setMobileSearchOpen}
         onSetView={onSetView}
@@ -328,7 +351,7 @@ export function App() {
             ) : (
               <Hero
                 item={hero ?? null}
-                providerName={providerById(settings.provider)?.name ?? 'harustreams'}
+                providerName={providerName}
                 inLibrary={hero ? library.has(hero.link) : false}
                 onPlay={onPlay}
                 onToggleLibrary={library.toggle}
@@ -380,6 +403,11 @@ export function App() {
             settings={settings}
             update={update}
             toggleExcludedQuality={toggleExcludedQuality}
+            providers={providers.providers}
+            providersLoading={providers.loading}
+            providersRefreshing={providers.refreshing}
+            providersError={providers.error}
+            refreshProviders={providers.refresh}
           />
         )}
       </div>

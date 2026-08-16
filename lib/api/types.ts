@@ -198,3 +198,20 @@ export function shortTitleFor(item: { title?: string; name?: string }): string {
   // No year — drop everything after the first separator.
   return full.split(/[|\u2013-]/)[0]?.trim() || full;
 }
+
+// --- Provider registry (live from the API) ---
+
+// /api/providers returns the upstream manifest entries. The upstream may
+// serialize the category as `type` (Rust gateway) or `kind` (Node gateway),
+// so both are accepted and normalized to the app's `Provider.type`.
+export const ProviderEntrySchema = z
+  .object({
+    value: z.string(),
+    display_name: z.string(),
+    type: z.string().optional().nullable(),
+    kind: z.string().optional().nullable(),
+    version: z.string().optional().nullable(),
+    disabled: z.boolean().optional(),
+  })
+  .passthrough();
+export type ProviderEntry = z.infer<typeof ProviderEntrySchema>;

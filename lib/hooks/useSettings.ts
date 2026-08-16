@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { DEFAULT_PROVIDER_ID, isValidProvider } from '@/lib/api/providers';
 import { PLAYBACK_RATES } from './usePlaybackRate';
 
 // Lightweight persisted preferences for the web app, mirroring the Android
@@ -25,7 +24,10 @@ const DEFAULTS: Settings = {
   defaultPlaybackRate: 1,
   autoAdvance: true,
   excludedQualities: [],
-  provider: DEFAULT_PROVIDER_ID,
+  // The provider is resolved from the live API list at runtime (see
+  // useProviders); an empty default means "let the app pick the first
+  // available provider once the list loads".
+  provider: '',
   theme: 'black',
 };
 
@@ -45,7 +47,9 @@ function read(): Settings {
       excludedQualities: Array.isArray(parsed.excludedQualities)
         ? parsed.excludedQualities.filter((q) => ALL_QUALITIES.includes(q))
         : DEFAULTS.excludedQualities,
-      provider: isValidProvider(parsed.provider) ? (parsed.provider as string) : DEFAULTS.provider,
+      // The persisted provider id is kept verbatim — the live list decides
+      // whether it is still usable (see App's auto-correct effect).
+      provider: typeof parsed.provider === 'string' ? (parsed.provider as string) : '',
       theme: THEMES.includes(parsed.theme as Theme) ? (parsed.theme as Theme) : DEFAULTS.theme,
     };
   } catch {
