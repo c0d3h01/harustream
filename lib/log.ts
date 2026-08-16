@@ -27,7 +27,7 @@ const LEVEL: Level = (() => {
 
 export const logger: Logger = pino({
   level: LEVEL,
-  base: { service: 'harustreams' },
+  base: { service: 'harustream' },
   ...(IS_DEV && !IS_EDGE
     ? {
         transport: {

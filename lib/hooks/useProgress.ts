@@ -2,12 +2,11 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 
-
 // Persist playback position per (item link, episode) so users can resume
 // where they left off across sessions. Records are scoped per provider so
 // switching providers never surfaces another provider's links.
 
-const STORAGE_PREFIX = 'harustreams:progress';
+const STORAGE_PREFIX = 'harustream:progress';
 
 type Entry = {
   position: number;
