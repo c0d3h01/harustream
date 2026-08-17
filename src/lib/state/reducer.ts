@@ -38,7 +38,7 @@ export type Action =
   | { type: 'results/set'; results: Media[] }
   | { type: 'results/clear' }
   | { type: 'selected/set'; item: Media }
-  | { type: 'selected/merge'; meta: Meta }
+  | { type: 'selected/merge'; link: string; meta: Meta }
   | { type: 'selected/close' }
   | { type: 'player/loading'; item: Media; episode: string; episodes: Episode[] }
   | {
@@ -96,7 +96,9 @@ export function reducer(state: State, action: Action): State {
     case 'selected/set':
       return { ...state, selected: { item: action.item } };
     case 'selected/merge':
-      if (!state.selected) return state;
+      // Drop merges that no longer match the open card — the user may have
+      // opened another title while this meta request was in flight.
+      if (!state.selected || state.selected.item.link !== action.link) return state;
       return { ...state, selected: { ...state.selected, meta: action.meta } };
     case 'selected/close':
       return { ...state, selected: null };
