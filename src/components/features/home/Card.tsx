@@ -3,7 +3,7 @@
 import { Play } from 'lucide-react';
 import { motion } from 'motion/react';
 import { memo } from 'react';
-import { DURATIONS, EASE } from '@/components/motion';
+import { DURATIONS, EASE } from '@/components/motion/transitions';
 import { imageFor, type Media, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 

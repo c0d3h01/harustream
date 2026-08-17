@@ -2,10 +2,14 @@
 
 import { Bookmark, Play } from 'lucide-react';
 import { motion } from 'motion/react';
-import { fadeIn, fadeUp, staggerContainer, usePrefersReducedMotion } from '@/components/motion';
+import { usePrefersReducedMotion } from '@/components/motion/usePrefersReducedMotion';
+import { fadeIn, fadeUp, staggerContainer } from '@/components/motion/variants';
 import { Button } from '@/components/ui/button';
 import { imageFor, type Media, type Meta, shortTitleFor, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
+
+// Hoisted: created once instead of on every Hero render.
+const YEAR_PATTERN = /\(?(19\d{2}|20\d{2})\)?/;
 
 type Props = {
   item: Media | null;
@@ -27,7 +31,7 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
 
   const type = meta?.type || item.type || 'movie';
   const rating = meta?.rating?.replace(/\s*\/\s*10$/i, '').trim();
-  const yearMatch = titleFor({ title: meta?.title || item.title }).match(/\(?(19\d{2}|20\d{2})\)?/);
+  const yearMatch = titleFor({ title: meta?.title || item.title }).match(YEAR_PATTERN);
 
   return (
     <section
