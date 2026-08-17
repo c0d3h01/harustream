@@ -1,6 +1,7 @@
 'use client';
 
 import { type Episode, titleFor } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 
 type Props = {
   episodes: Episode[];
@@ -26,7 +27,10 @@ export function EpisodeList({ episodes, activeEpisode, onSelect }: Props) {
               key={ep.link}
               type="button"
               onClick={() => onSelect(ep)}
-              className={`touch-target shrink-0 snap-start rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap sm:w-full sm:whitespace-normal ${active ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'}`}
+              className={cn(
+                'touch-target shrink-0 snap-start rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap sm:w-full sm:whitespace-normal',
+                active ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary',
+              )}
             >
               {key}. {titleFor(ep)}
             </button>

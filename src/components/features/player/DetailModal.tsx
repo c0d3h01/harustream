@@ -2,8 +2,8 @@
 
 import { Bookmark, Check, Globe, Play, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useState } from 'react';
-import { DURATIONS, EASE } from '@/components/motion';
+import { useEffect, useMemo, useState } from 'react';
+import { DURATIONS, EASE } from '@/components/motion/transitions';
 import { Button } from '@/components/ui/button';
 import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -34,12 +34,21 @@ export function DetailModal({
   const logo = meta?.logo;
   const imdb = meta?.imdbId;
   const rating = meta?.rating?.replace(/\s*\/\s*10$/i, '').trim();
-  const entries = sortLinkListByQuality(meta?.linkList).filter((entry) => {
-    if (excludedQualities.length === 0) return true;
-    const q = (entry.quality || entry.title || '').toLowerCase();
-    return !excludedQualities.some((excluded) => q.includes(excluded.toLowerCase()));
-  });
-  const metadata = [...(meta?.tags ?? [])].filter(Boolean).map(String).slice(0, 6);
+  // Memoized: the auto-select effect watches `entries`, so a fresh array per
+  // render would re-run it (and the modal's other effects) on every paint.
+  const entries = useMemo(
+    () =>
+      sortLinkListByQuality(meta?.linkList).filter((entry) => {
+        if (excludedQualities.length === 0) return true;
+        const q = (entry.quality || entry.title || '').toLowerCase();
+        return !excludedQualities.some((excluded) => q.includes(excluded.toLowerCase()));
+      }),
+    [meta?.linkList, excludedQualities],
+  );
+  const metadata = useMemo(
+    () => [...(meta?.tags ?? [])].filter(Boolean).map(String).slice(0, 6),
+    [meta?.tags],
+  );
   const [logoFailed, setLogoFailed] = useState(false);
   const [readMore, setReadMore] = useState(false);
   const [activeHub, setActiveHub] = useState<string | undefined>(undefined);
@@ -152,7 +161,7 @@ export function DetailModal({
               {metadata.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-lg bg-[#171717] px-2.5 py-1 text-xs font-semibold text-primary"
+                  className="rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-primary"
                 >
                   {tag}
                 </span>
