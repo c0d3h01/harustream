@@ -412,9 +412,13 @@ export function App() {
                 width is half the content area, so basis-[160px] cards
                 reflow correctly. On smaller screens the grid collapses to a
                 single column and the rails stack. */}
-              <div className="grid gap-2 lg:grid-cols-2">
-                <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
-                <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
+              <div className="grid items-start gap-6 md:grid-cols-2 md:gap-8 xl:gap-10">
+                <div className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-sm sm:p-5">
+                  <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
+                </div>
+                <div className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-sm sm:p-5">
+                  <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
+                </div>
               </div>
             </>
           )}
