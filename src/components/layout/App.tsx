@@ -81,6 +81,10 @@ export function App() {
   const library = useLibrary(settings.provider);
   const history = useSearchHistory(settings.provider);
   const [feed, setFeed] = useState<FeaturedFeed | null>(null);
+  const providerCatalogKey = useMemo(
+    () => providers.providers.map((provider) => `${provider.id}:${provider.name}`).join('|'),
+    [providers.providers],
+  );
   // Lifted to App so the MobileNav "Search" item can open the same bar
   // the header's search icon opens. Keeping it in Header would force the
   // nav to dispatch a custom event or grow a ref.
@@ -108,15 +112,17 @@ export function App() {
   // provider remains a playback ordering preference, not a catalog filter.
   useEffect(() => {
     let cancelled = false;
-    setFeed(null);
+    const requestKey = providerCatalogKey;
+    setFeed((current) => current ?? null);
     if (providers.loading) return;
-    if (providers.providers.length === 0) {
+    if (providerCatalogKey.length === 0) {
       setFeed(EMPTY_FEED);
       return;
     }
-    getFeaturedFromAllProviders(providers.providers)
+    const providerList = providers.providers;
+    getFeaturedFromAllProviders(providerList)
       .then((data) => {
-        if (!cancelled) setFeed(data ?? EMPTY_FEED);
+        if (!cancelled && requestKey === providerCatalogKey) setFeed(data ?? EMPTY_FEED);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -130,7 +136,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [providers.loading, providers.providers]);
+  }, [providerCatalogKey, providers.loading, providers.providers]);
 
   // Clear stale search results and any open detail when the provider
   // changes — links from one provider are meaningless in another.
@@ -508,7 +514,6 @@ export function App() {
               loading={state.playing.kind === 'loading'}
               errorMessage={state.playing.kind === 'error' ? state.playing.message : undefined}
               defaultPlaybackRate={settings.defaultPlaybackRate}
-              defaultAutoAdvance={settings.autoAdvance}
               provider={settings.provider}
               onClose={() => {
                 playerSessionRef.current++;

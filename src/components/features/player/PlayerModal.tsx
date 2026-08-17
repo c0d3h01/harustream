@@ -10,7 +10,7 @@ import {
   useMediaState,
 } from '@vidstack/react';
 import { DefaultVideoLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default';
-import { ChevronLeft, ListEnd, Loader2, Play, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Play, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import '@vidstack/react/player/styles/default/theme.css';
@@ -32,7 +32,6 @@ type Props = {
   loading: boolean;
   errorMessage?: string;
   defaultPlaybackRate?: number;
-  defaultAutoAdvance?: boolean;
   provider: string;
   onClose: () => void;
   onSelectEpisode: (item: Episode) => void;
@@ -267,7 +266,6 @@ export function PlayerModal({
   loading,
   errorMessage,
   defaultPlaybackRate,
-  defaultAutoAdvance,
   provider,
   onClose,
   onSelectEpisode,
@@ -275,7 +273,6 @@ export function PlayerModal({
   const progress = useProgress(provider);
   const { rate, setRate } = usePlaybackRate(defaultPlaybackRate);
 
-  const [autoAdvance, setAutoAdvance] = useState(defaultAutoAdvance ?? true);
   const [stalledMessage, setStalledMessage] = useState<string | null>(null);
   const [resumeOffered, setResumeOffered] = useState(false);
   const actionsRef = useRef<PlayerActions | null>(null);
@@ -284,7 +281,6 @@ export function PlayerModal({
   const sources = resolved.kind === 'sources' ? resolved.sources : [];
   const [sourceIndex, setSourceIndex] = useState(0);
   const source = sources[sourceIndex]?.link;
-  const sourceType = sources[sourceIndex]?.type;
 
   // A new stream (new title, episode, or quality set) always starts on the
   // first source; otherwise an index left over from a longer list would
@@ -300,7 +296,7 @@ export function PlayerModal({
 
   // Which renderer serves the current source: HLS via Vidstack's internal
   // hls.js, a natively playable MP4, or the ffmpeg transcode proxy (MKV et al.).
-  const kind = classifySource(source ?? '', sourceType);
+  const kind = classifySource(source ?? '', undefined);
 
   // The URL the player actually fetches. HLS + native go through the
   // server-side stream proxy (Referer/CORS safe, manifest rewritten);
@@ -399,7 +395,7 @@ export function PlayerModal({
                   savedPosition={savedPosition}
                   rate={rate}
                   setRate={setRate}
-                  autoAdvance={autoAdvance}
+                  autoAdvance={true}
                   stalledMessage={stalledMessage}
                   setStalledMessage={setStalledMessage}
                   resumeOffered={resumeOffered}
@@ -435,49 +431,18 @@ export function PlayerModal({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="-mx-1 flex flex-wrap gap-2 overflow-x-auto px-1 sm:mx-0 sm:overflow-visible">
-            {sources.length > 1 &&
-              sources.map((s, i) => (
-                <Button
-                  key={s.link}
-                  size="sm"
-                  variant={i === sourceIndex ? 'default' : 'outline'}
-                  onClick={() => {
-                    setStalledMessage(null);
-                    setResumeOffered(false);
-                    setSourceIndex(i);
-                  }}
-                  className="touch-target shrink-0"
-                >
-                  {s.server || `Source ${i + 1}`}
-                </Button>
-              ))}
-            {source && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => actionsRef.current?.restart()}
-                className="touch-target shrink-0"
-              >
-                <RotateCcw className="size-3.5" /> Restart
-              </Button>
-            )}
+        {source && (
+          <div className="flex justify-end">
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => setAutoAdvance((v) => !v)}
-              className="touch-target shrink-0"
+              variant="ghost"
+              onClick={() => actionsRef.current?.restart()}
+              className="touch-target"
             >
-              <ListEnd className="size-3.5" />
-              Auto-advance: {autoAdvance ? 'On' : 'Off'}
+              <RotateCcw className="size-3.5" /> Start over
             </Button>
           </div>
-          <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:inline-flex">
-            <Loader2 className="size-3.5" /> Use the player controls for speed, captions and
-            fullscreen
-          </span>
-        </div>
+        )}
 
         {showResumePrompt && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm">
@@ -508,11 +473,11 @@ export function PlayerModal({
         <div className="mt-2 grid gap-4 lg:mt-6 lg:grid-cols-[1fr_280px] lg:gap-6">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold sm:text-2xl">{titleFor(item)}</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {kind === 'transcode'
-                ? 'Streaming through the transcoding proxy — playback may start a few seconds after the buffers fill.'
-                : 'Direct playback from the selected provider. Episodes advance automatically when one ends.'}
-            </p>
+            {episodes.length === 0 && loading && (
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Getting this ready to watch…
+              </p>
+            )}
           </div>
           <EpisodeList
             episodes={episodes}

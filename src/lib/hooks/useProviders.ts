@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Provider, setAvailableProviders } from '@/lib/api/providers';
 
 // Live provider availability. The provider list is fetched from the upstream
@@ -32,22 +32,35 @@ export function useProviders(): ProvidersState {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const lastSignatureRef = useRef('');
 
   const refresh = useCallback(async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     try {
       const response = await fetch('/api/providers', {
         headers: { Accept: 'application/json' },
         cache: 'no-store',
+        signal: controller.signal,
       });
       const body = (await response.json()) as { success?: boolean; providers?: Provider[] };
       if (!response.ok || !Array.isArray(body.providers)) {
         throw new Error(`Provider list request failed (${response.status})`);
       }
-      setProviders(body.providers);
-      setAvailableProviders(body.providers);
+      const signature = body.providers
+        .map((provider) => `${provider.id}:${provider.name}`)
+        .join('|');
+      if (signature !== lastSignatureRef.current) {
+        lastSignatureRef.current = signature;
+        setProviders(body.providers);
+        setAvailableProviders(body.providers);
+      }
       setError(null);
       setRefreshedAt(Date.now());
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
@@ -76,6 +89,7 @@ export function useProviders(): ProvidersState {
 
     return () => {
       cancelled = true;
+      requestRef.current?.abort();
       if (timer) clearInterval(timer);
       window.removeEventListener('focus', onFocus);
     };
