@@ -17,13 +17,19 @@ type Props = {
   className?: string;
 };
 
+const YEAR_PATTERN = /\b(19\d{2}|20\d{2})\b/;
+
 export function Card({ item, onOpen, className }: Props) {
+  const title = titleFor(item);
+  const year = title.match(YEAR_PATTERN)?.[1];
+  const type = item.type?.toLowerCase() === 'series' ? 'Series' : 'Movie';
+
   return (
     <motion.button
       type="button"
       onClick={() => onOpen(item)}
       className={cn(
-        'group block w-full shrink-0 overflow-hidden rounded-xl bg-secondary text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        'group block w-full shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-sm transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:shadow-xl hover:shadow-background/30',
         className,
       )}
       // Entrance + hover lift. Transform/opacity only; reduced-motion users
@@ -46,13 +52,22 @@ export function Card({ item, onOpen, className }: Props) {
           }}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-        <span className="pointer-events-none absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="pointer-events-none absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all group-hover:scale-105 group-hover:opacity-100">
           <Play className="size-4 fill-current" />
         </span>
+        <span className="absolute top-3 left-3 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+          {type}
+        </span>
       </div>
-      <p className="mt-3 line-clamp-2 min-h-[2.5rem] px-0.5 text-sm font-semibold">
-        {titleFor(item)}
-      </p>
+      <div className="flex min-h-[5.5rem] flex-col gap-2 p-3">
+        <p className="line-clamp-2 text-sm font-semibold leading-5 text-foreground">{title}</p>
+        <div className="mt-auto flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+          {year && <span>{year}</span>}
+          {year && <span aria-hidden="true">·</span>}
+          <span>{type}</span>
+          <span className="ml-auto text-primary">View details</span>
+        </div>
+      </div>
     </motion.button>
   );
 }

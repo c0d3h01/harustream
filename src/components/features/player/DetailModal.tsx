@@ -94,10 +94,10 @@ export function DetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 18 }}
         transition={{ duration: DURATIONS.base, ease: EASE }}
-        className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border bg-card sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:overflow-auto sm:rounded-2xl sm:border"
+        className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-4xl sm:flex-row sm:overflow-hidden sm:rounded-3xl sm:border"
       >
         {/* Backdrop */}
-        <div className="relative h-56 w-full shrink-0 sm:h-64">
+        <div className="relative h-64 w-full shrink-0 sm:h-full sm:min-h-[34rem] sm:w-[40%]">
           {backdrop || poster ? (
             // biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here.
             <img
@@ -127,7 +127,7 @@ export function DetailModal({
           </Button>
         </div>
 
-        <div className="-mt-10 flex flex-1 flex-col gap-4 overflow-y-auto p-5 sm:gap-5 sm:overflow-visible sm:p-6">
+        <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:gap-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
               {logo && !logoFailed ? (
