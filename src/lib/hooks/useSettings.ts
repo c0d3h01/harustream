@@ -28,17 +28,36 @@ const DEFAULTS: Settings = {
   // useProviders); an empty default means "let the app pick the first
   // available provider once the list loads".
   provider: '',
-  theme: 'black',
+  theme: 'graphite',
 };
 
 const ALL_QUALITIES = ['360p', '480p', '720p', '1080p', '2160p'];
+
+// Storage-only field: set once when the old default theme ('black') has been
+// migrated to the current default ('graphite'). Without it, a deliberate
+// re-selection of black would be re-migrated on the next reload.
+type StoredSettings = Partial<Settings> & { themeMigrated?: boolean };
 
 function read(): Settings {
   if (typeof window === 'undefined') return DEFAULTS;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Partial<Settings>;
+    const parsed = JSON.parse(raw) as StoredSettings;
+    const storedTheme = THEMES.includes(parsed.theme as Theme)
+      ? (parsed.theme as Theme)
+      : DEFAULTS.theme;
+    // 'black' predates graphite as the default, and unrelated setting writes
+    // (e.g. the provider auto-correct in App) persist the whole object — so
+    // most stored values carry the old default. Treat it as the current
+    // default once, then flag the migration so explicit choices stick.
+    const theme = storedTheme === 'black' && !parsed.themeMigrated ? 'graphite' : storedTheme;
+    if (theme !== storedTheme) {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ ...parsed, theme, themeMigrated: true }),
+      );
+    }
     return {
       defaultPlaybackRate: PLAYBACK_RATES.includes(parsed.defaultPlaybackRate ?? NaN)
         ? (parsed.defaultPlaybackRate as number)
@@ -50,7 +69,7 @@ function read(): Settings {
       // The persisted provider id is kept verbatim — the live list decides
       // whether it is still usable (see App's auto-correct effect).
       provider: typeof parsed.provider === 'string' ? (parsed.provider as string) : '',
-      theme: THEMES.includes(parsed.theme as Theme) ? (parsed.theme as Theme) : DEFAULTS.theme,
+      theme,
     };
   } catch {
     return DEFAULTS;
@@ -60,7 +79,10 @@ function read(): Settings {
 function write(next: Settings) {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    // Merge over the previous object so storage-only fields (themeMigrated)
+    // survive unrelated updates.
+    const prev = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}') as StoredSettings;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prev, ...next }));
   } catch {}
 }
 

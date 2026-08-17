@@ -47,7 +47,7 @@
   --safe-top: max(0.75rem, env(safe-area-inset-top));
 }
 
-/* The default theme is a pure-black cinema theme. Additional themes are
+/* The default theme is a neutral graphite charcoal. Additional themes are
    selected with a `data-theme` attribute on <html>; a tiny inline script in
    layout.tsx restores the stored choice before first paint to avoid a flash.
    All themes are dark, so `color-scheme: dark` is set once on :root. */
@@ -55,7 +55,37 @@
   color-scheme: dark;
   --radius: 0.625rem;
 
-  /* black (default) */
+  /* graphite (default) — neutral charcoal */
+  --background: oklch(0.13 0.005 0);
+  --foreground: oklch(0.95 0.004 0);
+  --card: oklch(0.18 0.005 0);
+  --card-foreground: oklch(0.95 0.004 0);
+  --popover: oklch(0.19 0.005 0);
+  --popover-foreground: oklch(0.95 0.004 0);
+  --primary: oklch(0.8 0 0);
+  --primary-foreground: oklch(0.13 0.005 0);
+  --secondary: oklch(0.22 0.005 0);
+  --secondary-foreground: oklch(0.95 0.004 0);
+  --muted: oklch(0.22 0.005 0);
+  --muted-foreground: oklch(0.68 0.005 0);
+  --accent: oklch(0.22 0.005 0);
+  --accent-foreground: oklch(0.95 0.004 0);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.8 0 0);
+  --sidebar: oklch(0.18 0.005 0);
+  --sidebar-foreground: oklch(0.95 0.004 0);
+  --sidebar-primary: oklch(0.8 0 0);
+  --sidebar-primary-foreground: oklch(0.13 0.005 0);
+  --sidebar-accent: oklch(0.22 0.005 0);
+  --sidebar-accent-foreground: oklch(0.95 0.004 0);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.8 0 0);
+}
+
+/* black — pure-black cinema */
+:root[data-theme="black"] {
   --background: oklch(0 0 0);
   --foreground: oklch(0.97 0.005 260);
   --card: oklch(0.13 0.015 260);
@@ -117,36 +147,6 @@
   --sidebar-accent-foreground: oklch(0.96 0.012 260);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.7 0.19 265);
-}
-
-/* graphite — neutral charcoal */
-:root[data-theme="graphite"] {
-  --background: oklch(0.13 0.005 0);
-  --foreground: oklch(0.95 0.004 0);
-  --card: oklch(0.18 0.005 0);
-  --card-foreground: oklch(0.95 0.004 0);
-  --popover: oklch(0.19 0.005 0);
-  --popover-foreground: oklch(0.95 0.004 0);
-  --primary: oklch(0.78 0.16 175);
-  --primary-foreground: oklch(0.13 0.005 0);
-  --secondary: oklch(0.22 0.005 0);
-  --secondary-foreground: oklch(0.95 0.004 0);
-  --muted: oklch(0.22 0.005 0);
-  --muted-foreground: oklch(0.68 0.005 0);
-  --accent: oklch(0.22 0.005 0);
-  --accent-foreground: oklch(0.95 0.004 0);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.16 175);
-  --sidebar: oklch(0.18 0.005 0);
-  --sidebar-foreground: oklch(0.95 0.004 0);
-  --sidebar-primary: oklch(0.78 0.16 175);
-  --sidebar-primary-foreground: oklch(0.13 0.005 0);
-  --sidebar-accent: oklch(0.22 0.005 0);
-  --sidebar-accent-foreground: oklch(0.95 0.004 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.78 0.16 175);
 }
 
 /* ocean — cool cyan/teal tint */

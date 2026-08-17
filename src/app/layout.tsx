@@ -64,8 +64,9 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   colorScheme: 'dark',
   // Single dark theme. A light theme-color would flash the browser chrome
-  // white on first paint on iOS Safari before the dark CSS loads.
-  themeColor: '#000000',
+  // white on first paint on iOS Safari before the dark CSS loads. Matches
+  // the graphite default background (oklch(0.13 0.005 0)).
+  themeColor: '#090707',
 };
 
 export default function RootLayout({
@@ -77,7 +78,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Restore the persisted theme before first paint so the page doesn't
-            flash one theme then swap. Falls back to the default (black)
+            flash one theme then swap. Falls back to the default (graphite)
             when nothing is stored. */}
         <script
           dangerouslySetInnerHTML={{
