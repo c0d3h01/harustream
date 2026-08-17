@@ -36,7 +36,7 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
   return (
     <section
       className={cn(
-        'relative mt-4 overflow-hidden rounded-2xl border border-border/60 sm:mt-5',
+        'relative mt-4 overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-2xl shadow-background/40 sm:mt-6',
         'min-h-0 h-[clamp(320px,50svh,500px)]',
       )}
     >
@@ -53,8 +53,9 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
           e.currentTarget.style.opacity = '0';
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-primary/60" />
 
       {/* Content sits at the bottom on phones, centered-left on larger screens. */}
       <motion.div

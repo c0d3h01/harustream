@@ -192,12 +192,31 @@
   textarea {
     touch-action: manipulation;
   }
+  html {
+    background: var(--background);
+  }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(
+        circle at 80% -10%,
+        color-mix(in oklch, var(--primary) 12%, transparent),
+        transparent 34rem
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--background) 92%, var(--primary)),
+        var(--background) 28rem
+      );
+    background-attachment: fixed;
     /* Disable the iOS tap flash without locking gestures. We deliberately
        don't set overflow-x on the document: the rail scroller is the only
        horizontal-scroll surface and it has its own overflow-x-auto. */
     -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 35%, transparent);
+    color: var(--foreground);
   }
 }
 

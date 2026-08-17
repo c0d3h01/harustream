@@ -41,6 +41,8 @@ export function useMseStream(
     let appending = false;
     let fetchDone = false;
     let check: ReturnType<typeof setInterval> | undefined;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let opened = false;
 
     setStatus('loading');
     setError(null);
@@ -56,7 +58,13 @@ export function useMseStream(
     const drain = () => {
       if (destroyed || appending || !sourceBuffer) return;
       if (queue.length === 0) {
-        if (fetchDone && mediaSource && mediaSource.readyState === 'open') {
+        if (
+          fetchDone &&
+          mediaSource &&
+          mediaSource.readyState === 'open' &&
+          sourceBuffer &&
+          !sourceBuffer.updating
+        ) {
           try {
             mediaSource.endOfStream();
           } catch {}
@@ -72,6 +80,15 @@ export function useMseStream(
         appending = false;
         fail(e instanceof Error ? e.message : 'Failed to buffer stream');
       }
+    };
+
+    const onUpdateEnd = () => {
+      appending = false;
+      drain();
+    };
+
+    const onSourceBufferError = () => {
+      fail('The browser could not buffer this stream');
     };
 
     const startPlayback = () => {
@@ -138,10 +155,9 @@ export function useMseStream(
           fail('Your browser cannot decode this stream');
           return;
         }
-        sourceBuffer.addEventListener('updateend', () => {
-          appending = false;
-          drain();
-        });
+        sourceBuffer.addEventListener('updateend', onUpdateEnd);
+        sourceBuffer.addEventListener('error', onSourceBufferError);
+        opened = true;
         void pump(body);
       };
 
@@ -153,7 +169,7 @@ export function useMseStream(
     };
 
     const pump = async (body: ReadableStream<Uint8Array>) => {
-      const reader = body.getReader();
+      reader = body.getReader();
       try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -185,19 +201,27 @@ export function useMseStream(
     void run();
 
     const onTimeUpdate = () => startPlayback();
+    const onEndedEvent = () => cbRef.current.onEnded?.();
     video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('ended', onEndedEvent);
     check = setInterval(startPlayback, 200);
 
     return () => {
       destroyed = true;
       if (check !== undefined) clearInterval(check);
       video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('ended', onEndedEvent);
       controller.abort();
-      try {
-        if (mediaSource && mediaSource.readyState === 'open') {
+      void reader?.cancel().catch(() => {});
+      if (sourceBuffer) {
+        sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+        sourceBuffer.removeEventListener('error', onSourceBufferError);
+      }
+      if (mediaSource?.readyState === 'open' && opened) {
+        try {
           mediaSource.endOfStream();
-        }
-      } catch {}
+        } catch {}
+      }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       video.removeAttribute('src');
       video.load();
