@@ -14,7 +14,7 @@ import {
 } from 'react';
 import {
   type FeaturedFeed,
-  getFeatured,
+  getFeaturedFromAllProviders,
   getMeta,
   getStream,
   getStreamFallback,
@@ -25,7 +25,7 @@ import {
   resolveMovieStream,
   resolveSeriesEpisodes,
   safeErrorMessage,
-  searchCatalog,
+  searchAllProviders,
 } from '@/lib/api/client';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useLibrary } from '@/lib/hooks/useLibrary';
@@ -104,13 +104,17 @@ export function App() {
     update({ provider: providers.providers[0].id });
   }, [providers.loading, providers.providers, settings.provider, update]);
 
-  // Featured feed loads on mount and whenever the active provider changes
-  // (each provider serves a different catalog). Reset to the skeleton state
-  // before refetching so the old provider's rails don't linger.
+  // Discovery always fans out across every live provider. The preferred
+  // provider remains a playback ordering preference, not a catalog filter.
   useEffect(() => {
     let cancelled = false;
     setFeed(null);
-    getFeatured(settings.provider)
+    if (providers.loading) return;
+    if (providers.providers.length === 0) {
+      setFeed(EMPTY_FEED);
+      return;
+    }
+    getFeaturedFromAllProviders(providers.providers)
       .then((data) => {
         if (!cancelled) setFeed(data ?? EMPTY_FEED);
       })
@@ -126,7 +130,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [settings.provider]);
+  }, [providers.loading, providers.providers]);
 
   // Clear stale search results and any open detail when the provider
   // changes — links from one provider are meaningless in another.
@@ -159,9 +163,10 @@ export function App() {
     }
     let cancelled = false;
     dispatch({ type: 'results/loading' });
-    searchCatalog(q, settings.provider)
-      .then((data) => {
-        if (!cancelled) dispatch({ type: 'results/set', results: Array.isArray(data) ? data : [] });
+    searchAllProviders(q, providers.providers)
+      .then(({ results }) => {
+        if (!cancelled)
+          dispatch({ type: 'results/set', results: Array.isArray(results) ? results : [] });
       })
       .catch((error) => {
         if (!cancelled) {
@@ -172,13 +177,13 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, state.view, settings.provider]);
+  }, [debouncedQuery, state.view, providers.providers]);
 
   const onOpen = useCallback(
     async (item: Media) => {
       dispatch({ type: 'selected/set', item });
       try {
-        const meta = await getMeta(item.link, settings.provider);
+        const meta = await getMeta(item.link, item.providerId ?? settings.provider);
         // Guard against the user opening a second card while this meta was
         // in flight — merging would stamp the wrong title's data on the
         // currently-open modal. The reducer drops stale merges by link.
@@ -201,7 +206,7 @@ export function App() {
       const session = ++playerSessionRef.current;
       dispatch({ type: 'player/loading', item, episode: '1', episodes: [] });
       try {
-        const meta = await getMeta(item.link, settings.provider);
+        const meta = await getMeta(item.link, item.providerId ?? settings.provider);
         if (session !== playerSessionRef.current) return;
         const isSeries = (meta.type || item.type) === 'series';
         const hub = hubOverride?.trim() || pickBestHubUrl(meta);
@@ -265,14 +270,14 @@ export function App() {
       dispatch({ type: 'results/loading' });
       history.add(q);
       try {
-        const data = await searchCatalog(q, settings.provider);
-        dispatch({ type: 'results/set', results: Array.isArray(data) ? data : [] });
+        const { results } = await searchAllProviders(q, providers.providers);
+        dispatch({ type: 'results/set', results: Array.isArray(results) ? results : [] });
       } catch (error) {
         dispatch({ type: 'results/clear' });
         dispatch({ type: 'notice/show', message: safeErrorMessage(error) });
       }
     },
-    [history.add, settings.provider],
+    [history.add, providers.providers],
   );
 
   const onSubmit = useCallback(
@@ -374,7 +379,6 @@ export function App() {
         <Header
           view={state.view}
           query={state.query}
-          providerName={providerName}
           mobileSearchOpen={mobileSearchOpen}
           onSetMobileSearchOpen={setMobileSearchOpen}
           onSetView={onSetView}

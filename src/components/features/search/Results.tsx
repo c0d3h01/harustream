@@ -34,6 +34,19 @@ export const Results = memo(function Results({
   onHistoryClear,
   onHistorySearch,
 }: Props) {
+  const providerGroups = Array.from(
+    results.reduce((groups, item) => {
+      const key = item.providerId ?? 'catalog';
+      const current = groups.get(key) ?? {
+        name: item.providerName ?? 'All providers',
+        items: [] as Media[],
+      };
+      current.items.push(item);
+      groups.set(key, current);
+      return groups;
+    }, new Map<string, { name: string; items: Media[] }>()),
+  );
+
   return (
     <section className="py-6 sm:py-10">
       <div className="mb-6 sm:mb-8">
@@ -109,9 +122,28 @@ export const Results = memo(function Results({
           <p className="text-sm text-muted-foreground">
             {results.length} {results.length === 1 ? 'title' : 'titles'} found
           </p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {results.map((x) => (
-              <MemoCard key={x.link} item={x} onOpen={onOpen} />
+          <div className="flex flex-col gap-8">
+            {providerGroups.map(([providerId, group]) => (
+              <section key={providerId} aria-labelledby={`provider-${providerId}`}>
+                <div className="mb-3 flex items-end justify-between gap-3 border-b border-border/60 pb-3">
+                  <div>
+                    <h2 id={`provider-${providerId}`} className="text-base font-semibold">
+                      {group.name}
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {group.items.length} matching titles
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    Provider catalog
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {group.items.map((x) => (
+                    <MemoCard key={`${providerId}-${x.link}`} item={x} onOpen={onOpen} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </div>

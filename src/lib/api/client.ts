@@ -111,6 +111,87 @@ export type FeaturedFeed = {
   series: Media[];
 };
 
+export type ProviderResultGroup = {
+  providerId: string;
+  providerName: string;
+  results: Media[];
+};
+
+function annotate(item: Media, providerId: string, providerName: string): Media {
+  return {
+    ...item,
+    providerId,
+    providerName,
+    providerIds: item.providerIds?.length ? item.providerIds : [providerId],
+    providerNames: item.providerNames?.length ? item.providerNames : [providerName],
+  };
+}
+
+function mergeProviderItems(items: Media[]): Media[] {
+  const merged = new Map<string, Media>();
+  for (const item of items) {
+    const key = `${(item.type || 'movie').toLowerCase()}|${item.title.trim().toLowerCase()}`;
+    const current = merged.get(key);
+    if (!current) {
+      merged.set(key, item);
+      continue;
+    }
+    const providerIds = Array.from(
+      new Set([...(current.providerIds ?? []), ...(item.providerIds ?? [])]),
+    );
+    const providerNames = Array.from(
+      new Set([...(current.providerNames ?? []), ...(item.providerNames ?? [])]),
+    );
+    merged.set(key, { ...current, providerIds, providerNames });
+  }
+  return [...merged.values()];
+}
+
+export async function getFeaturedFromAllProviders(providers: { id: string; name: string }[]) {
+  const results = await Promise.allSettled(
+    providers.map(async (provider) => {
+      const feed = await request<FeaturedFeed>(
+        `/api/featured?provider=${encodeURIComponent(provider.id)}`,
+      );
+      const add = (items: Media[]) =>
+        items.map((item) => annotate(item, provider.id, provider.name));
+      return {
+        featured: add(feed.featured ?? []),
+        newest: add(feed.newest ?? []),
+        movies: add(feed.movies ?? []),
+        series: add(feed.series ?? []),
+      };
+    }),
+  );
+  const feeds = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+  return {
+    featured: mergeProviderItems(feeds.flatMap((feed) => feed.featured)),
+    newest: mergeProviderItems(feeds.flatMap((feed) => feed.newest)),
+    movies: mergeProviderItems(feeds.flatMap((feed) => feed.movies)),
+    series: mergeProviderItems(feeds.flatMap((feed) => feed.series)),
+  } satisfies FeaturedFeed;
+}
+
+export async function searchAllProviders(
+  query: string,
+  providers: { id: string; name: string }[],
+): Promise<{ results: Media[]; groups: ProviderResultGroup[] }> {
+  const settled = await Promise.allSettled(
+    providers.map(async (provider) => {
+      const items = await searchCatalog(query, provider.id);
+      return {
+        providerId: provider.id,
+        providerName: provider.name,
+        results: items.map((item) => annotate(item, provider.id, provider.name)),
+      };
+    }),
+  );
+  const groups = settled.flatMap((result) =>
+    result.status === 'fulfilled' && result.value.results.length ? [result.value] : [],
+  );
+  return { groups, results: mergeProviderItems(groups.flatMap((group) => group.results)) };
+}
+
 export const getFeatured = (provider: string = '') =>
   request<unknown>(
     `/api/featured?provider=${encodeURIComponent(provider)}`,
