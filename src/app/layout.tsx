@@ -20,20 +20,40 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/favicon/icon.ico',
+        type: 'image/x-icon',
+      },
+      {
+        url: '/favicon/icon.png',
+        type: 'image/png',
+        sizes: '96x96',
+      },
+      {
+        url: '/favicon/icon-light-32x32.png',
+        type: 'image/png',
+        sizes: '32x32',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/favicon/icon-dark-32x32.png',
+        type: 'image/png',
+        sizes: '32x32',
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
+        url: '/favicon/icon.svg',
         type: 'image/svg+xml',
+        sizes: 'any',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      {
+        url: '/favicon/apple-touch-icon.png',
+        sizes: '180x180',
+      },
+    ],
   },
+  manifest: '/favicon/site.webmanifest',
 };
 
 export const viewport: Viewport = {
