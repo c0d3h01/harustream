@@ -3,7 +3,15 @@
 import { Loader2 } from 'lucide-react';
 import { AnimatePresence, MotionConfig } from 'motion/react';
 import dynamic from 'next/dynamic';
-import { type FormEvent, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import {
   type FeaturedFeed,
   getFeatured,
@@ -171,7 +179,10 @@ export function App() {
       dispatch({ type: 'selected/set', item });
       try {
         const meta = await getMeta(item.link, settings.provider);
-        dispatch({ type: 'selected/merge', meta });
+        // Guard against the user opening a second card while this meta was
+        // in flight — merging would stamp the wrong title's data on the
+        // currently-open modal. The reducer drops stale merges by link.
+        dispatch({ type: 'selected/merge', link: item.link, meta });
       } catch {
         // Meta is optional; the modal works from the list payload alone.
       }
@@ -179,11 +190,19 @@ export function App() {
     [settings.provider],
   );
 
+  // A monotonic session token invalidates in-flight playback work. Bumping it
+  // (new play request, modal closed) makes every awaited dispatch a no-op, so
+  // a slow stream resolve can't resurrect a closed player or stomp a newer
+  // playback session.
+  const playerSessionRef = useRef(0);
+
   const onPlay = useCallback(
     async (item: Media, hubOverride?: string) => {
+      const session = ++playerSessionRef.current;
       dispatch({ type: 'player/loading', item, episode: '1', episodes: [] });
       try {
         const meta = await getMeta(item.link, settings.provider);
+        if (session !== playerSessionRef.current) return;
         const isSeries = (meta.type || item.type) === 'series';
         const hub = hubOverride?.trim() || pickBestHubUrl(meta);
         if (!hub) {
@@ -195,12 +214,14 @@ export function App() {
           // an episodes page or a season page whose meta must be fetched
           // first. Then resolve the first episode's link into a stream.
           const episodes = await resolveSeriesEpisodes(meta, settings.provider, hub);
+          if (session !== playerSessionRef.current) return;
           if (episodes.length === 0) {
             throw new Error('No episodes found for this series');
           }
           // Try each episode link in order so one slow/dead episode hub can't
           // block playback of the series.
           const stream = await getStreamFallback(episodes, settings.provider);
+          if (session !== playerSessionRef.current) return;
           dispatch({
             type: 'player/playing',
             item,
@@ -212,6 +233,7 @@ export function App() {
         }
 
         const stream = await resolveMovieStream(meta, settings.provider);
+        if (session !== playerSessionRef.current) return;
         dispatch({
           type: 'player/playing',
           item,
@@ -220,6 +242,7 @@ export function App() {
           episodes: [],
         });
       } catch (error) {
+        if (session !== playerSessionRef.current) return;
         dispatch({
           type: 'player/error',
           message: `No playable stream was returned for this title. ${safeErrorMessage(error)}`,
@@ -231,10 +254,12 @@ export function App() {
     [settings.provider],
   );
 
-  const onSubmit = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      const q = state.query.trim();
+  // Shared search entry point. Takes the query explicitly so history chips
+  // and the submit forms can't hit a stale `state.query` closure — dispatch
+  // is async, so reading state in the same tick would search the old query.
+  const runSearch = useCallback(
+    async (query: string) => {
+      const q = query.trim();
       if (!q) return;
       dispatch({ type: 'view/set', view: 'search' });
       dispatch({ type: 'results/loading' });
@@ -247,7 +272,15 @@ export function App() {
         dispatch({ type: 'notice/show', message: safeErrorMessage(error) });
       }
     },
-    [state.query, history.add, settings.provider],
+    [history.add, settings.provider],
+  );
+
+  const onSubmit = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      void runSearch(state.query);
+    },
+    [state.query, runSearch],
   );
 
   const onSetView = useCallback((view: View) => {
@@ -270,6 +303,7 @@ export function App() {
   const onSelectEpisode = useCallback(
     async (item: { link: string; title: string }) => {
       if (state.playing.kind !== 'playing' && state.playing.kind !== 'loading') return;
+      const session = ++playerSessionRef.current;
       const parent = state.playing.item;
       // Carry the existing episode list forward so the sidebar doesn't flash
       // empty during the loading→playing cycle.
@@ -290,6 +324,7 @@ export function App() {
         // upstream timeout on the same dead link.
         try {
           const stream = await getStream(item.link, 'series', settings.provider);
+          if (session !== playerSessionRef.current) return;
           dispatch({
             type: 'player/playing',
             item: parent,
@@ -302,6 +337,7 @@ export function App() {
           throw error;
         }
       } catch (error) {
+        if (session !== playerSessionRef.current) return;
         dispatch({
           type: 'player/error',
           message: `No playable stream was returned for this episode. ${safeErrorMessage(error)}`,
@@ -395,7 +431,7 @@ export function App() {
               onHistoryClear={history.clear}
               onHistorySearch={(q) => {
                 dispatch({ type: 'query/set', query: q });
-                onSubmit({ preventDefault: () => {} } as FormEvent);
+                void runSearch(q);
               }}
             />
           )}
@@ -466,7 +502,10 @@ export function App() {
               defaultPlaybackRate={settings.defaultPlaybackRate}
               defaultAutoAdvance={settings.autoAdvance}
               provider={settings.provider}
-              onClose={() => dispatch({ type: 'player/close' })}
+              onClose={() => {
+                playerSessionRef.current++;
+                dispatch({ type: 'player/close' });
+              }}
               onSelectEpisode={onSelectEpisode}
             />
           )}
