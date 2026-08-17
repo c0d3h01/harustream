@@ -55,25 +55,6 @@ export function Header({
           <span className="hidden sm:inline">harustream</span>
         </button>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-          <Button
-            size="sm"
-            variant={view === 'home' ? 'secondary' : 'ghost'}
-            aria-current={view === 'home' ? 'page' : undefined}
-            onClick={() => onSetView('home')}
-          >
-            Browse
-          </Button>
-          <Button
-            size="sm"
-            variant={view === 'library' ? 'secondary' : 'ghost'}
-            aria-current={view === 'library' ? 'page' : undefined}
-            onClick={() => onSetView('library')}
-          >
-            My List
-          </Button>
-        </nav>
-
         {/* Inline search on md+; the icon-only toggle is hidden. The
             focus-within ring is the only visible focus indicator — the
             input itself has outline-none for visual cleanliness. */}
