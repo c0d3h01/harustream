@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DURATIONS, EASE } from '@/components/motion/transitions';
 import { Button } from '@/components/ui/button';
 import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -68,14 +69,10 @@ export function DetailModal({
     setLogoFailed(false);
   }, [logo]);
 
-  // Lock body scroll while the modal is mounted. Restored on unmount.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  // Lock body scroll while the modal is mounted. Restored on unmount. The
+  // lock is shared and ref-counted across modals (see useScrollLock), so a
+  // nested modal unmount can't leave the body permanently locked.
+  useScrollLock();
 
   const synopsisText =
     synopsis.length > 240 && !readMore ? `${synopsis.slice(0, 240)}...` : synopsis;
