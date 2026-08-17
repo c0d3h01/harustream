@@ -1,6 +1,6 @@
 'use client';
 
-import { Bookmark, Play, Search, Settings, X } from 'lucide-react';
+import { Bookmark, Search, Settings, X } from 'lucide-react';
 import { type FormEvent, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import type { View } from '@/lib/state/reducer';
@@ -50,8 +50,9 @@ export function Header({
           aria-current={view === 'home' ? 'page' : undefined}
           className="touch-target flex shrink-0 items-center gap-2 rounded-lg text-base font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-lg"
         >
-          <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Play className="size-4 fill-current" />
+          <span className="shrink-0">
+            {/* biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here. */}
+            <img src="/favicon/icon.png" alt="" className="size-8 rounded-lg" />
           </span>
           <span className="hidden sm:inline">harustream</span>
         </button>
