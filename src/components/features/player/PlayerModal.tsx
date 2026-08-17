@@ -2,7 +2,9 @@
 
 import Hls from 'hls.js';
 import { ChevronLeft, Loader2, Maximize, Play, RotateCcw, Settings, Subtitles } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { DURATIONS } from '@/components/motion';
 import { Button } from '@/components/ui/button';
 import { type Episode, type Media, resolveStream, type Stream, titleFor } from '@/lib/api/client';
 import { useMseStream } from '@/lib/hooks/useMseStream';
@@ -329,7 +331,14 @@ export function PlayerModal({
   const failed = stalledMessage || (kind === 'transcode' && mse.status === 'error');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-background pt-safe pb-safe">
+    // AnimatePresence in App drives the enter/exit; transform/opacity only.
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-background pt-safe pb-safe"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATIONS.fast }}
+    >
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between gap-3">
           <Button variant="ghost" size="sm" onClick={onClose} className="touch-target shrink-0">
@@ -489,6 +498,6 @@ export function PlayerModal({
           />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

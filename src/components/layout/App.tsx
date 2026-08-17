@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { AnimatePresence, MotionConfig } from 'motion/react';
 import dynamic from 'next/dynamic';
 import { type FormEvent, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
@@ -24,25 +25,30 @@ import { useProviders } from '@/lib/hooks/useProviders';
 import { useSearchHistory } from '@/lib/hooks/useSearchHistory';
 import { useSettings } from '@/lib/hooks/useSettings';
 import { initialState, reducer, type View } from '@/lib/state/reducer';
+import { ContinueWatching } from '../features/home/ContinueWatching';
+import { Hero } from '../features/home/Hero';
+import { HeroSkeleton } from '../features/home/HeroSkeleton';
+import { Rail } from '../features/home/Rail';
+import { Library } from '../features/library/Library';
+import { Results } from '../features/search/Results';
+import { SettingsView } from '../features/settings/SettingsView';
 import { Header } from './Header';
-import { ContinueWatching } from './home/ContinueWatching';
-import { Hero } from './home/Hero';
-import { HeroSkeleton } from './home/HeroSkeleton';
-import { Rail } from './home/Rail';
-import { Library } from './library/Library';
 import { MobileNav } from './MobileNav';
 import { Notice } from './Notice';
-import { Results } from './search/Results';
-import { SettingsView } from './settings/SettingsView';
 
 // The player bundles hls.js (~500KB), which would bloat the first paint if
 // loaded eagerly. Both overlays only mount on user interaction, so they're
 // code-split and fetched on demand. The player gets a loading fallback so
 // tapping "Play" shows immediate feedback while its chunk loads.
-const DetailModal = dynamic(() => import('./player/DetailModal').then((m) => m.DetailModal));
-const PlayerModal = dynamic(() => import('./player/PlayerModal').then((m) => m.PlayerModal), {
-  loading: PlayerLoader,
-});
+const DetailModal = dynamic(() =>
+  import('../features/player/DetailModal').then((m) => m.DetailModal),
+);
+const PlayerModal = dynamic(
+  () => import('../features/player/PlayerModal').then((m) => m.PlayerModal),
+  {
+    loading: PlayerLoader,
+  },
+);
 
 function PlayerLoader() {
   return (
@@ -323,139 +329,149 @@ export function App() {
   );
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <Header
-        view={state.view}
-        query={state.query}
-        providerName={providerName}
-        mobileSearchOpen={mobileSearchOpen}
-        onSetMobileSearchOpen={setMobileSearchOpen}
-        onSetView={onSetView}
-        onQueryChange={onQueryChange}
-        onSubmit={onSubmit}
-        libraryCount={library.items.length}
-      />
-      {state.notice && (
-        <Notice
-          message={state.notice.message}
-          onDismiss={() => dispatch({ type: 'notice/dismiss' })}
+    // reducedMotion="user" flattens transform animations app-wide for
+    // prefers-reduced-motion users; leaf components additionally pick
+    // motion-free variants via usePrefersReducedMotion where stagger
+    // offsets would linger.
+    <MotionConfig reducedMotion="user">
+      <main className="min-h-screen bg-background text-foreground">
+        <Header
+          view={state.view}
+          query={state.query}
+          providerName={providerName}
+          mobileSearchOpen={mobileSearchOpen}
+          onSetMobileSearchOpen={setMobileSearchOpen}
+          onSetView={onSetView}
+          onQueryChange={onQueryChange}
+          onSubmit={onSubmit}
+          libraryCount={library.items.length}
         />
-      )}
-      {/* Bottom padding accounts for the fixed MobileNav on phones (h-14
+        {state.notice && (
+          <Notice
+            message={state.notice.message}
+            onDismiss={() => dispatch({ type: 'notice/dismiss' })}
+          />
+        )}
+        {/* Bottom padding accounts for the fixed MobileNav on phones (h-14
           plus the safe-area inset). md+ uses a calmer gutter. */}
-      <div className="mx-auto max-w-[1500px] px-4 pb-[calc(var(--safe-bottom)+4rem)] sm:px-6 sm:pb-16 md:px-8">
-        {state.view === 'home' && (
-          <>
-            {loading ? (
-              <HeroSkeleton />
-            ) : (
-              <Hero
-                item={hero ?? null}
-                providerName={providerName}
-                inLibrary={hero ? library.has(hero.link) : false}
-                onPlay={onPlay}
-                onToggleLibrary={library.toggle}
-              />
-            )}
-            <ContinueWatching provider={settings.provider} onResume={onPlay} />
-            <Rail title="Newest arrivals" items={newest} onOpen={onOpen} loading={loading} />
-            <Rail title="Trending this week" items={trending} onOpen={onOpen} loading={loading} />
-            {/* Movies & Series sit side-by-side on lg+ using a 2-col CSS
+        <div className="mx-auto max-w-[1500px] px-4 pb-[calc(var(--safe-bottom)+4rem)] sm:px-6 sm:pb-16 md:px-8">
+          {state.view === 'home' && (
+            <>
+              {loading ? (
+                <HeroSkeleton />
+              ) : (
+                <Hero
+                  item={hero ?? null}
+                  providerName={providerName}
+                  inLibrary={hero ? library.has(hero.link) : false}
+                  onPlay={onPlay}
+                  onToggleLibrary={library.toggle}
+                />
+              )}
+              <ContinueWatching provider={settings.provider} onResume={onPlay} />
+              <Rail title="Newest arrivals" items={newest} onOpen={onOpen} loading={loading} />
+              <Rail title="Trending this week" items={trending} onOpen={onOpen} loading={loading} />
+              {/* Movies & Series sit side-by-side on lg+ using a 2-col CSS
                 grid. Each rail's <section> is one grid cell; the cell's
                 width is half the content area, so basis-[160px] cards
                 reflow correctly. On smaller screens the grid collapses to a
                 single column and the rails stack. */}
-            <div className="grid gap-2 lg:grid-cols-2">
-              <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
-              <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
-            </div>
-          </>
-        )}
-        {state.view === 'search' && (
-          <Results
-            query={state.query}
-            results={state.results}
-            loading={state.resultsLoading}
-            history={history.items}
-            onQueryChange={onQueryChange}
-            onSubmit={onSubmit}
-            onOpen={onOpen}
-            onHistoryRemove={history.remove}
-            onHistoryClear={history.clear}
-            onHistorySearch={(q) => {
-              dispatch({ type: 'query/set', query: q });
-              onSubmit({ preventDefault: () => {} } as FormEvent);
-            }}
-          />
-        )}
-        {state.view === 'library' && (
-          <Library
-            items={library.items}
-            onOpen={onOpen}
-            onSearch={() => {
-              setMobileSearchOpen(true);
-              if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
-            }}
-          />
-        )}
-        {state.view === 'settings' && (
-          <SettingsView
-            settings={settings}
-            update={update}
-            toggleExcludedQuality={toggleExcludedQuality}
-            providers={providers.providers}
-            providersLoading={providers.loading}
-            providersRefreshing={providers.refreshing}
-            providersError={providers.error}
-            refreshProviders={providers.refresh}
-          />
-        )}
-      </div>
-      <MobileNav
-        view={state.view}
-        libraryCount={library.items.length}
-        onSetView={onSetView}
-        onOpenSearch={() => {
-          setMobileSearchOpen(true);
-          if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
-        }}
-      />
-      {state.selected && (
-        <DetailModal
-          item={state.selected.item}
-          meta={state.selected.meta}
-          inLibrary={library.has(state.selected.item.link)}
-          excludedQualities={settings.excludedQualities}
-          onClose={() => dispatch({ type: 'selected/close' })}
-          onPlay={onPlay}
-          onToggleLibrary={library.toggle}
+              <div className="grid gap-2 lg:grid-cols-2">
+                <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
+                <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
+              </div>
+            </>
+          )}
+          {state.view === 'search' && (
+            <Results
+              query={state.query}
+              results={state.results}
+              loading={state.resultsLoading}
+              history={history.items}
+              onQueryChange={onQueryChange}
+              onSubmit={onSubmit}
+              onOpen={onOpen}
+              onHistoryRemove={history.remove}
+              onHistoryClear={history.clear}
+              onHistorySearch={(q) => {
+                dispatch({ type: 'query/set', query: q });
+                onSubmit({ preventDefault: () => {} } as FormEvent);
+              }}
+            />
+          )}
+          {state.view === 'library' && (
+            <Library
+              items={library.items}
+              onOpen={onOpen}
+              onSearch={() => {
+                setMobileSearchOpen(true);
+                if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
+              }}
+            />
+          )}
+          {state.view === 'settings' && (
+            <SettingsView
+              settings={settings}
+              update={update}
+              toggleExcludedQuality={toggleExcludedQuality}
+              providers={providers.providers}
+              providersLoading={providers.loading}
+              providersRefreshing={providers.refreshing}
+              providersError={providers.error}
+              refreshProviders={providers.refresh}
+            />
+          )}
+        </div>
+        <MobileNav
+          view={state.view}
+          libraryCount={library.items.length}
+          onSetView={onSetView}
+          onOpenSearch={() => {
+            setMobileSearchOpen(true);
+            if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
+          }}
         />
-      )}
-      {(state.playing.kind === 'loading' ||
-        state.playing.kind === 'playing' ||
-        state.playing.kind === 'error') && (
-        <PlayerModal
-          item={
-            state.playing.kind === 'playing' || state.playing.kind === 'loading'
-              ? state.playing.item
-              : (state.playing.item ?? { link: '', title: 'Unknown' })
-          }
-          stream={state.playing.kind === 'playing' ? state.playing.stream : undefined}
-          episodes={state.playing.episodes ?? []}
-          activeEpisode={
-            state.playing.kind === 'loading' || state.playing.kind === 'playing'
-              ? state.playing.episode
-              : '1'
-          }
-          loading={state.playing.kind === 'loading'}
-          errorMessage={state.playing.kind === 'error' ? state.playing.message : undefined}
-          defaultPlaybackRate={settings.defaultPlaybackRate}
-          defaultAutoAdvance={settings.autoAdvance}
-          provider={settings.provider}
-          onClose={() => dispatch({ type: 'player/close' })}
-          onSelectEpisode={onSelectEpisode}
-        />
-      )}
-    </main>
+        <AnimatePresence>
+          {state.selected && (
+            <DetailModal
+              item={state.selected.item}
+              meta={state.selected.meta}
+              inLibrary={library.has(state.selected.item.link)}
+              excludedQualities={settings.excludedQualities}
+              onClose={() => dispatch({ type: 'selected/close' })}
+              onPlay={onPlay}
+              onToggleLibrary={library.toggle}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {(state.playing.kind === 'loading' ||
+            state.playing.kind === 'playing' ||
+            state.playing.kind === 'error') && (
+            <PlayerModal
+              item={
+                state.playing.kind === 'playing' || state.playing.kind === 'loading'
+                  ? state.playing.item
+                  : (state.playing.item ?? { link: '', title: 'Unknown' })
+              }
+              stream={state.playing.kind === 'playing' ? state.playing.stream : undefined}
+              episodes={state.playing.episodes ?? []}
+              activeEpisode={
+                state.playing.kind === 'loading' || state.playing.kind === 'playing'
+                  ? state.playing.episode
+                  : '1'
+              }
+              loading={state.playing.kind === 'loading'}
+              errorMessage={state.playing.kind === 'error' ? state.playing.message : undefined}
+              defaultPlaybackRate={settings.defaultPlaybackRate}
+              defaultAutoAdvance={settings.autoAdvance}
+              provider={settings.provider}
+              onClose={() => dispatch({ type: 'player/close' })}
+              onSelectEpisode={onSelectEpisode}
+            />
+          )}
+        </AnimatePresence>
+      </main>
+    </MotionConfig>
   );
 }

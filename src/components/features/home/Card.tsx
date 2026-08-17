@@ -1,7 +1,9 @@
 'use client';
 
 import { Play } from 'lucide-react';
+import { motion } from 'motion/react';
 import { memo } from 'react';
+import { DURATIONS, EASE } from '@/components/motion';
 import { imageFor, type Media, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 
@@ -17,13 +19,19 @@ type Props = {
 
 export function Card({ item, onOpen, className }: Props) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onOpen(item)}
       className={cn(
         'group block w-full shrink-0 overflow-hidden rounded-xl bg-secondary text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         className,
       )}
+      // Entrance + hover lift. Transform/opacity only; reduced-motion users
+      // get the opacity fade and no lift (MotionConfig handles that).
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: DURATIONS.base, ease: EASE }}
     >
       <div className="relative overflow-hidden aspect-[2/3]">
         {/* biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here. */}
@@ -45,7 +53,7 @@ export function Card({ item, onOpen, className }: Props) {
       <p className="mt-3 line-clamp-2 min-h-[2.5rem] px-0.5 text-sm font-semibold">
         {titleFor(item)}
       </p>
-    </button>
+    </motion.button>
   );
 }
 

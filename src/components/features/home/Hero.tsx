@@ -1,6 +1,8 @@
 'use client';
 
 import { Bookmark, Play } from 'lucide-react';
+import { motion } from 'motion/react';
+import { fadeIn, fadeUp, staggerContainer, usePrefersReducedMotion } from '@/components/motion';
 import { Button } from '@/components/ui/button';
 import { imageFor, type Media, type Meta, shortTitleFor, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -15,6 +17,12 @@ type Props = {
 };
 
 export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibrary }: Props) {
+  // Reduced-motion users get a flat opacity reveal (no stagger, no y drift);
+  // MotionConfig already strips transforms, but dropping the variant here
+  // also removes the per-child stagger delay entirely.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const childVariants = prefersReducedMotion ? fadeIn : fadeUp;
+
   if (!item) return <HeroEmpty providerName={providerName} />;
 
   const type = meta?.type || item.type || 'movie';
@@ -29,11 +37,14 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
       )}
     >
       {/* biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here. */}
-      <img
+      <motion.img
         src={imageFor({ image: meta?.image || item.image })}
         alt=""
         fetchPriority="high"
         className="absolute inset-0 size-full object-cover"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.45 }}
         onError={(e) => {
           e.currentTarget.style.opacity = '0';
         }}
@@ -42,8 +53,13 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
       {/* Content sits at the bottom on phones, centered-left on larger screens. */}
-      <div className="relative flex h-full max-w-2xl flex-col justify-end gap-4 p-5 sm:gap-5 sm:p-10 lg:p-12">
-        <div className="flex flex-wrap items-center gap-2">
+      <motion.div
+        className="relative flex h-full max-w-2xl flex-col justify-end gap-4 p-5 sm:gap-5 sm:p-10 lg:p-12"
+        initial="hidden"
+        animate="visible"
+        variants={prefersReducedMotion ? undefined : staggerContainer}
+      >
+        <motion.div variants={childVariants} className="flex flex-wrap items-center gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-primary sm:text-xs">
             Featured on {providerName}
           </p>
@@ -63,11 +79,17 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
               ★ {rating}
             </span>
           )}
-        </div>
-        <h1 className="line-clamp-2 text-balance text-[clamp(1.5rem,3.5vw,2.5rem)] font-semibold tracking-tight leading-tight">
+        </motion.div>
+        <motion.h1
+          variants={childVariants}
+          className="line-clamp-2 text-balance text-[clamp(1.5rem,3.5vw,2.5rem)] font-semibold tracking-tight leading-tight"
+        >
           {shortTitleFor({ title: meta?.title || item.title })}
-        </h1>
-        <p className="mt-1 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
+        </motion.h1>
+        <motion.p
+          variants={childVariants}
+          className="mt-1 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3"
+        >
           <Button
             size="lg"
             className="touch-target w-full justify-center sm:w-auto"
@@ -85,8 +107,8 @@ export function Hero({ item, meta, providerName, inLibrary, onPlay, onToggleLibr
             <Bookmark className="size-4" />
             {inLibrary ? 'Saved' : 'Add to list'}
           </Button>
-        </p>
-      </div>
+        </motion.p>
+      </motion.div>
     </section>
   );
 }

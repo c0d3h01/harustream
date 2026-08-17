@@ -1,7 +1,9 @@
 'use client';
 
 import { Bookmark, Check, Globe, Play, X } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { DURATIONS, EASE } from '@/components/motion';
 import { Button } from '@/components/ui/button';
 import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -70,8 +72,21 @@ export function DetailModal({
     synopsis.length > 240 && !readMore ? `${synopsis.slice(0, 240)}...` : synopsis;
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-background pt-safe sm:grid sm:place-items-center sm:bg-background/80 sm:p-4 sm:backdrop-blur-sm sm:pt-0">
-      <div className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border bg-card sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:overflow-auto sm:rounded-2xl sm:border">
+    // AnimatePresence in App drives the enter/exit; transform/opacity only.
+    <motion.div
+      className="fixed inset-0 z-40 flex flex-col bg-background pt-safe sm:grid sm:place-items-center sm:bg-background/80 sm:p-4 sm:backdrop-blur-sm sm:pt-0"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATIONS.fast }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 18 }}
+        transition={{ duration: DURATIONS.base, ease: EASE }}
+        className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border bg-card sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:overflow-auto sm:rounded-2xl sm:border"
+      >
         {/* Backdrop */}
         <div className="relative h-56 w-full shrink-0 sm:h-64">
           {backdrop || poster ? (
@@ -236,7 +251,7 @@ export function DetailModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

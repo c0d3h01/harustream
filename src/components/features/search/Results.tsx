@@ -2,7 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { memo } from 'react';
-import { MemoCard } from '@/components/home/Card';
+import { MemoCard } from '@/components/features/home/Card';
 import type { Media } from '@/lib/api/client';
 import { SearchBar } from './SearchBar';
 

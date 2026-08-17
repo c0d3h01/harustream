@@ -1,7 +1,9 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
 import { forwardRef, memo, type ReactNode, useRef } from 'react';
+import { fadeIn } from '@/components/motion';
 import type { Media } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { MemoCard } from './Card';
@@ -48,7 +50,15 @@ function RailBase({ title, items, onOpen, loading }: Props) {
   }
 
   return (
-    <section className="mt-8 min-w-0 sm:mt-10">
+    // The loading branch above returns a separate subtree, so this section
+    // mounts fresh when the skeleton swaps out — the fade-in covers the
+    // skeleton -> content jump.
+    <motion.section
+      initial="hidden"
+      animate="visible"
+      variants={fadeIn}
+      className="mt-8 min-w-0 sm:mt-10"
+    >
       <div className="mb-3 flex items-center justify-between sm:mb-4">
         <h2 className="text-base font-semibold tracking-tight sm:text-lg">{title}</h2>
         <div className="hidden items-center gap-1 sm:flex">
@@ -70,7 +80,7 @@ function RailBase({ title, items, onOpen, loading }: Props) {
           />
         ))}
       </RailScroller>
-    </section>
+    </motion.section>
   );
 }
 
