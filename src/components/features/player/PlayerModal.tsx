@@ -21,6 +21,7 @@ import { type Episode, type Media, resolveStream, type Stream, titleFor } from '
 import { useMseStream } from '@/lib/hooks/useMseStream';
 import { PLAYBACK_RATES, usePlaybackRate } from '@/lib/hooks/usePlaybackRate';
 import { useProgress } from '@/lib/hooks/useProgress';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
 import { classifySource, playbackUrl } from '@/lib/media/playback';
 import { EpisodeList } from './EpisodeList';
 
@@ -328,14 +329,10 @@ export function PlayerModal({
     typeof savedPosition === 'number' &&
     savedPosition >= 5;
 
-  // Lock body scroll while the modal is mounted. Restored on unmount.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  // Lock body scroll while the modal is mounted. Restored on unmount. The
+  // lock is shared and ref-counted across modals (see useScrollLock), so a
+  // nested modal unmount can't leave the body permanently locked.
+  useScrollLock();
 
   return (
     // AnimatePresence in App drives the enter/exit; transform/opacity only.
