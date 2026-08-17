@@ -292,6 +292,8 @@ export function PlayerModal({
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-runs when the stream changes even though the body only uses the stable setter.
   useEffect(() => {
     setSourceIndex(0);
+    setStalledMessage(null);
+    setResumeOffered(false);
   }, [stream]);
 
   const savedPosition = source ? progress.get(item.link, activeEpisode)?.position : undefined;
@@ -374,6 +376,12 @@ export function PlayerModal({
                   // Transcode errors surface through the MSE hook instead —
                   // the placeholder src can race a not-yet-attached MediaSource.
                   if (kind === 'transcode') return;
+                  if (sourceIndex < sources.length - 1) {
+                    setStalledMessage(null);
+                    setResumeOffered(false);
+                    setSourceIndex((index) => index + 1);
+                    return;
+                  }
                   setStalledMessage(
                     detail?.message || 'This source failed to load. Try another source.',
                   );
@@ -435,7 +443,11 @@ export function PlayerModal({
                   key={s.link}
                   size="sm"
                   variant={i === sourceIndex ? 'default' : 'outline'}
-                  onClick={() => setSourceIndex(i)}
+                  onClick={() => {
+                    setStalledMessage(null);
+                    setResumeOffered(false);
+                    setSourceIndex(i);
+                  }}
                   className="touch-target shrink-0"
                 >
                   {s.server || `Source ${i + 1}`}

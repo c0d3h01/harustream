@@ -63,10 +63,7 @@ export function rewriteHlsManifest(manifest: string, manifestUrl: string): strin
 
     // A bare URI line (segment or child playlist). hls.js already proxies
     // some of these, but rewriting keeps direct <video> HLS working too.
-    if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('http')) {
-      return resolve(trimmed);
-    }
-    if (trimmed?.startsWith('http')) {
+    if (trimmed && !trimmed.startsWith('#')) {
       return resolve(trimmed);
     }
     return line;

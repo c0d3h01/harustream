@@ -51,7 +51,16 @@ export async function GET(request: Request) {
 
   log.debug({ requestId, source, start }, 'planning transcode');
 
-  const plan = await planTranscode(source, start, request.signal);
+  let plan: Awaited<ReturnType<typeof planTranscode>>;
+  try {
+    plan = await planTranscode(source, start, request.signal);
+  } catch (error) {
+    log.error(
+      { requestId, source, error: error instanceof Error ? error.message : String(error) },
+      'transcode planning failed',
+    );
+    return new Response('Could not prepare stream', { status: 502 });
+  }
   if (!plan) {
     log.error({ requestId, source }, 'could not prepare transcode plan');
     return new Response('Could not prepare stream', { status: 502 });
