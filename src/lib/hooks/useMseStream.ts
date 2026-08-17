@@ -20,7 +20,7 @@ type Options = {
 type Status = 'idle' | 'loading' | 'playing' | 'error';
 
 export function useMseStream(
-  videoRef: React.RefObject<HTMLVideoElement | null>,
+  video: HTMLVideoElement | null,
   { source, start = 0, onError, onReady, onEnded }: Options,
 ) {
   const [status, setStatus] = useState<Status>('idle');
@@ -29,9 +29,7 @@ export function useMseStream(
   const cbRef = useRef({ onError, onReady, onEnded });
   cbRef.current = { onError, onReady, onEnded };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: videoRef is a stable ref; the element is read lazily inside the effect.
   useEffect(() => {
-    const video = videoRef.current;
     if (!video || !source) return;
 
     const controller = new AbortController();
@@ -42,6 +40,7 @@ export function useMseStream(
     const queue: ArrayBuffer[] = [];
     let appending = false;
     let fetchDone = false;
+    let check: ReturnType<typeof setInterval> | undefined;
 
     setStatus('loading');
     setError(null);
@@ -83,6 +82,11 @@ export function useMseStream(
           if (end > 0.5) {
             setStatus('playing');
             cbRef.current.onReady?.();
+            // Nothing left to wait for — stop polling the buffer.
+            if (check !== undefined) {
+              clearInterval(check);
+              check = undefined;
+            }
             if (video.paused) video.play().catch(() => {});
           }
         }
@@ -182,11 +186,11 @@ export function useMseStream(
 
     const onTimeUpdate = () => startPlayback();
     video.addEventListener('timeupdate', onTimeUpdate);
-    const check = setInterval(startPlayback, 200);
+    check = setInterval(startPlayback, 200);
 
     return () => {
       destroyed = true;
-      clearInterval(check);
+      if (check !== undefined) clearInterval(check);
       video.removeEventListener('timeupdate', onTimeUpdate);
       controller.abort();
       try {
@@ -198,7 +202,7 @@ export function useMseStream(
       video.removeAttribute('src');
       video.load();
     };
-  }, [source, start]);
+  }, [video, source, start]);
 
   const reset = useCallback(() => {
     setStatus('idle');
