@@ -1,10 +1,13 @@
 import { spawn } from 'node:child_process';
 import { requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { planTranscode } from '@/lib/media/transcode';
+import { ffmpegBinary, planTranscode } from '@/lib/media/transcode';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+// A transcode streams until the source is exhausted; the invocation must
+// outlive it. 300s is the Vercel Hobby/Fluid maximum (Pro: 800s).
+export const maxDuration = 300;
 
 // How long ffmpeg may take to emit its first output byte before we give up.
 // Startup failures (bad source, 404, codec init) surface as a proper HTTP
@@ -56,7 +59,7 @@ export async function GET(request: Request) {
 
   // Capture stderr so ffmpeg failures are diagnosable from the logs instead
   // of silently producing a truncated stream.
-  const child = spawn('ffmpeg', plan.args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(ffmpegBinary, plan.args, { stdio: ['ignore', 'pipe', 'pipe'] });
   const { signal } = request;
 
   let stderr = '';
@@ -130,9 +133,12 @@ export async function GET(request: Request) {
     };
     signal?.addEventListener('abort', onAbort, { once: true });
 
-    // ffmpeg failed to spawn at all.
+    // ffmpeg failed to spawn at all (e.g. missing binary on the runtime).
     child.on('error', (error) => {
-      log.error({ requestId, source, error: error.message }, 'ffmpeg failed to start');
+      log.error(
+        { requestId, source, binary: ffmpegBinary, error: error.message },
+        'ffmpeg failed to start',
+      );
       settle(() => resolve(new Response('Transcode unavailable', { status: 502 })));
     });
 

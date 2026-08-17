@@ -1,10 +1,27 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import ffmpegStatic from 'ffmpeg-static';
 import { scopeLogger } from '@/lib/log';
 
 // Server-side plan for turning an MKV (or any non-browser-playable source)
 // into a fragmented MP4 stream the browser can feed to MediaSource.
 
 const log = scopeLogger('transcode');
+
+// Resolve the ffmpeg binary to use. Precedence:
+//   1. FFMPEG_PATH env override
+//   2. the bundled ffmpeg-static binary (downloaded at install; ships with
+//      the deployment so /api/play works on Vercel, whose serverless runtime
+//      has no system ffmpeg)
+//   3. ffmpeg on PATH (local dev / self-hosted runtimes)
+function resolveFfmpeg(): string {
+  const override = process.env.FFMPEG_PATH?.trim();
+  if (override) return override;
+  if (ffmpegStatic && existsSync(ffmpegStatic)) return ffmpegStatic;
+  return 'ffmpeg';
+}
+
+export const ffmpegBinary = resolveFfmpeg();
 
 export type TranscodePlan = {
   args: string[];
@@ -26,52 +43,77 @@ type ProbeResult = {
   format?: { duration?: string };
 };
 
-// ffprobe a URL (reads headers only, fast) and return parsed JSON. Any
-// failure resolves to null so callers can fall back to a full transcode.
+// ffmpeg's `-i` header dump (stderr) carries everything the plan needs:
+// duration plus the codec/profile of the first video and audio tracks. Only
+// the input header section (before "Stream mapping:") describes the source —
+// the rest describes the output encode and must be ignored.
+function parseProbeOutput(stderr: string): { streams: ProbeStream[]; duration?: number } | null {
+  const header = stderr.split('Stream mapping:')[0];
+
+  const durationMatch = header.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  const duration = durationMatch
+    ? Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3])
+    : undefined;
+
+  const streams: ProbeStream[] = [];
+  for (const line of header.split('\n')) {
+    // "Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), ..."
+    const video = line.match(/Stream #\d+:\d+.*?\bVideo:\s*(\w+)(?:\s+\(([^)]+)\))?/);
+    if (video) {
+      streams.push({ codec_type: 'video', codec_name: video[1], profile: video[2] });
+      continue;
+    }
+    // "Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, ..."
+    const audio = line.match(/Stream #\d+:\d+.*?\bAudio:\s*(\w+)/);
+    if (audio) {
+      streams.push({ codec_type: 'audio', codec_name: audio[1] });
+    }
+  }
+
+  if (streams.length === 0) return null;
+  return { streams, duration };
+}
+
+// Probe a URL with the ffmpeg binary itself (opening the input with `-t 0`
+// reads only the stream header, not the file) and return parsed stream info.
+// Any failure resolves to null so callers can fall back to a full transcode.
 async function probeUrl(url: string, signal?: AbortSignal): Promise<ProbeResult | null> {
   return new Promise((resolve) => {
-    const child = spawn(
-      'ffprobe',
-      [
-        '-v',
-        'error',
-        '-show_entries',
-        'stream=codec_type,codec_name,profile,level,pixel_format',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'json',
-        url,
-      ],
-      { stdio: ['ignore', 'pipe', 'ignore'], signal },
-    );
-    let out = '';
+    const child = spawn(ffmpegBinary, ['-hide_banner', '-i', url, '-t', '0', '-f', 'null', '-'], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      signal,
+    });
+    let stderr = '';
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      log.warn({ url }, 'ffprobe timed out after 15s');
+      log.warn({ url }, 'ffmpeg probe timed out after 15s');
       resolve(null);
     }, 15000);
-    child.stdout.on('data', (d) => {
-      out += String(d);
+    child.stderr.on('data', (d) => {
+      stderr += String(d);
     });
     child.on('error', (error) => {
       clearTimeout(timer);
-      log.warn({ url, error: error.message }, 'ffprobe failed to start');
+      log.warn({ url, binary: ffmpegBinary, error: error.message }, 'ffmpeg probe failed to start');
       resolve(null);
     });
     child.on('close', (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        log.warn({ url, code }, 'ffprobe exited non-zero');
+        log.warn({ url, code }, 'ffmpeg probe exited non-zero');
         resolve(null);
         return;
       }
-      try {
-        resolve(JSON.parse(out) as ProbeResult);
-      } catch {
-        log.warn({ url }, 'ffprobe returned invalid json');
+      const parsed = parseProbeOutput(stderr);
+      if (!parsed) {
+        log.warn({ url }, 'ffmpeg probe returned no stream info');
         resolve(null);
+        return;
       }
+      resolve({
+        streams: parsed.streams,
+        format: parsed.duration != null ? { duration: String(parsed.duration) } : undefined,
+      });
     });
   });
 }
@@ -83,14 +125,16 @@ const AVC_PROFILE_IDC: Record<string, [string, string]> = {
   High: ['64', '00'],
 };
 
-// Build the avc1.PPCCLL codec string from ffprobe output. Returns null when
+// Build the avc1.PPCCLL codec string from the probe output. Returns null when
 // the stream's profile isn't safe to play via MSE in modern browsers.
 function avcCodec(v: ProbeStream): string | null {
   const entry = v.profile ? AVC_PROFILE_IDC[v.profile] : undefined;
   if (!entry) return null;
-  const level = v.level;
-  if (level == null || level <= 0) return null;
-  const ll = Math.min(255, Math.round(level)).toString(16).padStart(2, '0');
+  // ffmpeg's input header doesn't report the H.264 bitstream level, so fall
+  // back to 4.0 (1080p30) — a conservative level declaration that MSE
+  // accepts and still decodes real content declared at higher levels through.
+  const level = v.level && v.level > 0 ? Math.min(255, Math.round(v.level)) : 40;
+  const ll = level.toString(16).padStart(2, '0');
   return `avc1.${entry[0]}${entry[1]}${ll}`;
 }
 
@@ -122,6 +166,7 @@ export async function planTranscode(
       audioCodec: audio?.codec_name,
       duration,
       probed: !!probe,
+      binary: ffmpegBinary,
     },
     'transcode plan probed',
   );

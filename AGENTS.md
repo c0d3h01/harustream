@@ -18,7 +18,7 @@ Streaming frontend (Next.js 16 App Router, React 19, TS strict, Tailwind v4) tha
 - `src/proxy.ts` (Next 16 middleware) runs on the edge runtime: stamps `x-request-id` and logs every `/api` request. It cannot use pino — plain `console.log` with `biome-ignore` comments is the established pattern there. Use `proxy.ts`, not `middleware.ts` (renamed in Next 16).
 - Two playback paths:
   - HLS: `hls.js` → `/api/proxy?url=` (`src/lib/media/streamProxy.ts`). Manifests are rewritten so segments/key/playlists all route through the proxy; Referer/User-Agent/Origin injected; SSRF guard on private hosts.
-  - Non-browser codecs (e.g. MKV): `/api/play` spawns `ffmpeg`/`ffprobe` (`src/lib/media/transcode.ts`) → fMP4 consumed via MediaSource; codec passed in `X-Haru-Codec` header. **Requires ffmpeg + ffprobe on PATH.**
+  - Non-browser codecs (e.g. MKV): `/api/play` spawns `ffmpeg` (`src/lib/media/transcode.ts`) → fMP4 consumed via MediaSource; codec passed in `X-Haru-Codec` header. The binary resolves from `FFMPEG_PATH` → the bundled `ffmpeg-static` binary (ships in the deployment, so it works on Vercel) → `ffmpeg` on PATH. Probing runs through the same binary (`-i <url> -t 0 -f null -` + stderr parse) — no `ffprobe` needed. `/api/play` sets `maxDuration = 300` (Vercel Hobby cap; the remux must finish inside the invocation budget).
 - Client-side stream resilience in `src/lib/api/client.ts`: 30s negative-result cache, provider-ordering and hub-ordering fallbacks (`resolveMovieStream`, `getStreamFallback`, `resolveSeriesEpisodes`).
 - Logging: pino (`src/lib/log.ts`) — pretty in dev, JSON in prod; `LOG_LEVEL` env. Edge runtime falls back to JSON (no worker transport).
 
