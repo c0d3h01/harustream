@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 type Props = {
   view: View;
   query: string;
-  providerName: string;
   mobileSearchOpen: boolean;
   onSetMobileSearchOpen: (open: boolean) => void;
   onSetView: (view: View) => void;
@@ -21,7 +20,6 @@ type Props = {
 export function Header({
   view,
   query,
-  providerName,
   mobileSearchOpen,
   onSetMobileSearchOpen,
   onSetView,
@@ -111,23 +109,6 @@ export function Header({
         >
           {mobileSearchOpen ? <X className="size-5" /> : <Search className="size-5" />}
         </Button>
-
-        {/* Active provider — a tappable pill that opens Settings where the
-            user can switch sources. Keeps the current catalog legible. */}
-        <button
-          type="button"
-          onClick={() => onSetView('settings')}
-          aria-label={`Provider: ${providerName}. Open settings to change it.`}
-          className="touch-target flex max-w-[10rem] items-center gap-1.5 rounded-full border border-border/70 bg-secondary/60 py-1 pr-3 pl-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <span
-            className="grid size-4 shrink-0 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground"
-            aria-hidden="true"
-          >
-            P
-          </span>
-          <span className="truncate">{providerName}</span>
-        </button>
 
         <Button
           size="icon"

@@ -55,9 +55,16 @@ export function Card({ item, onOpen, className }: Props) {
         <span className="pointer-events-none absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all group-hover:scale-105 group-hover:opacity-100">
           <Play className="size-4 fill-current" />
         </span>
-        <span className="absolute top-3 left-3 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-          {type}
-        </span>
+        <div className="absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5">
+          <span className="rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+            {type}
+          </span>
+          {item.providerName && (
+            <span className="max-w-32 truncate rounded-md border border-primary/30 bg-primary/85 px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm">
+              {item.providerName}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex min-h-[5.5rem] flex-col gap-2 p-3">
         <p className="line-clamp-2 text-sm font-semibold leading-5 text-foreground">{title}</p>

@@ -28,6 +28,10 @@ export const MediaSchema = z
     // undefined, null, or a value so a single null never fails the whole feed.
     image: z.string().nullish(),
     type: z.string().nullish(),
+    providerId: z.string().nullish(),
+    providerName: z.string().nullish(),
+    providerIds: z.array(z.string()).nullish(),
+    providerNames: z.array(z.string()).nullish(),
   })
   .passthrough();
 export type Media = z.infer<typeof MediaSchema>;
