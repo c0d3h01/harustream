@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Streaming frontend (Next.js 16 App Router, React 19, TS strict, Tailwind v4) that proxies an upstream provider API. No test suite exists.
+Streaming frontend (Next.js 16 App Router, React 19, TS strict, Tailwind v4) that executes provider modules from the Vega providers repo (via `node:vm`) instead of proxying a hosted provider API. No test suite exists.
 
 ## Commands
 
@@ -12,8 +12,9 @@ Streaming frontend (Next.js 16 App Router, React 19, TS strict, Tailwind v4) tha
 ## Architecture
 
 - Everything lives under `src/` (`app/`, `components/`, `lib/`, `proxy.ts`, `instrumentation.ts`); `@/*` maps to `src/*`. Components are split into `ui/` (primitives), `layout/` (app chrome), `motion/` (shared motion variants/transitions), and `features/<name>/` (each with an `index.ts` barrel). Prefer direct-subpath imports over the barrels in app code.
-- All upstream traffic goes through `providerFetch` (`src/lib/api/provider.ts`) — never fetch the provider from the browser (no CORS). It adds per-request timeout, retries with backoff, failover across `PROVIDER_BASES`, and a per-base circuit breaker (30s cooldown, 4xx doesn't trip it).
-- Providers are **not** configured in env; the live list is fetched from the upstream at runtime (`GET /api/providers`) into a module registry (`src/lib/api/providers.ts`). No hardcoded fallback list.
+- Provider execution lives in `src/lib/providers/` (server-only): `config.ts` (env), `cache.ts` (TTL + single-flight), `fetch.ts` (retries/backoff), `manifest.ts` (urls.json + manifest.json merge → `ProviderInfo`), `context.ts` (the `providerContext` modules receive: axios, cheerio, Crypto shim, `commonHeaders`, `getBaseUrl`, `openWebView` which throws — captchas can't be solved server-side), `modules.ts` (dist/ source loader), `sandbox.ts` (node:vm executor with sync budget + deadline + abort), `runtime.ts` (per-provider ops + fan-out with bounded concurrency and a deadline).
+- Providers are **not** hardcoded; the live list comes from `PROVIDER_MANIFEST_URL` (urls.json) merged with the sibling manifest.json at runtime (`getProviders` in `src/lib/providers/manifest.ts`). Provider modules are fetched from the same repo's `dist/<dir>/{posts,meta,stream,episodes,catalog}.js` and executed as CommonJS bundles in a vm sandbox; ids are the urls.json keys, matched case-insensitively. Providers without a dist/ module or flagged disabled are excluded (`/api/providers` serves the executable set).
+- The browser never fetches providers directly (no CORS) — everything goes through `/api/*` routes, which execute modules server-side. Search and the home feed are aggregated server-side (fan-out with `PROVIDER_CONCURRENCY`/`PROVIDER_DEADLINE_MS`, per-provider degradation via allSettled), so the client makes one request per rail/query, not one per provider.
 - Every `/api` route returns the shared error envelope `{ error, code?, requestId? }` via `apiErrorResponse` (`src/lib/api/respond.ts`) and logs through `scopeLogger` with the request id.
 - `src/proxy.ts` (Next 16 middleware) runs on the edge runtime: stamps `x-request-id` and logs every `/api` request. It cannot use pino — plain `console.log` with `biome-ignore` comments is the established pattern there. Use `proxy.ts`, not `middleware.ts` (renamed in Next 16).
 - Two playback paths:
@@ -24,7 +25,7 @@ Streaming frontend (Next.js 16 App Router, React 19, TS strict, Tailwind v4) tha
 
 ## Env & config
 
-- `NEXT_PUBLIC_PROVIDER_API_URL` is required; copy `.env.example` → `.env` for dev. `.env.prod` and local `.env` are gitignored — never commit or expose them.
+- `PROVIDER_MANIFEST_URL` is required; copy `.env.example` → `.env` for dev. `.env.prod` and local `.env` are gitignored — never commit or expose them.
 - `STREAM_PROXY_REFERER` defaults to `https://vidspark.to/`; the Vega/VidSpark CDN rejects requests without that referer.
 - `next.config.mjs`: `agentRules: false`, images unoptimized, `optimizePackageImports: ['lucide-react']` only — do not add `@base-ui/react` there (it's imported via subpaths, no barrel to rewrite).
 
