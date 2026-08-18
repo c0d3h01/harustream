@@ -139,14 +139,20 @@ export type Episode = z.infer<typeof EpisodeSchema>;
 
 // --- Stream ---
 
-// /api/stream follows a hub URL (a provider's hoster page) and returns the
-// actual playable m3u8/mp4 links wrapped in { server, link, type }.
-const SourceSchema = z.object({
-  server: z.string().nullish(),
-  link: z.string().nullish(),
-  type: z.string().nullish(),
-  url: z.string().nullish(),
-});
+// /api/stream follows a hub link (a provider's hoster page) and returns the
+// actual playable m3u8/mp4 links wrapped in { server, link, type }, plus the
+// optional quality/subtitles/headers the provider modules emit.
+const SourceSchema = z
+  .object({
+    server: z.string().nullish(),
+    link: z.string().nullish(),
+    type: z.string().nullish(),
+    url: z.string().nullish(),
+    quality: z.string().nullish(),
+    subtitles: z.unknown().nullish(),
+    headers: z.record(z.string()).nullish(),
+  })
+  .passthrough();
 
 export const StreamSchema = z.array(SourceSchema).optional();
 export type Stream = z.infer<typeof StreamSchema>;
@@ -202,20 +208,3 @@ export function shortTitleFor(item: { title?: string; name?: string }): string {
   // No year — drop everything after the first separator.
   return full.split(/[|\u2013-]/)[0]?.trim() || full;
 }
-
-// --- Provider registry (live from the API) ---
-
-// /api/providers returns the upstream manifest entries. The upstream may
-// serialize the category as `type` (Rust gateway) or `kind` (Node gateway),
-// so both are accepted and normalized to the app's `Provider.type`.
-export const ProviderEntrySchema = z
-  .object({
-    value: z.string(),
-    display_name: z.string(),
-    type: z.string().optional().nullable(),
-    kind: z.string().optional().nullable(),
-    version: z.string().optional().nullable(),
-    disabled: z.boolean().optional(),
-  })
-  .passthrough();
-export type ProviderEntry = z.infer<typeof ProviderEntrySchema>;

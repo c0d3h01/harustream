@@ -14,7 +14,7 @@ import {
 } from 'react';
 import {
   type FeaturedFeed,
-  getFeaturedFromAllProviders,
+  getFeatured,
   getMeta,
   getStream,
   getStreamFallback,
@@ -25,7 +25,7 @@ import {
   resolveMovieStream,
   resolveSeriesEpisodes,
   safeErrorMessage,
-  searchAllProviders,
+  searchCatalog,
 } from '@/lib/api/client';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useLibrary } from '@/lib/hooks/useLibrary';
@@ -81,10 +81,6 @@ export function App() {
   const library = useLibrary(settings.provider);
   const history = useSearchHistory(settings.provider);
   const [feed, setFeed] = useState<FeaturedFeed | null>(null);
-  const providerCatalogKey = useMemo(
-    () => providers.providers.map((provider) => `${provider.id}:${provider.name}`).join('|'),
-    [providers.providers],
-  );
   // Lifted to App so the MobileNav "Search" item can open the same bar
   // the header's search icon opens. Keeping it in Header would force the
   // nav to dispatch a custom event or grow a ref.
@@ -99,30 +95,30 @@ export function App() {
 
   // The persisted provider may no longer be served by the API (the picker
   // reflects the live list, not a hardcoded registry). Once the live list is
-  // known, switch to the first available provider instead of leaving every
-  // request to 400 upstream.
+  // known, correct it: keep it when it's still served (ids match
+  // case-insensitively — the persisted 'vega' is the manifest key "Vega"),
+  // otherwise fall back to Vega when present, else the first available
+  // provider, instead of leaving every request to 400 upstream.
   useEffect(() => {
     if (providers.loading) return;
     if (providers.providers.length === 0) return;
-    if (providers.providers.some((p) => p.id === settings.provider)) return;
-    update({ provider: providers.providers[0].id });
-  }, [providers.loading, providers.providers, settings.provider, update]);
-
-  // Discovery always fans out across every live provider. The preferred
-  // provider remains a playback ordering preference, not a catalog filter.
-  useEffect(() => {
-    let cancelled = false;
-    const requestKey = providerCatalogKey;
-    setFeed((current) => current ?? null);
-    if (providers.loading) return;
-    if (providerCatalogKey.length === 0) {
-      setFeed(EMPTY_FEED);
+    if (providers.providers.some((p) => p.id.toLowerCase() === settings.provider.toLowerCase())) {
       return;
     }
-    const providerList = providers.providers;
-    getFeaturedFromAllProviders(providerList)
+    const preferred =
+      providers.providers.find((p) => p.id.toLowerCase() === 'vega') ?? providers.providers[0];
+    update({ provider: preferred.id });
+  }, [providers.loading, providers.providers, settings.provider, update]);
+
+  // The home feed is aggregated server-side across every live provider, so
+  // the client needs no provider fan-out — a single request builds all rails.
+  // The preferred (default) provider reorders the merge so its content leads.
+  useEffect(() => {
+    let cancelled = false;
+    setFeed((current) => current ?? null);
+    getFeatured(settings.provider)
       .then((data) => {
-        if (!cancelled && requestKey === providerCatalogKey) setFeed(data ?? EMPTY_FEED);
+        if (!cancelled) setFeed(data ?? EMPTY_FEED);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -136,7 +132,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [providerCatalogKey, providers.loading, providers.providers]);
+  }, [settings.provider]);
 
   // Clear stale search results and any open detail when the provider
   // changes — links from one provider are meaningless in another.
@@ -169,8 +165,8 @@ export function App() {
     }
     let cancelled = false;
     dispatch({ type: 'results/loading' });
-    searchAllProviders(q, providers.providers)
-      .then(({ results }) => {
+    searchCatalog(q)
+      .then((results) => {
         if (!cancelled)
           dispatch({ type: 'results/set', results: Array.isArray(results) ? results : [] });
       })
@@ -183,7 +179,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, state.view, providers.providers]);
+  }, [debouncedQuery, state.view]);
 
   const onOpen = useCallback(
     async (item: Media) => {
@@ -276,14 +272,14 @@ export function App() {
       dispatch({ type: 'results/loading' });
       history.add(q);
       try {
-        const { results } = await searchAllProviders(q, providers.providers);
+        const results = await searchCatalog(q);
         dispatch({ type: 'results/set', results: Array.isArray(results) ? results : [] });
       } catch (error) {
         dispatch({ type: 'results/clear' });
         dispatch({ type: 'notice/show', message: safeErrorMessage(error) });
       }
     },
-    [history.add, providers.providers],
+    [history.add],
   );
 
   const onSubmit = useCallback(

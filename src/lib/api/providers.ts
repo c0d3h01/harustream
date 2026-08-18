@@ -1,6 +1,6 @@
-// Runtime provider registry. No provider data is compiled into the source or
-// read from env — the app fetches the live provider list from the upstream
-// API (`GET /api/providers`) and registers it here so every consumer (the
+// Runtime provider registry. No provider data is compiled into the source —
+// the app fetches the live provider list from the manifest-backed
+// `GET /api/providers` route and registers it here so every consumer (the
 // picker, playback fallback, display names, persisted-setting validation)
 // sees the same real-time data. Before the first fetch lands the registry is
 // empty; nothing falls back to a hardcoded list.
@@ -24,10 +24,16 @@ export function getAvailableProviders(): Provider[] {
   return available;
 }
 
+// Provider ids are matched case-insensitively — the persisted default is the
+// lowercase 'vega' while the manifest serves it as "Vega".
 export function isValidProvider(id: unknown): id is string {
-  return typeof id === 'string' && available.some((p) => p.id === id);
+  if (typeof id !== 'string') return false;
+  const needle = id.toLowerCase();
+  return available.some((p) => p.id.toLowerCase() === needle);
 }
 
 export function providerById(id: string | undefined): Provider | undefined {
-  return available.find((p) => p.id === id);
+  if (!id) return undefined;
+  const needle = id.toLowerCase();
+  return available.find((p) => p.id.toLowerCase() === needle);
 }
