@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { providerFetch } from '@/lib/api/provider';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
-import { MetaSchema } from '@/lib/api/types';
 import { scopeLogger } from '@/lib/log';
+import { getMetaInfo } from '@/lib/providers/runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +13,19 @@ export async function GET(request: Request, { params }: Params) {
   const requestId = requestIdOf(request);
   const started = Date.now();
   const url = new URL(request.url);
-  const provider = url.searchParams.get('provider') ?? undefined;
+  const provider = url.searchParams.get('provider')?.trim() ?? '';
   if (!id) {
     log.warn({ requestId }, 'missing id');
     return NextResponse.json({ error: 'Missing id', requestId }, { status: 400 });
   }
+  if (!provider) {
+    log.warn({ requestId }, 'missing provider parameter');
+    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
+  }
   try {
-    // Upstream param is `link` — the id we received IS the link.
-    const meta = await providerFetch('/api/meta', MetaSchema, { link: id }, provider, 60);
+    // The id IS the provider link; the meta module resolves it against the
+    // channel's own base URL.
+    const meta = await getMetaInfo(provider, id, request.signal);
     log.info({ requestId, provider, durationMs: Date.now() - started }, 'meta served');
     return NextResponse.json(meta);
   } catch (error) {
