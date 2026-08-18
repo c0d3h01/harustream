@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server';
-import { providerFetch } from '@/lib/api/provider';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
-import { CategorySchema } from '@/lib/api/types';
 import { scopeLogger } from '@/lib/log';
+import { getCategories } from '@/lib/providers/runtime';
 
 export const dynamic = 'force-dynamic';
 
+// GET /api/catalog?provider=<id>
+//
+// Returns the provider's category list (its `catalog` rails plus genre
+// filters) as { title, filter } entries — the same shape the manifest's
+// catalog module exports.
 export async function GET(request: Request) {
   const log = scopeLogger('api', { route: '/api/catalog' });
   const requestId = requestIdOf(request);
   const started = Date.now();
   const url = new URL(request.url);
-  const provider = url.searchParams.get('provider') ?? undefined;
+  const provider = url.searchParams.get('provider')?.trim() ?? '';
+  if (!provider) {
+    log.warn({ requestId }, 'missing provider parameter');
+    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
+  }
   try {
-    const categories = await providerFetch(
-      '/api/catalog',
-      CategorySchema.array(),
-      {},
-      provider,
-      300,
-    );
+    const categories = await getCategories(provider);
     log.info(
       { requestId, provider, count: categories.length, durationMs: Date.now() - started },
       'catalog served',

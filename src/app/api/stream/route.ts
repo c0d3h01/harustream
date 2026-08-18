@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
-import { providerFetch } from '@/lib/api/provider';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
-import { StreamSchema } from '@/lib/api/types';
 import { scopeLogger } from '@/lib/log';
+import { getStreams } from '@/lib/providers/runtime';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/stream?hub=<url>&type=movie|series
-// `hub` is the URL returned by /api/episodes or meta.linkList. The upstream
-// follows it and returns the actual playable m3u8/mp4 sources.
+// GET /api/stream?hub=<url>&type=movie|series&provider=<id>
+// `hub` is the link from meta.linkList (movies) or an episode link (series).
+// The provider's stream module follows it and returns the playable sources.
 export async function GET(request: Request) {
   const log = scopeLogger('api', { route: '/api/stream' });
   const requestId = requestIdOf(request);
@@ -16,23 +15,22 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const hub = url.searchParams.get('hub')?.trim();
   const type = url.searchParams.get('type') ?? 'movie';
-  const provider = url.searchParams.get('provider') ?? undefined;
+  const provider = url.searchParams.get('provider')?.trim() ?? '';
   if (!hub) {
     log.warn({ requestId }, 'missing hub parameter');
     return NextResponse.json({ error: 'Missing hub parameter', requestId }, { status: 400 });
   }
+  if (!provider) {
+    log.warn({ requestId }, 'missing provider parameter');
+    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
+  }
   try {
-    const stream = await providerFetch(
-      '/api/stream',
-      StreamSchema,
-      {
-        link: hub,
-        type,
-      },
-      provider,
+    const stream = await getStreams(provider, hub, type, request.signal);
+    log.info(
+      { requestId, provider, type, count: stream.length, durationMs: Date.now() - started },
+      'stream resolved',
     );
-    log.info({ requestId, provider, type, durationMs: Date.now() - started }, 'stream resolved');
-    return NextResponse.json(stream ?? []);
+    return NextResponse.json(stream);
   } catch (error) {
     log.error(
       {
