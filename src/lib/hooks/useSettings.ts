@@ -24,19 +24,20 @@ const DEFAULTS: Settings = {
   defaultPlaybackRate: 1,
   autoAdvance: true,
   excludedQualities: [],
-  // The provider is resolved from the live API list at runtime (see
-  // useProviders); an empty default means "let the app pick the first
-  // available provider once the list loads".
-  provider: '',
+  // Vega (vegamovies) is the default provider. The live list validates it on
+  // load (see App's auto-correct effect); 'vega' matches the manifest key
+  // "Vega" case-insensitively.
+  provider: 'vega',
   theme: 'graphite',
 };
 
 const ALL_QUALITIES = ['360p', '480p', '720p', '1080p', '2160p'];
 
-// Storage-only field: set once when the old default theme ('black') has been
-// migrated to the current default ('graphite'). Without it, a deliberate
-// re-selection of black would be re-migrated on the next reload.
-type StoredSettings = Partial<Settings> & { themeMigrated?: boolean };
+// Storage-only fields: set once when an old default has been migrated, so a
+// deliberate re-selection isn't re-migrated on the next reload. `themeMigrated`
+// covers 'black' → 'graphite'; `providerMigrated` covers 'Moviesmod' → 'vega'
+// (Moviesmod was the auto-corrected default before Vega became the default).
+type StoredSettings = Partial<Settings> & { themeMigrated?: boolean; providerMigrated?: boolean };
 
 function read(): Settings {
   if (typeof window === 'undefined') return DEFAULTS;
@@ -52,10 +53,24 @@ function read(): Settings {
     // most stored values carry the old default. Treat it as the current
     // default once, then flag the migration so explicit choices stick.
     const theme = storedTheme === 'black' && !parsed.themeMigrated ? 'graphite' : storedTheme;
-    if (theme !== storedTheme) {
+    // 'Moviesmod' was the auto-persisted default before Vega became the
+    // default provider; migrate it once, keeping later explicit choices.
+    const storedProvider =
+      typeof parsed.provider === 'string' ? (parsed.provider as string) : DEFAULTS.provider;
+    const provider =
+      storedProvider === 'Moviesmod' && !parsed.providerMigrated
+        ? DEFAULTS.provider
+        : storedProvider;
+    if (theme !== storedTheme || provider !== storedProvider) {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ ...parsed, theme, themeMigrated: true }),
+        JSON.stringify({
+          ...parsed,
+          theme,
+          provider,
+          themeMigrated: theme !== storedTheme || parsed.themeMigrated,
+          providerMigrated: provider !== storedProvider || parsed.providerMigrated,
+        }),
       );
     }
     return {
@@ -68,7 +83,7 @@ function read(): Settings {
         : DEFAULTS.excludedQualities,
       // The persisted provider id is kept verbatim — the live list decides
       // whether it is still usable (see App's auto-correct effect).
-      provider: typeof parsed.provider === 'string' ? (parsed.provider as string) : '',
+      provider,
       theme,
     };
   } catch {
