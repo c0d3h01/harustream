@@ -141,26 +141,32 @@ export function useProgress(provider: string = '') {
 
   // Continue-watching feed: entries with meaningful progress (not nearly
   // finished), newest first, one record per title.
-  const list = useCallback(
-    () =>
-      Object.entries(data)
-        .map(([k, entry]) => ({
-          link: k.split('::')[0],
-          episode: k.split('::').slice(1).join('::'),
-          ...entry,
-        }))
-        .filter((entry) => {
-          if (!entry.duration || entry.duration <= 0) return false;
-          const pct = entry.position / entry.duration;
-          // Skip < 1% (barely started) and > 95% (practically done).
-          return pct >= 0.01 && pct <= 0.95;
-        })
-        // One entry per title, preferring the most recent episode.
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .filter((entry, i, all) => all.findIndex((e) => e.link === entry.link) === i)
-        .slice(0, 20),
-    [data],
-  );
+  const list = useCallback(() => {
+    const entries = Object.entries(data)
+      .map(([k, entry]) => ({
+        link: k.split('::')[0],
+        episode: k.split('::').slice(1).join('::'),
+        ...entry,
+      }))
+      .filter((entry) => {
+        if (!entry.duration || entry.duration <= 0) return false;
+        const pct = entry.position / entry.duration;
+        // Skip < 1% (barely started) and > 95% (practically done).
+        return pct >= 0.01 && pct <= 0.95;
+      })
+      // Newest first, then one entry per title — O(1) Set lookup instead of
+      // a repeated `findIndex` scan on every candidate.
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const seen = new Set<string>();
+    const deduped: typeof entries = [];
+    for (const entry of entries) {
+      if (seen.has(entry.link)) continue;
+      seen.add(entry.link);
+      deduped.push(entry);
+      if (deduped.length === 20) break;
+    }
+    return deduped;
+  }, [data]);
 
   return { get, save, clear, list };
 }

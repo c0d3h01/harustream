@@ -1,17 +1,15 @@
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
+import { preconnect } from 'react-dom';
 import './globals.css';
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'harustream';
 
-// Resource origins to warm up on first paint: the provider API (featured
-// feed) plus any poster-artwork CDNs. All read from env so no third-party
-// host is hardcoded in the bundle.
+// Resource origin to warm up on first paint: the provider API (featured
+// feed). Poster artwork is not preconnected anymore — every next/image loads
+// through the same-origin /api/image proxy (SSRF-guarded, optimized), so the
+// browser never talks to the artwork CDNs directly.
 const PROVIDER_ORIGIN = process.env.NEXT_PUBLIC_PROVIDER_API_URL?.trim() || '';
-const IMAGE_ORIGINS = (process.env.NEXT_PUBLIC_IMAGE_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
 
 export const metadata: Metadata = {
   title: `${SITE_NAME} — Find your next story`,
@@ -74,6 +72,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Warm up the connection the home screen needs most: the provider API
+  // (featured feed). React DOM resource hint emits the preconnect link
+  // during SSR instead of a manual <link> tag. Comes from env so it can be
+  // swapped without a code change.
+  if (PROVIDER_ORIGIN) {
+    preconnect(PROVIDER_ORIGIN);
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -85,14 +91,6 @@ export default function RootLayout({
             __html: `try{var s=JSON.parse(localStorage.getItem('harustream:settings')||'{}');var t=s&&s.theme;if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
           }}
         />
-        {/* Warm up the connections the home screen needs most: the provider
-            API (featured feed) and the CDNs that host the poster artwork.
-            Both lists come from env so they can be swapped without a code
-            change. */}
-        {PROVIDER_ORIGIN && <link rel="preconnect" href={PROVIDER_ORIGIN} />}
-        {IMAGE_ORIGINS.map((origin) => (
-          <link key={origin} rel="preconnect" href={origin} />
-        ))}
       </head>
       <body className="antialiased">
         {children}
