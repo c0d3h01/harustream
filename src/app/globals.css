@@ -209,7 +209,11 @@
         color-mix(in oklch, var(--background) 92%, var(--primary)),
         var(--background) 28rem
       );
-    background-attachment: fixed;
+    /* The gradient scrolls with the content. `background-attachment: fixed`
+       is deliberately NOT used here: fixed backgrounds make Chrome/Android
+       re-rasterize the entire page background on every scroll frame, which
+       tanks frame rate. Scrolling the background as part of the body layer is
+       compositor-cheap and keeps the top-of-page glow we want. */
     /* Disable the iOS tap flash without locking gestures. We deliberately
        don't set overflow-x on the document: the rail scroller is the only
        horizontal-scroll surface and it has its own overflow-x-auto. */

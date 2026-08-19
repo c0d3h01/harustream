@@ -294,7 +294,7 @@ export const SettingsView = memo(function SettingsView({
 
       <nav
         aria-label="Settings sections"
-        className="sticky top-[var(--safe-top)] z-30 -mx-4 mb-8 bg-background/85 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 md:-mx-8 md:px-8"
+        className="sticky top-[var(--safe-top)] z-30 -mx-4 mb-8 bg-background/95 px-4 py-2.5 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8"
       >
         <div className="flex gap-1 overflow-x-auto">
           {SECTIONS.map(({ id, label, icon: Icon }) => {

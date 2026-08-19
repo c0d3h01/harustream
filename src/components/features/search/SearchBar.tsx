@@ -30,7 +30,7 @@ export function SearchBar({ query, onQueryChange, onSubmit, loading = false }: P
           aria-hidden="true"
           className="absolute -inset-px rounded-2xl bg-gradient-to-b from-primary/25 via-primary/5 to-transparent opacity-0 transition-opacity duration-300 group-focus-within:opacity-100"
         />
-        <div className="relative flex h-14 items-center gap-2.5 rounded-2xl border border-border/70 bg-background/70 px-3 backdrop-blur-xl transition-colors focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
+        <div className="relative flex h-14 items-center gap-2.5 rounded-2xl border border-border/70 bg-background/90 px-3 transition-colors focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
             <Search className="size-[18px]" aria-hidden="true" />
           </span>

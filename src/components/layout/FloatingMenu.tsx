@@ -80,7 +80,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
         initial={{ opacity: 0, y: 24, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: DURATIONS.slow, ease: EASE }}
-        className="scrollbar-none flex max-w-[calc(100vw-1.5rem)] items-end gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/85 px-1.5 pt-1.5 pb-2 shadow-2xl shadow-background/50 backdrop-blur-xl sm:gap-2 sm:px-2"
+        className="scrollbar-none flex max-w-[calc(100vw-1.5rem)] items-end gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/95 px-1.5 pt-1.5 pb-2 shadow-2xl shadow-background/50 sm:gap-2 sm:px-2"
       >
         {items.map((item) => (
           <li key={item.id}>
