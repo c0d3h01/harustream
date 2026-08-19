@@ -1,6 +1,6 @@
 'use client';
 
-import { Bookmark, Check, Globe, Play, X } from 'lucide-react';
+import { Bookmark, Check, Film, Globe, Play, Star, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 // Hoisted: created once instead of on every DetailModal render.
 const RATING_PATTERN = /\s*\/\s*10$/i;
+const YEAR_PATTERN = /\b(19\d{2}|20\d{2})\b/;
 
 type Props = {
   item: Media;
@@ -43,6 +44,10 @@ export function DetailModal({
   const logo = meta?.logo;
   const imdb = meta?.imdbId;
   const rating = meta?.rating?.replace(RATING_PATTERN, '').trim();
+  const typeLabel = (meta?.type || item.type || 'Movie').toUpperCase();
+  const year =
+    (meta?.title || title).match(YEAR_PATTERN)?.[1] ??
+    meta?.tags?.find((tag) => /^\d{4}$/.test(String(tag)));
   // Memoized: the auto-select effect watches `entries`, so a fresh array per
   // render would re-run it (and the modal's other effects) on every paint.
   const entries = useMemo(
@@ -85,6 +90,8 @@ export function DetailModal({
   const synopsisText =
     synopsis.length > 240 && !readMore ? `${synopsis.slice(0, 240)}...` : synopsis;
 
+  const headerMeta = [typeLabel, year, imdb ? `IMDb ${imdb}` : null].filter(Boolean).join(' · ');
+
   return (
     // AnimatePresence in App drives the enter/exit; transform/opacity only.
     <motion.div
@@ -101,8 +108,9 @@ export function DetailModal({
         transition={SPRING_SOFT}
         className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-4xl sm:flex-row sm:overflow-hidden sm:rounded-3xl sm:border"
       >
-        {/* Backdrop */}
-        <div className="relative h-64 w-full shrink-0 sm:h-full sm:min-h-[34rem] sm:w-[40%]">
+        {/* Backdrop hero — the title lives on the artwork, not below it, so the
+            image and identity read as one cinematic unit. */}
+        <div className="relative h-[42vh] min-h-[280px] w-full shrink-0 sm:h-full sm:min-h-[34rem] sm:w-[42%]">
           {backdrop || poster ? (
             <motion.div
               className="absolute inset-0"
@@ -114,21 +122,29 @@ export function DetailModal({
                 src={imageUrl(backdrop || poster)}
                 alt=""
                 fill
-                sizes="(min-width: 640px) 40vw, 100vw"
+                sizes="(min-width: 640px) 42vw, 100vw"
                 className="object-cover"
                 onError={(e) => {
                   e.currentTarget.style.opacity = '0';
                 }}
               />
             </motion.div>
-          ) : null}
+          ) : (
+            <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-secondary to-secondary/40">
+              <Film className="size-12 text-muted-foreground/50" aria-hidden="true" />
+            </div>
+          )}
+          {/* Scrims: a short top one keeps the close button legible against
+              any artwork; a stronger bottom one grounds the overlaid title. */}
           <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.10) 58%, var(--card) 100%)',
-            }}
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background/70 to-transparent"
           />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-t from-card from-10% via-card/35 via-40% to-transparent"
+          />
+
           <Button
             size="icon"
             variant="ghost"
@@ -138,37 +154,76 @@ export function DetailModal({
           >
             <X className="size-5" />
           </Button>
+
+          {/* Overlaid identity: logo (when provided) or the title, plus rating
+              chip and a one-line type/year/IMDb summary. */}
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+            {logo && !logoFailed ? (
+              <div className="relative h-14 max-w-[240px]">
+                <Image
+                  src={imageUrl(logo)}
+                  alt={title}
+                  fill
+                  sizes="240px"
+                  className="object-contain object-left"
+                  onError={() => setLogoFailed(true)}
+                />
+              </div>
+            ) : (
+              <h2 className="line-clamp-2 text-2xl font-bold tracking-tight text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:text-3xl">
+                {title}
+              </h2>
+            )}
+            {(rating || headerMeta) && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {rating && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur-sm">
+                    <Star className="size-3.5 fill-primary text-primary" aria-hidden="true" />
+                    {rating}
+                  </span>
+                )}
+                {headerMeta && (
+                  <p className="text-xs font-medium text-foreground/85">{headerMeta}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:gap-6 sm:p-8">
-          <div className="flex items-end justify-between gap-4">
-            <div className="min-w-0">
-              {logo && !logoFailed ? (
-                <div className="relative mb-1 h-16 max-w-[220px]">
-                  <Image
-                    src={imageUrl(logo)}
-                    alt={title}
-                    fill
-                    sizes="220px"
-                    className="object-contain object-left"
-                    onError={() => setLogoFailed(true)}
-                  />
-                </div>
-              ) : (
-                <h2 className="line-clamp-2 text-xl font-semibold sm:text-2xl">{title}</h2>
-              )}
-              {!logo && (
-                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  {(meta?.type || item.type || 'Movie').toUpperCase()}
-                  {imdb ? ` · IMDb ${imdb}` : ''}
-                </p>
-              )}
-            </div>
-            {rating && (
-              <div className="flex shrink-0 items-baseline gap-1 pb-1">
-                <span className="text-2xl font-semibold sm:text-3xl">{rating}</span>
-                <span className="text-sm text-muted-foreground">/10</span>
-              </div>
+          {/* Primary actions lead the content — watch is one tap from the
+              artwork, with save/web secondary and tertiary. */}
+          <div className="flex items-center gap-2">
+            <Button
+              size="lg"
+              className="touch-target flex-1 justify-center transition-transform duration-200 ease-out hover:scale-[1.02] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:flex-none sm:px-8"
+              onClick={() => onPlay(item, activeHub)}
+              onMouseEnter={onPreloadPlay}
+              onFocus={onPreloadPlay}
+            >
+              <Play className="size-4 fill-current" />
+              Watch now
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              aria-label={inLibrary ? 'Remove from library' : 'Save to library'}
+              className="touch-target justify-center transition-transform duration-200 ease-out hover:scale-[1.02] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100"
+              onClick={() => onToggleLibrary(item)}
+            >
+              {inLibrary ? <Check className="size-4" /> : <Bookmark className="size-4" />}
+              <span className="hidden sm:inline">{inLibrary ? 'Saved' : 'Save'}</span>
+            </Button>
+            {meta?.webUrl && (
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Open on web"
+                className="touch-target shrink-0"
+                onClick={() => window.open(meta.webUrl ?? undefined, '_blank', 'noopener')}
+              >
+                <Globe className="size-4" />
+              </Button>
             )}
           </div>
 
@@ -185,16 +240,21 @@ export function DetailModal({
             </div>
           )}
 
-          <p className="text-sm leading-6 text-muted-foreground sm:text-base">{synopsisText}</p>
-          {synopsis.length > 240 && (
-            <button
-              type="button"
-              onClick={() => setReadMore((r) => !r)}
-              className="touch-target -mt-2 w-fit text-sm font-semibold text-primary"
-            >
-              {readMore ? 'Show less' : 'Read more'}
-            </button>
-          )}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Overview
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground sm:text-base">{synopsisText}</p>
+            {synopsis.length > 240 && (
+              <button
+                type="button"
+                onClick={() => setReadMore((r) => !r)}
+                className="touch-target mt-1 w-fit text-sm font-semibold text-primary"
+              >
+                {readMore ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
 
           {entries.length > 0 && (
             <div>
@@ -251,39 +311,6 @@ export function DetailModal({
               </div>
             </div>
           )}
-
-          <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:gap-3 sm:pt-0">
-            <Button
-              size="lg"
-              className="touch-target w-full justify-center transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:w-auto"
-              onClick={() => onPlay(item, activeHub)}
-              onMouseEnter={onPreloadPlay}
-              onFocus={onPreloadPlay}
-            >
-              <Play className="size-4 fill-current" />
-              Watch now
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="touch-target w-full justify-center transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:w-auto"
-              onClick={() => onToggleLibrary(item)}
-            >
-              {inLibrary ? <Check className="size-4" /> : <Bookmark className="size-4" />}
-              {inLibrary ? 'Saved' : 'Save'}
-            </Button>
-            {meta?.webUrl && (
-              <Button
-                size="lg"
-                variant="ghost"
-                className="touch-target w-full justify-center sm:w-auto"
-                onClick={() => window.open(meta.webUrl ?? undefined, '_blank', 'noopener')}
-              >
-                <Globe className="size-4" />
-                Web
-              </Button>
-            )}
-          </div>
         </div>
       </motion.div>
     </motion.div>
