@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { getCategories } from '@/lib/providers/runtime';
+import { getCatalogCategories } from '@/media/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +14,9 @@ export async function GET(request: Request) {
   const log = scopeLogger('api', { route: '/api/catalog' });
   const requestId = requestIdOf(request);
   const started = Date.now();
-  const url = new URL(request.url);
-  const provider = url.searchParams.get('provider')?.trim() ?? '';
-  if (!provider) {
-    log.warn({ requestId }, 'missing provider parameter');
-    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
-  }
+  const provider = new URL(request.url).searchParams.get('provider')?.trim() ?? '';
   try {
-    const categories = await getCategories(provider);
+    const categories = await getCatalogCategories(provider);
     log.info(
       { requestId, provider, count: categories.length, durationMs: Date.now() - started },
       'catalog served',

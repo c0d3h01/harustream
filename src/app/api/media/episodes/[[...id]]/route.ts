@@ -1,29 +1,27 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { getEpisodeLinks } from '@/lib/providers/runtime';
+import { getEpisodeLinksFor } from '@/media/episodes';
 
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ id: string }> };
+type Params = { params: Promise<{ id?: string[] }> };
 
+// GET /api/media/episodes?link=<provider link>&provider=<id>
+// GET /api/media/episodes/<link>?provider=<id> (legacy path form)
+//
+// Resolves a series' episode list. The provider link travels as a query
+// param; the legacy path form is still accepted.
 export async function GET(request: Request, { params }: Params) {
-  const { id } = await params;
-  const log = scopeLogger('api', { route: '/api/media/[id]/episodes' });
+  const { id = [] } = await params;
+  const log = scopeLogger('api', { route: '/api/media/episodes' });
   const requestId = requestIdOf(request);
   const started = Date.now();
   const url = new URL(request.url);
+  const link = url.searchParams.get('link')?.trim() || id.join('/');
   const provider = url.searchParams.get('provider')?.trim() ?? '';
-  if (!id) {
-    log.warn({ requestId }, 'missing id');
-    return NextResponse.json({ error: 'Missing id', requestId }, { status: 400 });
-  }
-  if (!provider) {
-    log.warn({ requestId }, 'missing provider parameter');
-    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
-  }
   try {
-    const episodes = await getEpisodeLinks(provider, id, request.signal);
+    const episodes = await getEpisodeLinksFor(link, provider, request.signal);
     log.info(
       { requestId, provider, count: episodes.length, durationMs: Date.now() - started },
       'episodes served',

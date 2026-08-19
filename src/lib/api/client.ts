@@ -2,8 +2,8 @@
 // provider, since the provider does not return CORS headers and a direct
 // browser call would be blocked.
 
+import { getAvailableProviders } from '../state/providers';
 import { describeProviderError, ProviderError } from './errors';
-import { getAvailableProviders } from './providers';
 import {
   CategorySchema,
   type Episode,
@@ -17,7 +17,7 @@ import {
   sortLinkListByQuality,
 } from './types';
 
-export { getAvailableProviders, providerById } from './providers';
+export { getAvailableProviders, providerById } from '../state/providers';
 export type { Category, Episode, Media, Meta, Stream } from './types';
 export {
   imageFor,
@@ -45,20 +45,75 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
+// Retry once after a short backoff for transient upstream failures (cold
+// start, function reclaim). A retry only helps when the first attempt died
+// fast — retrying a 20s timeout doubles the user's wait and re-runs the same
+// dead upstream, so slow failures are never retried. 4xx and network errors
+// are not retried either.
+const RETRY_STATUSES = new Set([502, 503, 504]);
+const RETRY_DELAY_MS = 1_000;
+const FAST_FAIL_MS = 3_000;
+
+// Per-call cap matching the provider runtime timeout (20s): a provider module
+// that hangs is cut off at the same moment server-side, and every stream/
+// episode/meta call is individually bounded so one dead provider can't wedge
+// the UI.
+const CALL_TIMEOUT_MS = 20_000;
+// Overall budget for walking provider×hub candidates: after this, further
+// attempts are pointless — surface a clear timeout instead of hanging.
+const RESOLVE_BUDGET_MS = 60_000;
+
+function withCallTimeout(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(CALL_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+// buildParams omits empty values so the route handlers never see `param=`
+// (they treat an empty value as missing).
+function buildParams(entries: Record<string, string>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(entries)) {
+    if (value) params.set(key, value);
+  }
+  const encoded = params.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
+async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const started = performance.now();
   let response: Response;
   try {
     response = await fetch(path, {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      signal,
     });
-  } catch (_error) {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw new ApiError(504, 'The streaming source timed out.', 'TIMEOUT', undefined);
+    }
     throw new ApiError(0, 'Network error — check your connection.', 'NETWORK', undefined);
   }
 
   const requestId = response.headers.get('x-request-id') ?? undefined;
 
   if (!response.ok) {
+    const elapsed = performance.now() - started;
+    if (RETRY_STATUSES.has(response.status) && elapsed < FAST_FAIL_MS && !signal?.aborted) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      try {
+        response = await fetch(path, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          signal,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+          throw new ApiError(504, 'The streaming source timed out.', 'TIMEOUT', undefined);
+        }
+        throw new ApiError(0, 'Network error — check your connection.', 'NETWORK', undefined);
+      }
+    }
     // Parse the shared error envelope when present; otherwise fall back to a
     // status-based generic message.
     const body = (await response
@@ -85,8 +140,8 @@ export function safeErrorMessage(error: unknown): string {
 
 // --- Catalog ---
 
-export const getCategories = (provider: string = '') =>
-  request<unknown>(`/api/catalog?provider=${encodeURIComponent(provider)}`).then((data) =>
+export const getCategories = (provider: string = '', signal?: AbortSignal) =>
+  request<unknown>(`/api/catalog${buildParams({ provider })}`, signal).then((data) =>
     CategorySchema.array().parse(data),
   );
 
@@ -95,9 +150,9 @@ export const getCategories = (provider: string = '') =>
 // Without a provider the server fans out across every live provider, merges
 // the results, and annotates each item with its sources. With a provider only
 // that provider is searched.
-export const searchCatalog = (query: string, provider: string = '') => {
-  const params = new URLSearchParams({ q: query, provider });
-  return request<unknown>(`/api/search?${params.toString()}`).then((data) =>
+export const searchCatalog = (query: string, provider: string = '', signal?: AbortSignal) => {
+  const params = buildParams({ q: query, provider });
+  return request<unknown>(`/api/search${params}`, signal).then((data) =>
     MediaSchema.array().parse(data),
   ) as Promise<Media[]>;
 };
@@ -117,23 +172,25 @@ export type FeaturedFeed = {
 // The client no longer fans out: home is aggregated server-side. The
 // preferred provider id only reorders the merged rails so the default
 // channel's content leads.
-export const getFeatured = (preferred: string = '') =>
-  request<unknown>(
-    `/api/featured?preferred=${encodeURIComponent(preferred)}`,
-  ) as Promise<FeaturedFeed>;
+export const getFeatured = (preferred: string = '', signal?: AbortSignal) =>
+  request<unknown>(`/api/featured${buildParams({ preferred })}`, signal) as Promise<FeaturedFeed>;
 
 // --- Meta ---
 
-export const getMeta = (link: string, provider: string = '') =>
-  request<unknown>(
-    `/api/media/${encodeURIComponent(link)}?provider=${encodeURIComponent(provider)}`,
-  ).then((data) => MetaSchema.parse(data)) as Promise<Meta>;
+// The provider link travels as the `link` query param: provider links are
+// relative URLs full of slashes, which are fragile inside URL paths. The
+// handler also accepts the legacy path form for backward compatibility.
+export const getMeta = (link: string, provider: string = '', signal?: AbortSignal) =>
+  request<unknown>(`/api/media${buildParams({ link, provider })}`, withCallTimeout(signal)).then(
+    (data) => MetaSchema.parse(data),
+  ) as Promise<Meta>;
 
 // --- Episodes ---
 
-export const getEpisodes = (link: string, provider: string = '') =>
+export const getEpisodes = (link: string, provider: string = '', signal?: AbortSignal) =>
   request<unknown>(
-    `/api/media/${encodeURIComponent(link)}/episodes?provider=${encodeURIComponent(provider)}`,
+    `/api/media/episodes${buildParams({ link, provider })}`,
+    withCallTimeout(signal),
   ).then((data) => EpisodeSchema.array().parse(data)) as Promise<Episode[]>;
 
 // --- Stream ---
@@ -142,8 +199,8 @@ export const getEpisodes = (link: string, provider: string = '') =>
 // `episodesLink` for series). The route handler forwards to the upstream
 // which extracts the actual playable m3u8/mp4 URLs.
 export const getStream = (hubUrl: string, type = 'movie', provider: string = '') => {
-  const params = new URLSearchParams({ hub: hubUrl, type, provider });
-  return request<unknown>(`/api/stream?${params.toString()}`).then((data) =>
+  const params = buildParams({ hub: hubUrl, type, provider });
+  return request<unknown>(`/api/stream${params}`, withCallTimeout()).then((data) =>
     StreamSchema.parse(data),
   ) as Promise<Stream>;
 };
@@ -211,25 +268,35 @@ function hubCandidates(meta: Pick<Meta, 'linkList'>): string[] {
 // the preferred provider and then falling back to the other registered
 // providers. Every candidate is remembered on failure so a retry skips dead
 // links immediately. Throws a descriptive ProviderError only when every
-// candidate has been exhausted.
+// candidate has been exhausted. The winning hub is returned so the caller can
+// mark it failed if the stream later turns out unplayable.
 export async function resolveMovieStream(
   meta: Pick<Meta, 'linkList'>,
   preferredProvider: string = '',
-): Promise<Stream> {
+): Promise<{ stream: Stream; hub: string }> {
   const candidates = hubCandidates(meta);
   const providers = providerCandidates(preferredProvider);
   const attempts: string[] = [];
+  const started = performance.now();
   let lastError: unknown;
 
   for (const provider of providers) {
     for (const hub of candidates) {
+      if (performance.now() - started > RESOLVE_BUDGET_MS) {
+        throw new ProviderError(
+          504,
+          `Streaming timed out after ${Math.round(RESOLVE_BUDGET_MS / 1000)}s — the sources are slow or unreachable right now.`,
+          undefined,
+          'TIMEOUT',
+        );
+      }
       if (streamRecentlyFailed(provider, 'movie', hub)) {
         attempts.push(`${provider}:${hub}`);
         continue;
       }
       try {
         const stream = await getStream(hub, 'movie', provider);
-        if (stream && stream.length > 0) return stream;
+        if (stream && stream.length > 0) return { stream, hub };
         attempts.push(`${provider}:${hub}`);
         rememberStreamFailure(provider, 'movie', hub);
       } catch (error) {
@@ -251,17 +318,27 @@ export async function resolveMovieStream(
 }
 
 // Tries the given episode links in order (same provider) so a single slow or
-// dead episode hub cannot block playback of the series.
+// dead episode hub cannot block playback of the series. The winning episode
+// is returned so the caller can mark it failed if playback turns out broken.
 export async function getStreamFallback(
-  episodes: { link: string }[],
+  episodes: { link: string; title: string }[],
   provider: string = '',
-): Promise<Stream> {
+): Promise<{ stream: Stream; episode: { link: string; title: string } }> {
   let lastError: unknown;
+  const started = performance.now();
   for (const episode of episodes) {
+    if (performance.now() - started > RESOLVE_BUDGET_MS) {
+      throw new ProviderError(
+        504,
+        `Streaming timed out after ${Math.round(RESOLVE_BUDGET_MS / 1000)}s — the sources are slow or unreachable right now.`,
+        undefined,
+        'TIMEOUT',
+      );
+    }
     if (streamRecentlyFailed(provider, 'series', episode.link)) continue;
     try {
       const stream = await getStream(episode.link, 'series', provider);
-      if (stream && stream.length > 0) return stream;
+      if (stream && stream.length > 0) return { stream, episode };
       rememberStreamFailure(provider, 'series', episode.link);
     } catch (error) {
       lastError = error;
@@ -307,7 +384,9 @@ export async function resolveSeriesEpisodes(
     push(entry.episodesLink ?? undefined);
   }
 
+  const started = performance.now();
   for (const hub of hubs) {
+    if (performance.now() - started > RESOLVE_BUDGET_MS) return [];
     const episodes = await getEpisodes(hub, provider).catch(() => []);
     if (episodes.length > 0) return episodes;
     // The hub may be a season/pack *page* rather than an episodes hub.

@@ -1,31 +1,30 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { getMetaInfo } from '@/lib/providers/runtime';
+import { getMediaMeta } from '@/media/catalog';
 
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ id: string }> };
+type Params = { params: Promise<{ id?: string[] }> };
 
+// GET /api/media?link=<provider link>&provider=<id>
+// GET /api/media/<link>?provider=<id> (legacy path form)
+//
+// Returns the provider's metadata for a media page. The provider link is
+// carried as a query param (relative URLs full of slashes are fragile inside
+// URL paths); the legacy path form is still accepted.
 export async function GET(request: Request, { params }: Params) {
-  const { id } = await params;
-  const log = scopeLogger('api', { route: '/api/media/[id]' });
+  const { id = [] } = await params;
+  const log = scopeLogger('api', { route: '/api/media' });
   const requestId = requestIdOf(request);
   const started = Date.now();
   const url = new URL(request.url);
+  const link = url.searchParams.get('link')?.trim() || id.join('/');
   const provider = url.searchParams.get('provider')?.trim() ?? '';
-  if (!id) {
-    log.warn({ requestId }, 'missing id');
-    return NextResponse.json({ error: 'Missing id', requestId }, { status: 400 });
-  }
-  if (!provider) {
-    log.warn({ requestId }, 'missing provider parameter');
-    return NextResponse.json({ error: 'Missing provider parameter', requestId }, { status: 400 });
-  }
   try {
-    // The id IS the provider link; the meta module resolves it against the
+    // The link IS the provider link; the meta module resolves it against the
     // channel's own base URL.
-    const meta = await getMetaInfo(provider, id, request.signal);
+    const meta = await getMediaMeta(link, provider, request.signal);
     log.info({ requestId, provider, durationMs: Date.now() - started }, 'meta served');
     return NextResponse.json(meta);
   } catch (error) {
