@@ -1,6 +1,7 @@
 # Common ignores
 node_modules
 .next/
+.turbo/
 .DS_Store
 .claude/
 *.tsbuildinfo
@@ -9,3 +10,4 @@ node_modules
 .env
 .env*.local
 *.env.prod
+.vercel
