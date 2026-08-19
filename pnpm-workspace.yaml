@@ -1,4 +1,5 @@
 # pnpm settings for this single package (not a monorepo).
-# `onlyBuiltDependencies` lives here in pnpm v11.
-onlyBuiltDependencies:
-  - msw
+# `allowBuilds` (pnpm >= 10.26 / 11) replaces the removed
+# `onlyBuiltDependencies` allowlist.
+allowBuilds:
+  msw: true
