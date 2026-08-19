@@ -2,12 +2,17 @@
 
 import { Bookmark, Check, Globe, Play, X } from 'lucide-react';
 import { motion } from 'motion/react';
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import { DURATIONS, EASE } from '@/components/motion/transitions';
+import { DURATIONS, EASE, SPRING_SOFT } from '@/components/motion/transitions';
 import { Button } from '@/components/ui/button';
 import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
 import { useScrollLock } from '@/lib/hooks/useScrollLock';
+import { imageUrl } from '@/lib/media/images';
 import { cn } from '@/lib/utils';
+
+// Hoisted: created once instead of on every DetailModal render.
+const RATING_PATTERN = /\s*\/\s*10$/i;
 
 type Props = {
   item: Media;
@@ -17,6 +22,8 @@ type Props = {
   onClose: () => void;
   onPlay: (item: Media, hub?: string) => void;
   onToggleLibrary: (item: Media) => void;
+  /** Preload the code-split player chunk while the user decides to watch. */
+  onPreloadPlay?: () => void;
 };
 
 export function DetailModal({
@@ -27,6 +34,7 @@ export function DetailModal({
   onClose,
   onPlay,
   onToggleLibrary,
+  onPreloadPlay,
 }: Props) {
   const title = meta?.title || titleFor(item);
   const synopsis = meta?.synopsis || 'No description available.';
@@ -34,7 +42,7 @@ export function DetailModal({
   const poster = meta?.poster || meta?.image || item.image;
   const logo = meta?.logo;
   const imdb = meta?.imdbId;
-  const rating = meta?.rating?.replace(/\s*\/\s*10$/i, '').trim();
+  const rating = meta?.rating?.replace(RATING_PATTERN, '').trim();
   // Memoized: the auto-select effect watches `entries`, so a fresh array per
   // render would re-run it (and the modal's other effects) on every paint.
   const entries = useMemo(
@@ -87,24 +95,32 @@ export function DetailModal({
       transition={{ duration: DURATIONS.fast }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 18 }}
-        transition={{ duration: DURATIONS.base, ease: EASE }}
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 18, scale: 0.98 }}
+        transition={SPRING_SOFT}
         className="flex h-full w-full flex-col overflow-hidden overscroll-contain border-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-4xl sm:flex-row sm:overflow-hidden sm:rounded-3xl sm:border"
       >
         {/* Backdrop */}
         <div className="relative h-64 w-full shrink-0 sm:h-full sm:min-h-[34rem] sm:w-[40%]">
           {backdrop || poster ? (
-            // biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here.
-            <img
-              src={backdrop || poster || undefined}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.opacity = '0';
-              }}
-            />
+            <motion.div
+              className="absolute inset-0"
+              initial={{ scale: 1.08 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 1.2, ease: EASE }}
+            >
+              <Image
+                src={imageUrl(backdrop || poster)}
+                alt=""
+                fill
+                sizes="(min-width: 640px) 40vw, 100vw"
+                className="object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.opacity = '0';
+                }}
+              />
+            </motion.div>
           ) : null}
           <div
             className="absolute inset-0"
@@ -128,13 +144,16 @@ export function DetailModal({
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
               {logo && !logoFailed ? (
-                // biome-ignore lint/performance/noImgElement: images are served unoptimized (next.config `images.unoptimized`), so next/image adds no value here.
-                <img
-                  src={logo}
-                  alt={title}
-                  className="mb-1 max-h-16 max-w-[220px] object-contain object-left"
-                  onError={() => setLogoFailed(true)}
-                />
+                <div className="relative mb-1 h-16 max-w-[220px]">
+                  <Image
+                    src={imageUrl(logo)}
+                    alt={title}
+                    fill
+                    sizes="220px"
+                    className="object-contain object-left"
+                    onError={() => setLogoFailed(true)}
+                  />
+                </div>
               ) : (
                 <h2 className="line-clamp-2 text-xl font-semibold sm:text-2xl">{title}</h2>
               )}
@@ -194,13 +213,20 @@ export function DetailModal({
                       onClick={() => hub && setActiveHub(hub)}
                       aria-pressed={selected}
                       className={cn(
-                        'touch-target rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                        'touch-target relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
                         selected
-                          ? 'bg-foreground text-background'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                          ? 'text-background'
+                          : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
-                      {label}
+                      {selected && (
+                        <motion.span
+                          layoutId="detail-quality-pill"
+                          className="absolute inset-0 rounded-full bg-foreground"
+                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        />
+                      )}
+                      <span className="relative z-10">{label}</span>
                     </button>
                   );
                 })}
@@ -229,8 +255,10 @@ export function DetailModal({
           <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:gap-3 sm:pt-0">
             <Button
               size="lg"
-              className="touch-target w-full justify-center sm:w-auto"
+              className="touch-target w-full justify-center transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:w-auto"
               onClick={() => onPlay(item, activeHub)}
+              onMouseEnter={onPreloadPlay}
+              onFocus={onPreloadPlay}
             >
               <Play className="size-4 fill-current" />
               Watch now
@@ -238,7 +266,7 @@ export function DetailModal({
             <Button
               size="lg"
               variant="secondary"
-              className="touch-target w-full justify-center sm:w-auto"
+              className="touch-target w-full justify-center transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:w-auto"
               onClick={() => onToggleLibrary(item)}
             >
               {inLibrary ? <Check className="size-4" /> : <Bookmark className="size-4" />}

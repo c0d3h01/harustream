@@ -13,12 +13,15 @@ type Props = {
   items: Media[];
   onOpen: (item: Media) => void;
   loading: boolean;
+  /** Eager-load the first poster: the rail's first row is above the fold
+   *  on the home page, so its lead card contributes to the LCP. */
+  priorityFirst?: boolean;
 };
 
 // Static, stable keys for the loading-skeleton rail.
 const SKELETON_KEYS = Array.from({ length: 6 }, (_, i) => `rail-skeleton-${i}`);
 
-function RailBase({ title, items, onOpen, loading }: Props) {
+function RailBase({ title, items, onOpen, loading, priorityFirst = false }: Props) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const scrollByPage = (dir: 1 | -1) => {
@@ -66,11 +69,13 @@ function RailBase({ title, items, onOpen, loading }: Props) {
         </div>
       </div>
       <RailScroller ref={scrollerRef}>
-        {items.slice(0, 12).map((item) => (
+        {items.slice(0, 12).map((item, index) => (
           <MemoCard
             key={`${title}-${item.link}`}
             item={item}
             onOpen={onOpen}
+            priority={priorityFirst && index === 0}
+            index={index}
             className="basis-[clamp(140px,38vw,200px)] sm:basis-[160px]"
           />
         ))}
@@ -89,7 +94,7 @@ function Skeleton() {
   return (
     <div
       aria-hidden="true"
-      className="shrink-0 basis-[clamp(140px,38vw,200px)] animate-pulse motion-reduce:animate-none rounded-xl bg-secondary sm:basis-[160px] aspect-[2/3]"
+      className="shimmer shrink-0 basis-[clamp(140px,38vw,200px)] rounded-xl bg-secondary sm:basis-[160px] aspect-[2/3]"
     />
   );
 }

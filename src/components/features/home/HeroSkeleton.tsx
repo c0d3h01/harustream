@@ -6,7 +6,7 @@ export function HeroSkeleton() {
   return (
     <section
       aria-hidden="true"
-      className="mt-4 grid h-[clamp(320px,50svh,500px)] min-h-0 animate-pulse motion-reduce:animate-none place-items-end overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 sm:mt-5 sm:p-10 lg:p-12"
+      className="shimmer mt-4 grid h-[clamp(320px,50svh,500px)] min-h-0 place-items-end overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-5 sm:mt-5 sm:p-10 lg:p-12"
     >
       <div className="flex w-full max-w-2xl flex-col gap-4">
         <div className="h-3 w-32 rounded bg-secondary" />

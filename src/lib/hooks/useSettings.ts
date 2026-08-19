@@ -24,10 +24,10 @@ const DEFAULTS: Settings = {
   defaultPlaybackRate: 1,
   autoAdvance: true,
   excludedQualities: [],
-  // Vega (vegamovies) is the default provider. The live list validates it on
-  // load (see App's auto-correct effect); 'vega' matches the manifest key
-  // "Vega" case-insensitively.
-  provider: 'vega',
+  // MovieBox Web is the default provider. The live list validates it on
+  // load (see App's auto-correct effect); 'movieBoxWeb' matches the manifest
+  // key "MovieBox Web" case-insensitively.
+  provider: 'movieBoxWeb',
   theme: 'graphite',
 };
 
@@ -35,8 +35,9 @@ const ALL_QUALITIES = ['360p', '480p', '720p', '1080p', '2160p'];
 
 // Storage-only fields: set once when an old default has been migrated, so a
 // deliberate re-selection isn't re-migrated on the next reload. `themeMigrated`
-// covers 'black' → 'graphite'; `providerMigrated` covers 'Moviesmod' → 'vega'
-// (Moviesmod was the auto-corrected default before Vega became the default).
+// covers 'black' → 'graphite'; `providerMigrated` covers 'Moviesmod'/'vega' →
+// 'movieBoxWeb' (those were the auto-corrected defaults before MovieBox Web
+// became the default provider).
 type StoredSettings = Partial<Settings> & { themeMigrated?: boolean; providerMigrated?: boolean };
 
 function read(): Settings {
@@ -53,12 +54,13 @@ function read(): Settings {
     // most stored values carry the old default. Treat it as the current
     // default once, then flag the migration so explicit choices stick.
     const theme = storedTheme === 'black' && !parsed.themeMigrated ? 'graphite' : storedTheme;
-    // 'Moviesmod' was the auto-persisted default before Vega became the
-    // default provider; migrate it once, keeping later explicit choices.
+    // 'Moviesmod' and 'vega' were the auto-persisted defaults before
+    // MovieBox Web became the default provider; migrate them once, keeping
+    // later explicit choices.
     const storedProvider =
       typeof parsed.provider === 'string' ? (parsed.provider as string) : DEFAULTS.provider;
     const provider =
-      storedProvider === 'Moviesmod' && !parsed.providerMigrated
+      (storedProvider === 'Moviesmod' || storedProvider === 'vega') && !parsed.providerMigrated
         ? DEFAULTS.provider
         : storedProvider;
     if (theme !== storedTheme || provider !== storedProvider) {

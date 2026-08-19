@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@vidstack/react/player/styles/base.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -261,5 +262,107 @@
   /* Optimization for horizontal scrolling rails */
   .contain-paint {
     contain: layout paint;
+  }
+  /* Skeleton shimmer sweep. Layer a moving primary-tinted highlight over
+     a static block; the ::after is what moves, so reduced-motion users get
+     a plain static block instead of a pulsing/sweeping surface. */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklch, var(--primary) 9%, transparent) 50%,
+      transparent 80%
+    );
+    animation: shimmer-sweep 1.8s ease-in-out infinite;
+  }
+  @keyframes shimmer-sweep {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  /* Ken Burns settle for cinematic backdrop entrances. */
+  .animate-kenburns {
+    animation: ken-burns 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes ken-burns {
+    from {
+      transform: scale(1.1) translate3d(-0.5%, -0.5%, 0);
+    }
+    to {
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+  }
+  /* Slow ambient drift for decorative glow orbs. */
+  .animate-orb {
+    animation: orb-drift 11s ease-in-out infinite;
+  }
+  @keyframes orb-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -16px, 0) scale(1.07);
+    }
+  }
+  /* Soft gradient shimmer for eyebrow/eyebrow-accent text. */
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--primary),
+      color-mix(in oklch, var(--primary) 55%, white) 50%,
+      var(--primary)
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: text-shimmer-pan 5s linear infinite;
+  }
+  @keyframes text-shimmer-pan {
+    to {
+      background-position: 200% 0;
+    }
+  }
+  /* Fade the far edges of a horizontal scroller so content "dips out". */
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 1rem,
+      black calc(100% - 1rem),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 1rem,
+      black calc(100% - 1rem),
+      transparent
+    );
+  }
+  /* One-stop reduced-motion kill switch for the custom keyframe utilities
+     above (motion components are already flattened by MotionConfig). */
+  @media (prefers-reduced-motion: reduce) {
+    .shimmer::after,
+    .animate-kenburns,
+    .animate-orb,
+    .text-shimmer {
+      animation: none;
+    }
+    .shimmer::after {
+      transform: none;
+    }
+    .text-shimmer {
+      color: var(--primary);
+    }
   }
 }

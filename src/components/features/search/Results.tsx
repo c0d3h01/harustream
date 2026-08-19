@@ -1,5 +1,6 @@
 'use client';
 
+import { X } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { memo } from 'react';
 import { MemoCard } from '@/components/features/home/Card';
@@ -61,7 +62,12 @@ export const Results = memo(function Results({
           view. The header bar is the same widget, but on mobile it's
           collapsed behind an icon; this one is always visible. */}
       <div className="mb-6 sm:mb-8">
-        <SearchBar query={query} onQueryChange={onQueryChange} onSubmit={onSubmit} />
+        <SearchBar
+          query={query}
+          onQueryChange={onQueryChange}
+          onSubmit={onSubmit}
+          loading={loading}
+        />
       </div>
 
       {!query && history.length > 0 && (
@@ -80,7 +86,7 @@ export const Results = memo(function Results({
             {history.map((item) => (
               <span
                 key={item}
-                className="group inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 py-1 pr-1 pl-3 text-sm"
+                className="group inline-flex items-center gap-0.5 rounded-full border border-border/70 bg-background/60 py-1 pl-3 pr-1 text-sm backdrop-blur-xl"
               >
                 <button
                   type="button"
@@ -95,7 +101,7 @@ export const Results = memo(function Results({
                   onClick={() => onHistoryRemove(item)}
                   className="touch-target grid size-6 place-items-center rounded-full text-muted-foreground/70 hover:bg-background hover:text-foreground"
                 >
-                  ×
+                  <X className="size-3.5" />
                 </button>
               </span>
             ))}
@@ -112,7 +118,7 @@ export const Results = memo(function Results({
               <div
                 key={key}
                 aria-hidden="true"
-                className="animate-pulse motion-reduce:animate-none rounded-xl bg-secondary aspect-[2/3]"
+                className="shimmer rounded-xl bg-secondary aspect-[2/3]"
               />
             ))}
           </div>
@@ -139,8 +145,13 @@ export const Results = memo(function Results({
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {group.items.map((x) => (
-                    <MemoCard key={`${providerId}-${x.link}`} item={x} onOpen={onOpen} />
+                  {group.items.map((x, index) => (
+                    <MemoCard
+                      key={`${providerId}-${x.link}`}
+                      item={x}
+                      onOpen={onOpen}
+                      index={index}
+                    />
                   ))}
                 </div>
               </section>

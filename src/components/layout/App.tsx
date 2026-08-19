@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { AnimatePresence, MotionConfig } from 'motion/react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import dynamic from 'next/dynamic';
 import {
   type FormEvent,
@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { DURATIONS, EASE, VIEWPORT, viewFadeUp } from '@/components/motion';
 import {
   type FeaturedFeed,
   getFeatured,
@@ -19,6 +20,7 @@ import {
   getStream,
   getStreamFallback,
   type Media,
+  type Meta,
   pickBestHubUrl,
   providerById,
   rememberStreamFailure,
@@ -40,8 +42,7 @@ import { Rail } from '../features/home/Rail';
 import { Library } from '../features/library/Library';
 import { Results } from '../features/search/Results';
 import { SettingsView } from '../features/settings/SettingsView';
-import { Header } from './Header';
-import { MobileNav } from './MobileNav';
+import { FloatingMenu } from './FloatingMenu';
 import { Notice } from './Notice';
 
 // The player bundles hls.js (~500KB), which would bloat the first paint if
@@ -67,6 +68,14 @@ function PlayerLoader() {
   );
 }
 
+// Preload the code-split player chunk before the user commits to watching —
+// hovering the hero's Play button (or the detail modal's Watch now) fetches
+// the ~500KB hls.js bundle while they decide, so play starts instantly.
+// Repeated calls are a no-op once the chunk is loaded.
+const preloadPlayer = () => {
+  void import('../features/player/PlayerModal');
+};
+
 const EMPTY_FEED: FeaturedFeed = {
   featured: [],
   newest: [],
@@ -81,10 +90,6 @@ export function App() {
   const library = useLibrary(settings.provider);
   const history = useSearchHistory(settings.provider);
   const [feed, setFeed] = useState<FeaturedFeed | null>(null);
-  // Lifted to App so the MobileNav "Search" item can open the same bar
-  // the header's search icon opens. Keeping it in Header would force the
-  // nav to dispatch a custom event or grow a ref.
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // Apply the active theme to <html>. The layout's inline script already
   // restored the persisted theme pre-hydration, so this only reacts to
@@ -96,9 +101,10 @@ export function App() {
   // The persisted provider may no longer be served by the API (the picker
   // reflects the live list, not a hardcoded registry). Once the live list is
   // known, correct it: keep it when it's still served (ids match
-  // case-insensitively — the persisted 'vega' is the manifest key "Vega"),
-  // otherwise fall back to Vega when present, else the first available
-  // provider, instead of leaving every request to 400 upstream.
+  // case-insensitively — the persisted 'movieBoxWeb' is the manifest key
+  // "MovieBox Web"), otherwise fall back to MovieBox Web when present, else
+  // the first available provider, instead of leaving every request to 400
+  // upstream.
   useEffect(() => {
     if (providers.loading) return;
     if (providers.providers.length === 0) return;
@@ -106,7 +112,8 @@ export function App() {
       return;
     }
     const preferred =
-      providers.providers.find((p) => p.id.toLowerCase() === 'vega') ?? providers.providers[0];
+      providers.providers.find((p) => p.id.toLowerCase() === 'movieboxweb') ??
+      providers.providers[0];
     update({ provider: preferred.id });
   }, [providers.loading, providers.providers, settings.provider, update]);
 
@@ -114,23 +121,22 @@ export function App() {
   // the client needs no provider fan-out — a single request builds all rails.
   // The preferred (default) provider reorders the merge so its content leads.
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setFeed((current) => current ?? null);
-    getFeatured(settings.provider)
+    getFeatured(settings.provider, controller.signal)
       .then((data) => {
-        if (!cancelled) setFeed(data ?? EMPTY_FEED);
+        if (!controller.signal.aborted) setFeed(data ?? EMPTY_FEED);
       })
       .catch((error) => {
-        if (!cancelled) {
-          dispatch({
-            type: 'notice/show',
-            message: safeErrorMessage(error),
-          });
-          setFeed(EMPTY_FEED);
-        }
+        if (controller.signal.aborted) return;
+        dispatch({
+          type: 'notice/show',
+          message: safeErrorMessage(error),
+        });
+        setFeed(EMPTY_FEED);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [settings.provider]);
 
@@ -163,21 +169,20 @@ export function App() {
       dispatch({ type: 'results/clear' });
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     dispatch({ type: 'results/loading' });
-    searchCatalog(q)
+    searchCatalog(q, '', controller.signal)
       .then((results) => {
-        if (!cancelled)
+        if (!controller.signal.aborted)
           dispatch({ type: 'results/set', results: Array.isArray(results) ? results : [] });
       })
       .catch((error) => {
-        if (!cancelled) {
-          dispatch({ type: 'results/clear' });
-          dispatch({ type: 'notice/show', message: safeErrorMessage(error) });
-        }
+        if (controller.signal.aborted) return;
+        dispatch({ type: 'results/clear' });
+        dispatch({ type: 'notice/show', message: safeErrorMessage(error) });
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [debouncedQuery, state.view]);
 
@@ -203,6 +208,14 @@ export function App() {
   // playback session.
   const playerSessionRef = useRef(0);
 
+  // Remember which hub/episode produced the currently-playing stream so that
+  // when playback itself fails (undecodable container, dead CDN), the next
+  // resolution pass can skip it and fall through to the next candidate.
+  const lastMovieHubRef = useRef<string | undefined>(undefined);
+  const lastEpisodeRef = useRef<{ link: string; title: string } | undefined>(undefined);
+  const lastMetaRef = useRef<Meta | null>(null);
+  const resolvingMoreRef = useRef(false);
+
   const onPlay = useCallback(
     async (item: Media, hubOverride?: string) => {
       const session = ++playerSessionRef.current;
@@ -210,6 +223,7 @@ export function App() {
       try {
         const meta = await getMeta(item.link, item.providerId ?? settings.provider);
         if (session !== playerSessionRef.current) return;
+        lastMetaRef.current = meta;
         const isSeries = (meta.type || item.type) === 'series';
         const hub = hubOverride?.trim() || pickBestHubUrl(meta);
         if (!hub) {
@@ -227,8 +241,10 @@ export function App() {
           }
           // Try each episode link in order so one slow/dead episode hub can't
           // block playback of the series.
-          const stream = await getStreamFallback(episodes, settings.provider);
+          const { stream, episode } = await getStreamFallback(episodes, settings.provider);
           if (session !== playerSessionRef.current) return;
+          lastEpisodeRef.current = episode;
+          lastMovieHubRef.current = undefined;
           dispatch({
             type: 'player/playing',
             item,
@@ -239,8 +255,10 @@ export function App() {
           return;
         }
 
-        const stream = await resolveMovieStream(meta, settings.provider);
+        const { stream, hub: resolvedHub } = await resolveMovieStream(meta, settings.provider);
         if (session !== playerSessionRef.current) return;
+        lastMovieHubRef.current = resolvedHub;
+        lastEpisodeRef.current = undefined;
         dispatch({
           type: 'player/playing',
           item,
@@ -332,6 +350,8 @@ export function App() {
         try {
           const stream = await getStream(item.link, 'series', settings.provider);
           if (session !== playerSessionRef.current) return;
+          lastEpisodeRef.current = item;
+          lastMovieHubRef.current = undefined;
           dispatch({
             type: 'player/playing',
             item: parent,
@@ -356,6 +376,68 @@ export function App() {
     [state.playing, settings.provider],
   );
 
+  // Playback-level fallback: the player walks the sources of the current
+  // stream (skipping stalls and hard errors); when they're all exhausted the
+  // hub/episode that produced them is marked failed and the whole resolution
+  // re-runs — the negative cache skips the dead candidate and the next
+  // quality hub (or episode) takes over.
+  const onSourcesExhausted = useCallback(async () => {
+    if (resolvingMoreRef.current) return;
+    if (state.playing.kind !== 'playing') return;
+    const session = playerSessionRef.current;
+    const item = state.playing.item;
+    const prevEpisodes = state.playing.episodes;
+    resolvingMoreRef.current = true;
+    dispatch({
+      type: 'player/loading',
+      item,
+      episode: state.playing.episode,
+      episodes: prevEpisodes,
+    });
+    try {
+      if (prevEpisodes.length > 0) {
+        if (lastEpisodeRef.current) {
+          rememberStreamFailure(settings.provider, 'series', lastEpisodeRef.current.link);
+        }
+        const { stream, episode } = await getStreamFallback(prevEpisodes, settings.provider);
+        if (session !== playerSessionRef.current) return;
+        lastEpisodeRef.current = episode;
+        dispatch({
+          type: 'player/playing',
+          item,
+          episode: episode.title,
+          stream,
+          episodes: prevEpisodes,
+        });
+        return;
+      }
+      if (!lastMetaRef.current) throw new Error('No further sources available');
+      if (lastMovieHubRef.current) {
+        rememberStreamFailure(settings.provider, 'movie', lastMovieHubRef.current);
+      }
+      const { stream, hub } = await resolveMovieStream(lastMetaRef.current, settings.provider);
+      if (session !== playerSessionRef.current) return;
+      lastMovieHubRef.current = hub;
+      dispatch({
+        type: 'player/playing',
+        item,
+        episode: '1',
+        stream,
+        episodes: [],
+      });
+    } catch (error) {
+      if (session !== playerSessionRef.current) return;
+      dispatch({
+        type: 'player/error',
+        message: `No playable stream was returned for this title. ${safeErrorMessage(error)}`,
+        item,
+        episodes: prevEpisodes,
+      });
+    } finally {
+      resolvingMoreRef.current = false;
+    }
+  }, [state.playing, settings.provider]);
+
   const featured = feed?.featured ?? [];
   const newest = feed?.newest ?? [];
   const movies = feed?.movies ?? [];
@@ -378,102 +460,136 @@ export function App() {
     // offsets would linger.
     <MotionConfig reducedMotion="user">
       <main className="min-h-screen bg-background text-foreground">
-        <Header
-          view={state.view}
-          query={state.query}
-          mobileSearchOpen={mobileSearchOpen}
-          onSetMobileSearchOpen={setMobileSearchOpen}
-          onSetView={onSetView}
-          onQueryChange={onQueryChange}
-          onSubmit={onSubmit}
-          libraryCount={library.items.length}
-        />
-        {state.notice && (
-          <Notice
-            message={state.notice.message}
-            onDismiss={() => dispatch({ type: 'notice/dismiss' })}
-          />
-        )}
-        {/* Bottom padding accounts for the fixed MobileNav on phones (h-14
-          plus the safe-area inset). md+ uses a calmer gutter. */}
-        <div className="mx-auto max-w-[1500px] px-4 pb-[calc(var(--safe-bottom)+4rem)] sm:px-6 sm:pb-16 md:px-8">
-          {state.view === 'home' && (
-            <>
-              {loading ? (
-                <HeroSkeleton />
-              ) : (
-                <Hero
-                  item={hero ?? null}
-                  providerName={providerName}
-                  inLibrary={hero ? library.has(hero.link) : false}
-                  onPlay={onPlay}
-                  onToggleLibrary={library.toggle}
+        <AnimatePresence initial={false}>
+          {state.notice && (
+            <Notice
+              message={state.notice.message}
+              onDismiss={() => dispatch({ type: 'notice/dismiss' })}
+            />
+          )}
+        </AnimatePresence>
+        {/* Bottom padding clears the fixed dock (present on every screen size)
+          plus the safe-area inset on phones; pt-safe clears the status bar
+          now that there's no top bar. */}
+        <div className="mx-auto max-w-[1500px] px-4 pt-safe pb-[calc(var(--safe-bottom)+6.5rem)] sm:px-6 sm:pb-20 md:px-8">
+          {/* View crossfade: switching views fades the old content out and
+            rises the new one in. mode="wait" keeps the two from stacking
+            (the scroll position would jump otherwise); initial={false}
+            skips the animation on first paint — the Hero has its own
+            entrance and the LCP shouldn't wait on this wrapper. */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={state.view}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: DURATIONS.page, ease: EASE }}
+            >
+              {state.view === 'home' && (
+                <>
+                  {loading ? (
+                    <HeroSkeleton />
+                  ) : (
+                    <Hero
+                      item={hero ?? null}
+                      providerName={providerName}
+                      inLibrary={hero ? library.has(hero.link) : false}
+                      onPlay={onPlay}
+                      onToggleLibrary={library.toggle}
+                      onPreloadPlay={preloadPlayer}
+                      onSearch={() => {
+                        if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
+                      }}
+                    />
+                  )}
+                  <ContinueWatching provider={settings.provider} onResume={onPlay} />
+                  <Rail
+                    title="Newest arrivals"
+                    items={newest}
+                    onOpen={onOpen}
+                    loading={loading}
+                    priorityFirst
+                  />
+                  <Rail
+                    title="Trending this week"
+                    items={trending}
+                    onOpen={onOpen}
+                    loading={loading}
+                  />
+                  {/* Movies & Series sit side-by-side on lg+ using a 2-col CSS
+                    grid. Each rail's <section> is one grid cell; the cell's
+                    width is half the content area, so basis-[160px] cards
+                    reflow correctly. On smaller screens the grid collapses to a
+                    single column and the rails stack. */}
+                  <div className="grid items-start gap-6 md:grid-cols-2 md:gap-8 xl:gap-10">
+                    <motion.div
+                      variants={viewFadeUp}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={VIEWPORT}
+                      className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-xs sm:p-5"
+                    >
+                      <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
+                    </motion.div>
+                    <motion.div
+                      variants={viewFadeUp}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={VIEWPORT}
+                      className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-xs sm:p-5"
+                    >
+                      <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
+                    </motion.div>
+                  </div>
+                </>
+              )}
+              {state.view === 'search' && (
+                <Results
+                  query={state.query}
+                  results={state.results}
+                  loading={state.resultsLoading}
+                  history={history.items}
+                  onQueryChange={onQueryChange}
+                  onSubmit={onSubmit}
+                  onOpen={onOpen}
+                  onHistoryRemove={history.remove}
+                  onHistoryClear={history.clear}
+                  onHistorySearch={(q) => {
+                    dispatch({ type: 'query/set', query: q });
+                    void runSearch(q);
+                  }}
                 />
               )}
-              <ContinueWatching provider={settings.provider} onResume={onPlay} />
-              <Rail title="Newest arrivals" items={newest} onOpen={onOpen} loading={loading} />
-              <Rail title="Trending this week" items={trending} onOpen={onOpen} loading={loading} />
-              {/* Movies & Series sit side-by-side on lg+ using a 2-col CSS
-                grid. Each rail's <section> is one grid cell; the cell's
-                width is half the content area, so basis-[160px] cards
-                reflow correctly. On smaller screens the grid collapses to a
-                single column and the rails stack. */}
-              <div className="grid items-start gap-6 md:grid-cols-2 md:gap-8 xl:gap-10">
-                <div className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-sm sm:p-5">
-                  <Rail title="Movies" items={movies} onOpen={onOpen} loading={loading} />
-                </div>
-                <div className="min-w-0 rounded-3xl border border-border/70 bg-card/35 p-4 shadow-sm sm:p-5">
-                  <Rail title="Series" items={series} onOpen={onOpen} loading={loading} />
-                </div>
-              </div>
-            </>
-          )}
-          {state.view === 'search' && (
-            <Results
-              query={state.query}
-              results={state.results}
-              loading={state.resultsLoading}
-              history={history.items}
-              onQueryChange={onQueryChange}
-              onSubmit={onSubmit}
-              onOpen={onOpen}
-              onHistoryRemove={history.remove}
-              onHistoryClear={history.clear}
-              onHistorySearch={(q) => {
-                dispatch({ type: 'query/set', query: q });
-                void runSearch(q);
-              }}
-            />
-          )}
-          {state.view === 'library' && (
-            <Library
-              items={library.items}
-              onOpen={onOpen}
-              onSearch={() => {
-                setMobileSearchOpen(true);
-                if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
-              }}
-            />
-          )}
-          {state.view === 'settings' && (
-            <SettingsView
-              settings={settings}
-              update={update}
-              toggleExcludedQuality={toggleExcludedQuality}
-              providers={providers.providers}
-              providersLoading={providers.loading}
-              providersRefreshing={providers.refreshing}
-              providersError={providers.error}
-              refreshProviders={providers.refresh}
-            />
-          )}
+              {state.view === 'library' && (
+                <Library
+                  items={library.items}
+                  provider={settings.provider}
+                  onOpen={onOpen}
+                  onSearch={() => {
+                    if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
+                  }}
+                />
+              )}
+              {state.view === 'settings' && (
+                <SettingsView
+                  settings={settings}
+                  update={update}
+                  toggleExcludedQuality={toggleExcludedQuality}
+                  providers={providers.providers}
+                  providersLoading={providers.loading}
+                  providersRefreshing={providers.refreshing}
+                  providersError={providers.error}
+                  refreshProviders={providers.refresh}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
-        <MobileNav
+        <FloatingMenu
           view={state.view}
           libraryCount={library.items.length}
           onSetView={onSetView}
           onOpenSearch={() => {
-            setMobileSearchOpen(true);
             if (state.view !== 'search') dispatch({ type: 'view/set', view: 'search' });
           }}
         />
@@ -487,6 +603,7 @@ export function App() {
               onClose={() => dispatch({ type: 'selected/close' })}
               onPlay={onPlay}
               onToggleLibrary={library.toggle}
+              onPreloadPlay={preloadPlayer}
             />
           )}
         </AnimatePresence>
@@ -510,12 +627,14 @@ export function App() {
               loading={state.playing.kind === 'loading'}
               errorMessage={state.playing.kind === 'error' ? state.playing.message : undefined}
               defaultPlaybackRate={settings.defaultPlaybackRate}
+              autoAdvance={settings.autoAdvance}
               provider={settings.provider}
               onClose={() => {
                 playerSessionRef.current++;
                 dispatch({ type: 'player/close' });
               }}
               onSelectEpisode={onSelectEpisode}
+              onSourcesExhausted={onSourcesExhausted}
             />
           )}
         </AnimatePresence>
