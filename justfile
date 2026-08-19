@@ -1,8 +1,8 @@
-# Command runner for the harustream Next.js app.
+# Command runner for the harustream single Next.js app.
 # Requires `just` (brew install just).
 
 # --- configuration ----------------------------------------------------------
-npm := env_var_or_default('NPM', 'npm')
+npm := env_var_or_default('NPM', 'pnpm')
 port := env_var_or_default('PORT', '3000')
 
 # --- help -------------------------------------------------------------------
@@ -13,10 +13,13 @@ help:
 
 # --- dependencies -----------------------------------------------------------
 setup:
-    {{npm}} ci
+    {{npm}} install
 
 # --- development ------------------------------------------------------------
 dev:
+    set -a
+    source .env
+    set +a
     {{npm}} run dev
 
 # --- production build & serve ------------------------------------------------

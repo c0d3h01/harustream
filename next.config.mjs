@@ -2,12 +2,14 @@
 const nextConfig = {
   agentRules: false,
   images: {
-    unoptimized: true,
+    // Artwork optimization is on: every poster/backdrop/logo is a next/image
+    // whose src is a relative /api/image/<encoded-upstream> URL (the
+    // SSRF-guarded proxy in app/api/image). The upstream URL is carried as a
+    // path segment, not a query string, so the optimizer never needs a
+    // localPatterns entry and no CDN allowlist is required.
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 86400,
   },
-  // ffmpeg-static ships a platform binary inside the package; it must stay
-  // external so Turbopack doesn't try to bundle it and Vercel includes the
-  // full package (with the linux binary) in the /api/play function.
-  serverExternalPackages: ['ffmpeg-static'],
   experimental: {
     // Rewrite barrel imports to direct paths at build time. Cuts the
     // 200-800ms lucide-react cold-start cost on every page load. base-ui

@@ -1,3 +1,4 @@
-allowBuilds:
-  ffmpeg-static: true
-  msw: true
+# pnpm settings for this single package (not a monorepo).
+# `onlyBuiltDependencies` lives here in pnpm v11.
+onlyBuiltDependencies:
+  - msw
