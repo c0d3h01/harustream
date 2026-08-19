@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { featuredFeedAll, featuredFeedFor } from '@/lib/providers/runtime';
+import { getFeaturedFeed } from '@/media/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +21,7 @@ export async function GET(request: Request) {
   const provider = url.searchParams.get('provider')?.trim() || undefined;
   const preferred = url.searchParams.get('preferred')?.trim() || undefined;
   try {
-    const feed = provider
-      ? await featuredFeedFor(provider, request.signal)
-      : await featuredFeedAll(request.signal, preferred);
+    const feed = await getFeaturedFeed(provider, preferred, request.signal);
     log.info(
       {
         requestId,

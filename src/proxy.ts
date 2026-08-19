@@ -28,7 +28,7 @@ export function proxy(request: NextRequest) {
     level: 'info',
     requestId,
     method,
-    path: `${pathname}${search ? `?${search}` : ''}`,
+    path: `${pathname}${search}`,
     durationMs,
     env: isDev ? 'dev' : 'prod',
   });

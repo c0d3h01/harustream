@@ -158,18 +158,31 @@ export const StreamSchema = z.array(SourceSchema).optional();
 export type Stream = z.infer<typeof StreamSchema>;
 
 export type ResolvedStream =
-  | { kind: 'sources'; sources: { server?: string; link: string; type?: string }[] }
+  | {
+      kind: 'sources';
+      sources: { server?: string; link: string; type?: string; headers?: Record<string, string> }[];
+    }
   | { kind: 'none' };
 
 export function resolveStream(stream: Stream | null | undefined): ResolvedStream {
   if (!stream || !Array.isArray(stream) || stream.length === 0) {
     return { kind: 'none' };
   }
-  const sources: { server?: string; link: string; type?: string }[] = [];
+  const sources: {
+    server?: string;
+    link: string;
+    type?: string;
+    headers?: Record<string, string>;
+  }[] = [];
   for (const s of stream) {
     const link = s.link ?? s.url;
     if (!link) continue;
-    sources.push({ server: s.server ?? undefined, link, type: s.type ?? undefined });
+    sources.push({
+      server: s.server ?? undefined,
+      link,
+      type: s.type ?? undefined,
+      headers: s.headers ?? undefined,
+    });
   }
   if (sources.length === 0) return { kind: 'none' };
   return { kind: 'sources', sources };

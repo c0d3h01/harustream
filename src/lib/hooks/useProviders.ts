@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type Provider, setAvailableProviders } from '@/lib/api/providers';
+import { type Provider, setAvailableProviders } from '@/lib/state/providers';
 
 // Live provider availability. The provider list is fetched from the upstream
 // `/api/providers` endpoint at runtime — nothing is hardcoded or read from

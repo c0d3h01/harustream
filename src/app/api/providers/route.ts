@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import type { Provider } from '@/lib/api/providers';
 import { requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { getExecutableProviders } from '@/lib/providers/manifest';
+import type { Provider } from '@/lib/state/providers';
+import { getExecutableProviders } from '@/providers';
 
 export const dynamic = 'force-dynamic';
 
