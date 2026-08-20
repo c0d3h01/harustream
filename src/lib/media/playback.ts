@@ -10,6 +10,15 @@
 
 const PROXY_HEADER_PARAMS = ['referer', 'origin', 'userAgent', 'cookie'] as const;
 
+// The proxy origin media requests go to. Defaults to the app's own origin
+// (relative /api/proxy). Set NEXT_PUBLIC_STREAM_PROXY_URL to stream through a
+// standalone proxy server on a host whose IP provider CDNs will accept (a
+// Vercel deployment's datacenter IPs are blocked by some CDNs).
+function proxyBase(): string {
+  const base = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL ?? '').trim();
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
+
 export function playbackUrl(url: string, headers?: Record<string, string> | null): string {
   if (!url) return '';
   const params = new URLSearchParams({ url });
@@ -19,7 +28,7 @@ export function playbackUrl(url: string, headers?: Record<string, string> | null
       if (value) params.set(param, value);
     }
   }
-  return `/api/proxy?${params.toString()}`;
+  return `${proxyBase()}/api/proxy?${params.toString()}`;
 }
 
 // Provider modules are inconsistent about header casing (Referer vs referer),

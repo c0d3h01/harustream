@@ -34,6 +34,11 @@ export type ProxyOptions = {
   range?: string | null;
   signal?: AbortSignal;
   headers?: Partial<Record<ProxyHeaderParam, string>>;
+  // The proxy's own public origin (no trailing slash, e.g. https://proxy.example.com).
+  // When set, rewritten HLS URLs are absolute and point at this origin; when
+  // empty, they stay relative (/api/proxy) so the browser resolves them against
+  // the app origin — the same-origin deployment case.
+  origin?: string;
 };
 
 // Whether a manifest should be rewritten as HLS.
@@ -49,10 +54,13 @@ function isHlsManifest(contentType: string | null, url: string): boolean {
 // Build the proxied href for an upstream media URL. Relative URLs are
 // resolved against the manifest they were found in. `headers` are appended
 // in a fixed order (referer, origin, userAgent, cookie) after the url param.
+// When `origin` is provided (the proxy's own public origin) the href is
+// absolute; otherwise it stays relative to the serving origin.
 export function proxiedUrl(
   raw: string,
   base?: string,
   headers: Partial<Record<ProxyHeaderParam, string>> = {},
+  origin = '',
 ): string {
   const target = base ? new URL(raw, base).toString() : raw;
   const params = new URLSearchParams({ url: target });
@@ -60,20 +68,23 @@ export function proxiedUrl(
     const value = headers[key];
     if (value) params.set(key, value);
   }
-  return `/api/proxy?${params.toString()}`;
+  const prefix = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+  return `${prefix}/api/proxy?${params.toString()}`;
 }
 
 // Rewrite an HLS manifest so every nested URI (segments, keys, sub-playlists,
 // map/init segments, media tracks) points back at /api/proxy. Non-URI lines
-// (comments, attributes without URI=) are left untouched.
+// (comments, attributes without URI=) are left untouched. `origin` is the
+// proxy's public origin for absolute rewritten URLs (standalone deployment).
 export function rewriteHlsManifest(
   manifest: string,
   manifestUrl: string,
   headers: Partial<Record<ProxyHeaderParam, string>> = {},
+  origin = '',
 ): string {
   const resolve = (raw: string) => {
     try {
-      return proxiedUrl(raw, manifestUrl, headers);
+      return proxiedUrl(raw, manifestUrl, headers, origin);
     } catch {
       return raw;
     }
@@ -227,7 +238,7 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
   // HLS manifests need rewriting before they're usable from the browser.
   if (isHlsManifest(contentType, url)) {
     const text = (await upstream.text()).slice(0, MAX_MANIFEST_BYTES);
-    const rewritten = rewriteHlsManifest(text, url, options.headers);
+    const rewritten = rewriteHlsManifest(text, url, options.headers, options.origin);
     passthrough['Content-Type'] = 'application/vnd.apple.mpegurl';
     passthrough['Cache-Control'] = 'public, max-age=60';
     // The rewritten body differs from the upstream bytes — the passed-
