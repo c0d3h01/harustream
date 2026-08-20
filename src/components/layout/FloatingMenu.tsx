@@ -40,21 +40,21 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
     {
       id: 'home',
       label: 'Browse',
-      icon: <Home className="size-5" />,
+      icon: <Home className="size-4.5" />,
       active: view === 'home',
       onSelect: () => onSetView('home'),
     },
     {
       id: 'search',
       label: 'Search',
-      icon: <Search className="size-5" />,
+      icon: <Search className="size-4.5" />,
       active: view === 'search',
       onSelect: onOpenSearch,
     },
     {
       id: 'library',
       label: 'My list',
-      icon: <Bookmark className="size-5" />,
+      icon: <Bookmark className="size-4.5" />,
       active: view === 'library',
       onSelect: () => onSetView('library'),
       badge: libraryCount > 0,
@@ -62,7 +62,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
     {
       id: 'settings',
       label: 'Settings',
-      icon: <Settings className="size-5" />,
+      icon: <Settings className="size-4.5" />,
       active: view === 'settings',
       onSelect: () => onSetView('settings'),
     },
@@ -80,7 +80,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
         initial={{ opacity: 0, y: 24, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: DURATIONS.slow, ease: EASE }}
-        className="scrollbar-none flex max-w-[calc(100vw-1.5rem)] items-end gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/95 px-1.5 pt-1.5 pb-2 shadow-2xl shadow-background/50 sm:gap-2 sm:px-2"
+        className="scrollbar-none flex max-w-[calc(100vw-1.5rem)] items-end gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/95 px-1.5 pt-1 pb-1.5 shadow-2xl shadow-background/50 sm:gap-2 sm:px-2"
       >
         {items.map((item) => (
           <li key={item.id}>
@@ -89,7 +89,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
               onClick={item.onSelect}
               aria-current={item.active ? 'page' : undefined}
               className={cn(
-                'group flex flex-col items-center gap-1 rounded-xl px-2 pt-2 pb-1 transition hover:bg-secondary/70 sm:px-3',
+                'group flex flex-col items-center gap-0.5 rounded-xl px-2 pt-1.5 pb-0.5 transition hover:bg-secondary/70 sm:px-3',
                 item.active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -97,7 +97,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
                 whileHover={{ scale: 1.18, y: -3 }}
                 transition={SPRING}
                 className={cn(
-                  'relative grid size-9 place-items-center rounded-full transition-colors duration-200',
+                  'relative grid size-8 place-items-center rounded-full transition-colors duration-200',
                   !item.active && 'bg-secondary',
                 )}
               >
@@ -129,7 +129,7 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
           </li>
         ))}
 
-        <li aria-hidden="true" className="mx-0.5 h-8 w-px shrink-0 bg-border/60 sm:mx-1" />
+        <li aria-hidden="true" className="mx-0.5 h-7 w-px shrink-0 bg-border/60 sm:mx-1" />
 
         {/* GitHub — links out to the project repository in a new tab. */}
         <li className="shrink-0">
@@ -138,18 +138,16 @@ export function FloatingMenu({ view, libraryCount, onSetView, onOpenSearch }: Pr
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub repository"
-            className="group flex flex-col items-center gap-1 rounded-xl px-1.5 pt-2 pb-1 text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden sm:px-3"
+            className="group flex flex-col items-center gap-0.5 rounded-xl px-1.5 pt-1.5 pb-0.5 text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden sm:px-3"
           >
             <motion.span
               whileHover={{ scale: 1.18, y: -3 }}
               transition={SPRING}
-              className="relative grid size-9 place-items-center rounded-full bg-secondary transition-colors duration-200"
+              className="relative grid size-8 place-items-center rounded-full bg-secondary transition-colors duration-200"
             >
-              <GithubIcon className="size-5" />
+              <GithubIcon className="size-4.5" />
             </motion.span>
-            <span className="invisible text-[10px] font-medium tracking-wide sm:visible sm:text-[11px]">
-              GitHub
-            </span>
+            <span className="text-[10px] font-medium tracking-wide sm:text-[11px]">GitHub</span>
             <span className="h-1 w-1 opacity-0" aria-hidden="true" />
           </a>
         </li>
