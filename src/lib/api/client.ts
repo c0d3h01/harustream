@@ -18,14 +18,30 @@ import {
 } from './types';
 
 export { getAvailableProviders, providerById } from '../state/providers';
-export type { Category, Episode, Media, Meta, Stream } from './types';
+export type {
+  AudioLanguage,
+  Category,
+  Episode,
+  HubQuality,
+  Media,
+  Meta,
+  Stream,
+  SubtitleTrack,
+} from './types';
 export {
+  audioLanguageForHub,
+  audioLanguagesFrom,
+  hubQualitiesFrom,
+  hubQualityForHub,
   imageFor,
+  isAudioLanguageEntry,
+  isQualityLabel,
   pickBestHubUrl,
   pickHubUrl,
   resolveStream,
   shortTitleFor,
   sortLinkListByQuality,
+  subtitleTracksFrom,
   titleFor,
 } from './types';
 

@@ -14,11 +14,15 @@ import {
 } from 'react';
 import { DURATIONS, EASE, VIEWPORT, viewFadeUp } from '@/components/motion';
 import {
+  audioLanguageForHub,
+  audioLanguagesFrom,
   type FeaturedFeed,
   getFeatured,
   getMeta,
   getStream,
   getStreamFallback,
+  hubQualitiesFrom,
+  hubQualityForHub,
   type Media,
   type Meta,
   pickBestHubUrl,
@@ -251,6 +255,10 @@ export function App() {
             episode: episodes[0].title,
             stream,
             episodes,
+            audioLanguages: [],
+            audioLanguage: undefined,
+            hubQualities: [],
+            hubQuality: undefined,
           });
           return;
         }
@@ -259,12 +267,26 @@ export function App() {
         if (session !== playerSessionRef.current) return;
         lastMovieHubRef.current = resolvedHub;
         lastEpisodeRef.current = undefined;
+        // Multi-language WEB-DLs list one linkList entry per audio language;
+        // the player exposes them in its Audio menu (original first). The
+        // resolver prefers provider order among equal ranks, so the original
+        // language is the default.
+        const audioLanguages = audioLanguagesFrom(meta);
+        const audioLanguage = audioLanguageForHub(audioLanguages, resolvedHub);
+        // Advertised resolutions (480p/720p/1080p hubs) drive the player's
+        // Quality menu; the resolved hub tells us which one is active.
+        const hubQualities = hubQualitiesFrom(meta);
+        const hubQuality = hubQualityForHub(hubQualities, resolvedHub);
         dispatch({
           type: 'player/playing',
           item,
           episode: '1',
           stream,
           episodes: [],
+          audioLanguages,
+          audioLanguage,
+          hubQualities,
+          hubQuality,
         });
       } catch (error) {
         if (session !== playerSessionRef.current) return;
@@ -358,6 +380,8 @@ export function App() {
             episode: item.title,
             stream,
             episodes: prevEpisodes,
+            hubQualities: [],
+            hubQuality: undefined,
           });
         } catch (error) {
           rememberStreamFailure(settings.provider, 'series', item.link);
@@ -376,6 +400,146 @@ export function App() {
     [state.playing, settings.provider],
   );
 
+  // Audio-language switch (movies with one linkList entry per language). The
+  // player calls this with the language label; we re-resolve that language's
+  // direct links into a fresh stream and swap it in, remembering failures so
+  // a dead link is skipped on retry. The language list rides along so the
+  // Audio menu stays populated through the loading→playing cycle.
+  const onSelectLanguage = useCallback(
+    async (label: string) => {
+      if (state.playing.kind !== 'playing') return;
+      const languages = state.playing.audioLanguages ?? [];
+      const language = languages.find((l) => l.label === label);
+      if (!language) return;
+      const session = ++playerSessionRef.current;
+      const parent = state.playing.item;
+      const prevEpisodes = state.playing.episodes;
+      const hubQualities = state.playing.hubQualities;
+      const hubQuality = state.playing.hubQuality;
+      dispatch({
+        type: 'player/loading',
+        item: parent,
+        episode: state.playing.episode,
+        episodes: prevEpisodes,
+        audioLanguages: languages,
+        audioLanguage: label,
+        hubQualities,
+        hubQuality,
+      });
+      let lastError: unknown;
+      for (const hub of language.hubs) {
+        try {
+          const stream = await getStream(hub, 'movie', settings.provider);
+          if (session !== playerSessionRef.current) return;
+          if (stream && stream.length > 0) {
+            lastMovieHubRef.current = hub;
+            lastEpisodeRef.current = undefined;
+            dispatch({
+              type: 'player/playing',
+              item: parent,
+              episode: state.playing.episode,
+              stream,
+              episodes: prevEpisodes,
+              audioLanguages: languages,
+              audioLanguage: label,
+              hubQualities,
+              hubQuality,
+            });
+            return;
+          }
+          rememberStreamFailure(settings.provider, 'movie', hub);
+        } catch (error) {
+          lastError = error;
+          rememberStreamFailure(settings.provider, 'movie', hub);
+        }
+        if (session !== playerSessionRef.current) return;
+      }
+      dispatch({
+        type: 'player/error',
+        message: `Couldn't switch audio to ${label}. ${
+          safeErrorMessage(lastError) || 'No playable stream was returned for this language.'
+        }`,
+        item: parent,
+        episodes: prevEpisodes,
+        audioLanguages: languages,
+        audioLanguage: label,
+        hubQualities,
+        hubQuality,
+      });
+    },
+    [state.playing, settings.provider],
+  );
+
+  // Quality switch (movies with one linkList entry per advertised resolution).
+  // Same pattern as the audio-language switch: re-resolve that quality's hubs
+  // into a fresh stream and swap it in, remembering failures so a dead link is
+  // skipped on retry. The quality list rides along so the Quality menu stays
+  // populated through the loading→playing cycle.
+  const onSelectQuality = useCallback(
+    async (label: string) => {
+      if (state.playing.kind !== 'playing') return;
+      const qualities = state.playing.hubQualities ?? [];
+      const quality = qualities.find((q) => q.label === label);
+      if (!quality) return;
+      const session = ++playerSessionRef.current;
+      const parent = state.playing.item;
+      const prevEpisodes = state.playing.episodes;
+      const audioLanguages = state.playing.audioLanguages;
+      const audioLanguage = state.playing.audioLanguage;
+      dispatch({
+        type: 'player/loading',
+        item: parent,
+        episode: state.playing.episode,
+        episodes: prevEpisodes,
+        audioLanguages,
+        audioLanguage,
+        hubQualities: qualities,
+        hubQuality: label,
+      });
+      let lastError: unknown;
+      for (const hub of quality.hubs) {
+        try {
+          const stream = await getStream(hub, 'movie', settings.provider);
+          if (session !== playerSessionRef.current) return;
+          if (stream && stream.length > 0) {
+            lastMovieHubRef.current = hub;
+            lastEpisodeRef.current = undefined;
+            dispatch({
+              type: 'player/playing',
+              item: parent,
+              episode: state.playing.episode,
+              stream,
+              episodes: prevEpisodes,
+              audioLanguages,
+              audioLanguage,
+              hubQualities: qualities,
+              hubQuality: label,
+            });
+            return;
+          }
+          rememberStreamFailure(settings.provider, 'movie', hub);
+        } catch (error) {
+          lastError = error;
+          rememberStreamFailure(settings.provider, 'movie', hub);
+        }
+        if (session !== playerSessionRef.current) return;
+      }
+      dispatch({
+        type: 'player/error',
+        message: `Couldn't switch quality to ${label}. ${
+          safeErrorMessage(lastError) || 'No playable stream was returned for this quality.'
+        }`,
+        item: parent,
+        episodes: prevEpisodes,
+        audioLanguages,
+        audioLanguage,
+        hubQualities: qualities,
+        hubQuality: label,
+      });
+    },
+    [state.playing, settings.provider],
+  );
+
   // Playback-level fallback: the player walks the sources of the current
   // stream (skipping stalls and hard errors); when they're all exhausted the
   // hub/episode that produced them is marked failed and the whole resolution
@@ -388,11 +552,19 @@ export function App() {
     const item = state.playing.item;
     const prevEpisodes = state.playing.episodes;
     resolvingMoreRef.current = true;
+    const audioLanguages = state.playing.audioLanguages;
+    const audioLanguage = state.playing.audioLanguage;
+    const hubQualities = state.playing.hubQualities;
+    const hubQuality = state.playing.hubQuality;
     dispatch({
       type: 'player/loading',
       item,
       episode: state.playing.episode,
       episodes: prevEpisodes,
+      audioLanguages,
+      audioLanguage,
+      hubQualities,
+      hubQuality,
     });
     try {
       if (prevEpisodes.length > 0) {
@@ -408,6 +580,10 @@ export function App() {
           episode: episode.title,
           stream,
           episodes: prevEpisodes,
+          audioLanguages: [],
+          audioLanguage: undefined,
+          hubQualities: [],
+          hubQuality: undefined,
         });
         return;
       }
@@ -418,12 +594,20 @@ export function App() {
       const { stream, hub } = await resolveMovieStream(lastMetaRef.current, settings.provider);
       if (session !== playerSessionRef.current) return;
       lastMovieHubRef.current = hub;
+      const nextLanguages = audioLanguagesFrom(lastMetaRef.current);
+      const nextLanguage = audioLanguageForHub(nextLanguages, hub);
+      const nextHubQualities = hubQualitiesFrom(lastMetaRef.current);
+      const nextHubQuality = hubQualityForHub(nextHubQualities, hub);
       dispatch({
         type: 'player/playing',
         item,
         episode: '1',
         stream,
         episodes: [],
+        audioLanguages: nextLanguages,
+        audioLanguage: nextLanguage,
+        hubQualities: nextHubQualities,
+        hubQuality: nextHubQuality,
       });
     } catch (error) {
       if (session !== playerSessionRef.current) return;
@@ -432,6 +616,10 @@ export function App() {
         message: `No playable stream was returned for this title. ${safeErrorMessage(error)}`,
         item,
         episodes: prevEpisodes,
+        audioLanguages,
+        audioLanguage,
+        hubQualities,
+        hubQuality,
       });
     } finally {
       resolvingMoreRef.current = false;
@@ -599,7 +787,6 @@ export function App() {
               item={state.selected.item}
               meta={state.selected.meta}
               inLibrary={library.has(state.selected.item.link)}
-              excludedQualities={settings.excludedQualities}
               onClose={() => dispatch({ type: 'selected/close' })}
               onPlay={onPlay}
               onToggleLibrary={library.toggle}
@@ -626,6 +813,12 @@ export function App() {
               }
               loading={state.playing.kind === 'loading'}
               errorMessage={state.playing.kind === 'error' ? state.playing.message : undefined}
+              audioLanguages={state.playing.audioLanguages}
+              audioLanguage={state.playing.audioLanguage}
+              hubQualities={state.playing.hubQualities}
+              hubQuality={state.playing.hubQuality}
+              onSelectLanguage={onSelectLanguage}
+              onSelectQuality={onSelectQuality}
               defaultPlaybackRate={settings.defaultPlaybackRate}
               autoAdvance={settings.autoAdvance}
               provider={settings.provider}

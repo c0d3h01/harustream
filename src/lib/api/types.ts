@@ -116,8 +116,107 @@ export function sortLinkListByQuality(list?: LinkEntry[] | null): LinkEntry[] {
   });
 }
 
+// --- Audio languages ---
+
+// A label is a resolution/quality label when it carries a resolution marker.
+// Providers use these for genuine quality entries ("1080p", "4K", "WEB-DL",
+// "BluRay", …); a movie's linkList is otherwise one entry per audio language
+// ("English", "Hindi (Dual Audio)", …).
+export function isQualityLabel(label?: string | null): boolean {
+  const text = (label ?? '').toLowerCase();
+  if (
+    /(\d{3,4})\s*p\b|4k\b|uhd\b|fhd\b|qhd\b|hdr\b|blu-?ray\b|web-?dl\b|hdrip\b|brrip\b|bdrip\b|hdts\b|\bcam\b|screener\b|dvd-?rip\b/i.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  return qualityRank(label) > 0;
+}
+
+// Multi-language WEB-DLs come back as one linkList entry per language: each
+// entry carries direct playable links but no resolution marker, so it is not
+// a quality/season selector and belongs in the player's Audio menu instead.
+export function isAudioLanguageEntry(entry: LinkEntry): boolean {
+  if (!entry.directLinks?.length) return false;
+  return !isQualityLabel(entry.title ?? entry.quality);
+}
+
+export type AudioLanguage = { label: string; hubs: string[] };
+
+// Collects the audio-language options from a movie's linkList in provider
+// order (the original language is listed first; the stable sort keeps that
+// order for the equally-ranked language entries). Only entries carrying
+// direct playable links and no resolution marker count.
+export function audioLanguagesFrom(
+  meta: Pick<Meta, 'linkList'> | null | undefined,
+): AudioLanguage[] {
+  const languages: AudioLanguage[] = [];
+  const seen = new Set<string>();
+  for (const entry of sortLinkListByQuality(meta?.linkList)) {
+    if (!isAudioLanguageEntry(entry)) continue;
+    const label = (entry.title ?? entry.quality ?? '').trim();
+    const hubs = (entry.directLinks ?? [])
+      .map((source) => source.link)
+      .filter((link): link is string => !!link);
+    if (!label || hubs.length === 0 || seen.has(label)) continue;
+    seen.add(label);
+    languages.push({ label, hubs });
+  }
+  return languages;
+}
+
+// Which language the resolved stream actually came from. The resolver prefers
+// the provider's original language (provider order wins among equal ranks),
+// so the default is the first entry; matching the winning hub picks the exact
+// one when a fallback hub won instead.
+export function audioLanguageForHub(
+  languages: AudioLanguage[],
+  hub?: string | null,
+): string | undefined {
+  if (!hub) return languages[0]?.label;
+  return languages.find((language) => language.hubs.includes(hub))?.label ?? languages[0]?.label;
+}
+
+// --- Hub-based video qualities ---
+
+// The quality manager mirrors the audio-language pattern: providers advertise
+// resolutions at the *meta* level (one linkList entry per 480p/720p/1080p hub),
+// not inside the manifest. Direct-file (MKV/MP4) streams expose no hls.js
+// levels at all, so switching quality means re-resolving a different hub.
+export type HubQuality = { label: string; hubs: string[] };
+
+// Collects the quality options from a movie's linkList, best quality first.
+// Only entries carrying direct playable links AND a resolution marker count
+// (language-only entries are handled by audioLanguagesFrom). Equal labels are
+// deduped, keeping the best-ranked entry's hubs so a retry walks them in order.
+export function hubQualitiesFrom(meta: Pick<Meta, 'linkList'> | null | undefined): HubQuality[] {
+  const qualities: HubQuality[] = [];
+  const seen = new Set<string>();
+  for (const entry of sortLinkListByQuality(meta?.linkList)) {
+    if (!entry.directLinks?.length) continue;
+    if (!isQualityLabel(entry.title ?? entry.quality)) continue;
+    const label = (entry.title ?? entry.quality ?? '').trim();
+    const hubs = (entry.directLinks ?? [])
+      .map((source) => source.link)
+      .filter((link): link is string => !!link);
+    if (!label || hubs.length === 0 || seen.has(label)) continue;
+    seen.add(label);
+    qualities.push({ label, hubs });
+  }
+  return qualities;
+}
+
+// Which quality the resolved stream actually came from — matches the winning
+// hub; defaults to the best (first) option when the hub was a language entry.
+export function hubQualityForHub(qualities: HubQuality[], hub?: string | null): string | undefined {
+  if (!hub) return qualities[0]?.label;
+  return qualities.find((quality) => quality.hubs.includes(hub))?.label ?? qualities[0]?.label;
+}
+
 // Preferred hub: the highest-quality entry. Movies expose `directLinks[0].link`,
-// series expose `episodesLink`.
+// series expose `episodesLink`. The stable sort keeps provider order for
+// equal ranks, so for multi-language movies the original language leads.
 export function pickBestHubUrl(meta: Meta): string | undefined {
   const [entry] = sortLinkListByQuality(meta.linkList);
   if (!entry) return undefined;
@@ -186,6 +285,96 @@ export function resolveStream(stream: Stream | null | undefined): ResolvedStream
   }
   if (sources.length === 0) return { kind: 'none' };
   return { kind: 'sources', sources };
+}
+
+// --- Subtitles ---
+
+// Providers attach external caption tracks to a stream Source under
+// `subtitles`. Every provider that ships real captions emits the same object
+// shape — { title, language, type, uri } where `uri` is the track URL and
+// `title` the display label — but the fields vary otherwise (url/file/src/link,
+// label/name, lang/land/locale), some emit a single object or a bare URL
+// string, and `type` arrives as a MIME string ("text/vtt",
+// "application/x-subrip"). This normalizes all of it into track descriptors
+// the player can register as Vidstack text tracks.
+export type SubtitleTrack = {
+  src: string;
+  label?: string;
+  language?: string;
+  type?: string;
+};
+
+const VALID_SUBTITLE_TYPES = new Set(['vtt', 'srt', 'ssa', 'ass', 'json']);
+
+// MIME strings providers emit → the parser format Vidstack expects.
+const MIME_SUBTITLE_TYPES: Record<string, string> = {
+  'text/vtt': 'vtt',
+  'application/vtt': 'vtt',
+  'text/srt': 'srt',
+  'application/x-subrip': 'srt',
+  'application/octet-stream': 'srt',
+  'text/ass': 'ass',
+  'application/x-ass': 'ass',
+  'text/ssa': 'ssa',
+  'application/x-ssa': 'ssa',
+  'text/json': 'json',
+  'application/json': 'json',
+};
+
+function subtitleTypeFor(url: string): string | undefined {
+  const ext = url
+    .split(/[?#]/)[0]
+    .match(/\.([a-z0-9]+)$/i)?.[1]
+    ?.toLowerCase();
+  if (!ext) return undefined;
+  if (ext === 'webvtt') return 'vtt';
+  return VALID_SUBTITLE_TYPES.has(ext) ? ext : undefined;
+}
+
+function asText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+export function subtitleTracksFrom(raw: unknown): SubtitleTrack[] {
+  if (raw == null) return [];
+  const items = Array.isArray(raw) ? raw : [raw];
+  const tracks: SubtitleTrack[] = [];
+  for (const item of items) {
+    if (typeof item === 'string') {
+      if (item.trim()) tracks.push({ src: item.trim() });
+      continue;
+    }
+    if (typeof item !== 'object' || item === null) continue;
+    const record = item as Record<string, unknown>;
+    const src =
+      asText(record.uri) ??
+      asText(record.url) ??
+      asText(record.file) ??
+      asText(record.src) ??
+      asText(record.link);
+    if (!src) continue;
+    const explicit = (asText(record.type) ?? asText(record.format))?.toLowerCase();
+    let type: string | undefined;
+    if (explicit && VALID_SUBTITLE_TYPES.has(explicit)) {
+      type = explicit;
+    } else if (explicit && MIME_SUBTITLE_TYPES[explicit]) {
+      type = MIME_SUBTITLE_TYPES[explicit];
+    } else {
+      type = subtitleTypeFor(src);
+    }
+    tracks.push({
+      src,
+      label: asText(record.title) ?? asText(record.label) ?? asText(record.name),
+      language:
+        asText(record.language) ??
+        asText(record.lang) ??
+        asText(record.land) ??
+        asText(record.locale) ??
+        asText(record.langcode),
+      type,
+    });
+  }
+  return tracks;
 }
 
 // --- View helpers ---

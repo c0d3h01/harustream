@@ -3,13 +3,12 @@
 import { Bookmark, Check, Film, Globe, Play, Star, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DURATIONS, EASE, SPRING_SOFT } from '@/components/motion/transitions';
 import { Button } from '@/components/ui/button';
-import { type Media, type Meta, sortLinkListByQuality, titleFor } from '@/lib/api/client';
+import { type Media, type Meta, titleFor } from '@/lib/api/client';
 import { useScrollLock } from '@/lib/hooks/useScrollLock';
 import { imageUrl } from '@/lib/media/images';
-import { cn } from '@/lib/utils';
 
 // Hoisted: created once instead of on every DetailModal render.
 const RATING_PATTERN = /\s*\/\s*10$/i;
@@ -19,7 +18,6 @@ type Props = {
   item: Media;
   meta?: Meta;
   inLibrary: boolean;
-  excludedQualities?: string[];
   onClose: () => void;
   onPlay: (item: Media, hub?: string) => void;
   onToggleLibrary: (item: Media) => void;
@@ -31,7 +29,6 @@ export function DetailModal({
   item,
   meta,
   inLibrary,
-  excludedQualities = [],
   onClose,
   onPlay,
   onToggleLibrary,
@@ -48,34 +45,12 @@ export function DetailModal({
   const year =
     (meta?.title || title).match(YEAR_PATTERN)?.[1] ??
     meta?.tags?.find((tag) => /^\d{4}$/.test(String(tag)));
-  // Memoized: the auto-select effect watches `entries`, so a fresh array per
-  // render would re-run it (and the modal's other effects) on every paint.
-  const entries = useMemo(
-    () =>
-      sortLinkListByQuality(meta?.linkList).filter((entry) => {
-        if (excludedQualities.length === 0) return true;
-        const q = (entry.quality || entry.title || '').toLowerCase();
-        return !excludedQualities.some((excluded) => q.includes(excluded.toLowerCase()));
-      }),
-    [meta?.linkList, excludedQualities],
-  );
   const metadata = useMemo(
     () => [...(meta?.tags ?? [])].filter(Boolean).map(String).slice(0, 6),
     [meta?.tags],
   );
   const [logoFailed, setLogoFailed] = useState(false);
   const [readMore, setReadMore] = useState(false);
-  const [activeHub, setActiveHub] = useState<string | undefined>(undefined);
-
-  // Once meta arrives, default the selection to the best available quality.
-  // The modal mounts before meta resolves (onOpen fetches it async), so the
-  // picker can't pick a default from state initializers.
-  useEffect(() => {
-    if (activeHub) return;
-    const entry = entries[0];
-    const hub = entry?.directLinks?.[0]?.link ?? entry?.episodesLink;
-    if (hub) setActiveHub(hub);
-  }, [entries, activeHub]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-runs on purpose so a new logo resets the failure flag.
   useEffect(() => {
@@ -87,6 +62,20 @@ export function DetailModal({
   // nested modal unmount can't leave the body permanently locked.
   useScrollLock();
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Move keyboard focus into the modal on open so tabbing starts inside it,
+  // and let Escape close it (mirrors the player and the native dialog
+  // behaviour users expect).
+  useEffect(() => {
+    rootRef.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const synopsisText =
     synopsis.length > 240 && !readMore ? `${synopsis.slice(0, 240)}...` : synopsis;
 
@@ -95,7 +84,12 @@ export function DetailModal({
   return (
     // AnimatePresence in App drives the enter/exit; transform/opacity only.
     <motion.div
-      className="fixed inset-0 z-40 flex flex-col bg-background pt-safe sm:grid sm:place-items-center sm:bg-background/80 sm:p-4 sm:backdrop-blur-sm sm:pt-0"
+      ref={rootRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      tabIndex={-1}
+      className="fixed inset-0 z-40 flex flex-col bg-background pt-safe outline-hidden sm:grid sm:place-items-center sm:bg-background/80 sm:p-4 sm:backdrop-blur-sm sm:pt-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -190,14 +184,14 @@ export function DetailModal({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:gap-6 sm:p-8">
+        <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5 pb-12 sm:gap-6 sm:p-8">
           {/* Primary actions lead the content — watch is one tap from the
               artwork, with save/web secondary and tertiary. */}
           <div className="flex items-center gap-2">
             <Button
               size="lg"
               className="touch-target flex-1 justify-center transition-transform duration-200 ease-out hover:scale-[1.02] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:scale-100 sm:flex-none sm:px-8"
-              onClick={() => onPlay(item, activeHub)}
+              onClick={() => onPlay(item)}
               onMouseEnter={onPreloadPlay}
               onFocus={onPreloadPlay}
             >
@@ -255,44 +249,6 @@ export function DetailModal({
               </button>
             )}
           </div>
-
-          {entries.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {entries.some((e) => e.directLinks?.length) ? 'Quality' : 'Season'}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {entries.map((entry) => {
-                  const hub = entry.directLinks?.[0]?.link ?? entry.episodesLink;
-                  const label = entry.title || entry.quality || 'Source';
-                  const selected = hub === activeHub;
-                  return (
-                    <button
-                      key={hub || label}
-                      type="button"
-                      onClick={() => hub && setActiveHub(hub)}
-                      aria-pressed={selected}
-                      className={cn(
-                        'touch-target relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                        selected
-                          ? 'text-background'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {selected && (
-                        <motion.span
-                          layoutId="detail-quality-pill"
-                          className="absolute inset-0 rounded-full bg-foreground"
-                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                        />
-                      )}
-                      <span className="relative z-10">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {meta?.cast && meta.cast.length > 0 && (
             <div>
