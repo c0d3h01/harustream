@@ -49,7 +49,9 @@ export function Card({ item, onOpen, className, priority = false, index = 0, pro
   const spotlight = useMotionTemplate`radial-gradient(320px circle at ${smoothX}px ${smoothY}px, color-mix(in oklch, var(--primary) 13%, transparent), transparent 65%)`;
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-    if (prefersReducedMotion) return;
+    // Only track fine pointers — a touch-drag on a card must not run
+    // getBoundingClientRect + spring updates per move event.
+    if (prefersReducedMotion || event.pointerType !== 'mouse') return;
     const rect = event.currentTarget.getBoundingClientRect();
     spotX.set(event.clientX - rect.left);
     spotY.set(event.clientY - rect.top);
@@ -100,10 +102,10 @@ export function Card({ item, onOpen, className, priority = false, index = 0, pro
         {/* Cursor spotlight (above the artwork, below the metadata chips). */}
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-coarse:hidden"
           style={{ background: spotlight }}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:hidden" />
         {progress !== undefined && progress > 0 && (
           <div
             aria-hidden="true"
@@ -116,7 +118,7 @@ export function Card({ item, onOpen, className, priority = false, index = 0, pro
           </div>
         )}
         <motion.span
-          className="pointer-events-none absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+          className="pointer-events-none absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 pointer-coarse:hidden"
           whileHover={{ scale: 1.15 }}
           transition={SPRING}
         >
