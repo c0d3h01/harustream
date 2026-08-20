@@ -103,7 +103,10 @@ export async function GET(request: Request, { params }: Params) {
   const contentType = upstream.headers.get('content-type') ?? 'application/octet-stream';
   const headers: Record<string, string> = {
     'Content-Type': contentType,
-    'Cache-Control': 'public, max-age=86400',
+    // Long-lived at both layers: the browser caches for a day, and the CDN
+    // holds the optimized bytes for a week, revalidating in the background.
+    // Artwork rarely changes, so this keeps 100M users off the proxy entirely.
+    'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
   };
   for (const name of ['Content-Length', 'ETag', 'Last-Modified']) {
     const value = upstream.headers.get(name);
