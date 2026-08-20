@@ -11,6 +11,9 @@
 import {
   isHLSProvider,
   isVideoProvider,
+  TextTrack,
+  type TextTrackInit,
+  useMediaPlayer,
   useMediaProvider,
   useMediaRemote,
   useMediaState,
@@ -18,6 +21,8 @@ import {
 import {
   ArrowLeft,
   Captions,
+  ChevronLeft,
+  ChevronRight,
   Gauge,
   Languages,
   ListVideo,
@@ -40,7 +45,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SPRING } from '@/components/motion/transitions';
-import { type Episode, type Media, titleFor } from '@/lib/api/client';
+import {
+  type AudioLanguage,
+  type Episode,
+  type HubQuality,
+  type Media,
+  type SubtitleTrack,
+  titleFor,
+} from '@/lib/api/client';
 import { PLAYBACK_RATES } from '@/lib/hooks/usePlaybackRate';
 import type { useProgress } from '@/lib/hooks/useProgress';
 import { imageUrl } from '@/lib/media/images';
@@ -56,6 +68,15 @@ type Props = {
   item: Media;
   episodes: Episode[];
   activeEpisode: string;
+  audioLanguages?: AudioLanguage[];
+  audioLanguage?: string;
+  onSelectLanguage?: (label: string) => void;
+  /** Advertised resolutions (one linkList entry per 480p/720p/1080p hub), switched by re-resolving the stream. */
+  hubQualities?: HubQuality[];
+  hubQuality?: string;
+  onSelectQuality?: (label: string) => void;
+  /** External caption tracks (vtt/srt/ass URLs) advertised on the stream source. */
+  subtitles?: SubtitleTrack[];
   onSelectEpisode: (episode: Episode) => void;
   onClose: () => void;
   onEnded: () => void;
@@ -92,6 +113,21 @@ function trackLabel(label: string, language: string, index: number): string {
   return label || languageName(language) || `Track ${index + 1}`;
 }
 
+// Audio menu rows are either app-level audio languages (one linkList entry
+// per language, switched by re-resolving the stream) or tracks embedded in
+// the current stream (switched via the remote control).
+type AudioOption =
+  | { kind: 'language'; label: string; selected: boolean; original: boolean }
+  | { kind: 'track'; index: number; label: string; selected: boolean };
+
+// Quality menu rows are app-level resolutions (one linkList entry per
+// 480p/720p/1080p hub, switched by re-resolving the stream) or, when the
+// stream is a multi-rendition HLS manifest with no linkList quality entries,
+// the hls.js levels switched via the remote control (index -1 = Auto).
+type QualityOption =
+  | { kind: 'hub'; label: string; selected: boolean }
+  | { kind: 'manifest'; index: number; label: string; selected: boolean };
+
 export function PlayerStage({
   source,
   savedPosition,
@@ -102,6 +138,13 @@ export function PlayerStage({
   item,
   episodes,
   activeEpisode,
+  audioLanguages,
+  audioLanguage,
+  onSelectLanguage,
+  hubQualities,
+  hubQuality,
+  onSelectQuality,
+  subtitles = [],
   onSelectEpisode,
   onClose,
   onEnded,
@@ -135,6 +178,38 @@ export function PlayerStage({
   const textTracks = useMediaState('textTracks');
   const mediaRate = useMediaState('playbackRate');
 
+  // --- External subtitle registration -------------------------------------
+
+  // External caption tracks ship per-source in the stream payload under
+  // `subtitles` (vtt/srt/ass URLs outside the media container). They are not
+  // part of the manifest, so they must be registered as text tracks manually —
+  // otherwise the Subtitles menu and CC button stay hidden even though
+  // captions are available. Tracks are scoped to the active source and torn
+  // down on source change/unmount.
+  const player = useMediaPlayer();
+  const externalSubtitleRef = useRef<TextTrack[]>([]);
+
+  useEffect(() => {
+    if (!player) return;
+    const tracks = player.textTracks;
+    for (const subtitle of subtitles) {
+      const init: TextTrackInit = {
+        src: subtitle.src,
+        kind: 'subtitles',
+        label: subtitle.label || subtitle.language || 'Subtitles',
+        language: subtitle.language,
+        ...(subtitle.type ? { type: subtitle.type as TextTrackInit['type'] } : {}),
+      };
+      const track = new TextTrack(init);
+      tracks.add(track);
+      externalSubtitleRef.current.push(track);
+    }
+    return () => {
+      for (const track of externalSubtitleRef.current) tracks.remove(track);
+      externalSubtitleRef.current = [];
+    };
+  }, [player, subtitles]);
+
   // --- UI state -----------------------------------------------------------
 
   const [resumeOffered, setResumeOffered] = useState(false);
@@ -149,13 +224,22 @@ export function PlayerStage({
   const nextAdvanceRef = useRef(false);
 
   const title = titleFor(item);
-  const activeEpisodeTitle = useMemo(() => {
-    const idx = episodes.findIndex(
-      (e) => e.link === activeEpisode || titleFor(e) === activeEpisode,
-    );
-    if (idx < 0) return undefined;
-    return `E${idx + 1} · ${titleFor(episodes[idx])}`;
-  }, [episodes, activeEpisode]);
+  const episodeIndex = useMemo(
+    () => episodes.findIndex((e) => e.link === activeEpisode || titleFor(e) === activeEpisode),
+    [episodes, activeEpisode],
+  );
+  const activeEpisodeTitle = useMemo(
+    () =>
+      episodeIndex < 0 ? undefined : `E${episodeIndex + 1} · ${titleFor(episodes[episodeIndex])}`,
+    [episodes, episodeIndex],
+  );
+  // Prev/next episode navigation lives in the transport cluster; the buttons
+  // disable at the boundaries of the list (no wrap-around).
+  const prevEpisode = episodeIndex > 0 ? episodes[episodeIndex - 1] : undefined;
+  const nextEpisode =
+    episodeIndex >= 0 && episodeIndex < episodes.length - 1
+      ? episodes[episodeIndex + 1]
+      : undefined;
 
   // --- Playback-rate persistence (mirror the element's rate into storage) --
 
@@ -428,6 +512,18 @@ export function PlayerStage({
         case 'm':
           remote.toggleMuted();
           break;
+        case 'p':
+          if (event.shiftKey && prevEpisode) {
+            event.preventDefault();
+            advanceTo(prevEpisode);
+          }
+          break;
+        case 'n':
+          if (event.shiftKey && nextEpisode) {
+            event.preventDefault();
+            advanceTo(nextEpisode);
+          }
+          break;
         case 'f':
           if (canFullscreen) remote.toggleFullscreen();
           break;
@@ -461,6 +557,9 @@ export function PlayerStage({
       duration,
       currentTime,
       bumpActivity,
+      prevEpisode,
+      nextEpisode,
+      advanceTo,
     ],
   );
 
@@ -504,34 +603,57 @@ export function PlayerStage({
 
   // --- Quality options -----------------------------------------------------
 
-  const qualityOptions = useMemo(() => {
-    const auto = !quality || quality.height === 0 || qualities.every((q) => q.height === 0);
-    const items = qualities
-      .filter((q) => q.height > 0)
-      .map((q, i) => ({
-        id: q.id,
-        index: i,
-        label: `${q.height}p`,
-        selected: quality?.height === q.height,
-      }));
-    return [{ index: -1, label: 'Auto', selected: auto }, ...items];
-  }, [qualities, quality]);
+  // Hub-based resolutions lead: they're the advertised 480p/720p/1080p hubs
+  // and work for every stream (including direct MKV/MP4 files, which expose
+  // no hls.js levels). Only when a title advertises no linkList quality do we
+  // fall back to the manifest levels — index must address the *unfiltered*
+  // qualities list (changeQuality is index-based), so the original position
+  // is captured before any entries are dropped. Levels that report height 0
+  // are kept — dropping them hid every option and left only "Auto".
+  const qualityOptions = useMemo<QualityOption[]>(() => {
+    const hubs = (hubQualities ?? []).map((entry) => ({
+      kind: 'hub' as const,
+      label: entry.label,
+      selected: entry.label === hubQuality,
+    }));
+    if (hubs.length > 0) return hubs;
+    const items = qualities.map((q, index) => {
+      const height = q.height > 0 ? `${q.height}p` : null;
+      const bitrate = q.bitrate && q.bitrate > 0 ? `${Math.round(q.bitrate / 1000)} kbps` : null;
+      return {
+        kind: 'manifest' as const,
+        index,
+        label: height ?? bitrate ?? 'Quality',
+        selected: quality?.height === q.height && q.height > 0,
+      };
+    });
+    const auto = items.length === 0 || !quality || quality.height === 0;
+    return [{ kind: 'manifest' as const, index: -1, label: 'Auto', selected: auto }, ...items];
+  }, [hubQualities, hubQuality, qualities, quality]);
 
-  // --- Audio language options ---------------------------------------------
+  // --- Audio options --------------------------------------------------------
 
-  // Keep the original list index (not the filtered position) so the remote
-  // control switches the right track even when empty placeholders are dropped.
-  const audioOptions = useMemo(
-    () =>
-      audioTracks
-        .map((track, index) => ({
-          index,
-          label: trackLabel(track.label, track.language, index),
-          selected: track.selected,
-        }))
-        .filter((option) => option.label !== ''),
-    [audioTracks],
-  );
+  // App-level audio languages (multi-language WEB-DLs) lead, original first —
+  // the resolver prefers provider order among equal ranks, so language[0] is
+  // the original. Embedded audio tracks from the stream follow. Only the
+  // first language is tagged "Original" when there's actually a choice.
+  const audioOptions = useMemo<AudioOption[]>(() => {
+    const languages = (audioLanguages ?? []).map((language, index) => ({
+      kind: 'language' as const,
+      label: language.label,
+      selected: language.label === audioLanguage,
+      original: index === 0 && (audioLanguages?.length ?? 0) > 1,
+    }));
+    const tracks = audioTracks
+      .map((track, index) => ({
+        kind: 'track' as const,
+        index,
+        label: trackLabel(track.label, track.language, index),
+        selected: track.selected,
+      }))
+      .filter((option) => option.label !== '');
+    return [...languages, ...tracks];
+  }, [audioLanguages, audioLanguage, audioTracks]);
 
   // --- Subtitle options ----------------------------------------------------
 
@@ -550,12 +672,20 @@ export function PlayerStage({
 
   const selectSubtitle = useCallback(
     (index: number) => {
+      // Turning off: disable whatever is currently showing.
       if (index < 0) {
         const showing = textTracks.findIndex((track) => track.mode === 'showing');
         if (showing >= 0) remote.changeTextTrackMode(showing, 'disabled');
-      } else {
-        remote.changeTextTrackMode(index, 'showing');
+        return;
       }
+      // Switching tracks: disable any other showing track first so captions
+      // don't stack, then show the requested one.
+      textTracks.forEach((track, i) => {
+        if (i !== index && track.mode === 'showing') {
+          remote.changeTextTrackMode(i, 'disabled');
+        }
+      });
+      remote.changeTextTrackMode(index, 'showing');
     },
     [textTracks, remote],
   );
@@ -695,7 +825,7 @@ export function PlayerStage({
       <motion.div
         data-player-control
         className={cn(
-          'absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 to-transparent px-3 pt-3 pb-8 sm:px-4',
+          'absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 to-transparent pl-[max(0.75rem,env(safe-area-inset-left))] pr-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-8 sm:px-4',
           !controlsVisible && 'pointer-events-none',
         )}
         initial={false}
@@ -724,7 +854,7 @@ export function PlayerStage({
       <motion.div
         data-player-control
         className={cn(
-          'absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 to-transparent px-3 pt-10 pb-2 sm:px-4',
+          'absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 to-transparent px-3 pt-10 pb-[max(0.5rem,env(safe-area-inset-bottom))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-4',
           !controlsVisible && 'pointer-events-none',
         )}
         initial={false}
@@ -768,7 +898,7 @@ export function PlayerStage({
           )}
         </div>
 
-        <div className="mt-1.5 flex items-center gap-1.5 text-white sm:gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-white sm:gap-2">
           <button
             type="button"
             onClick={togglePlayback}
@@ -799,6 +929,34 @@ export function PlayerStage({
           >
             <SkipForward className="size-5" />
           </button>
+
+          {/* Episode navigation — series only. Sits with the transport
+              controls (play/pause/skip) so switching episodes never requires
+              leaving the video surface; disabled at the list boundaries. */}
+          {episodes.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => prevEpisode && advanceTo(prevEpisode)}
+                disabled={!prevEpisode}
+                aria-label="Previous episode"
+                title="Previous episode"
+                className="touch-target grid size-9 place-items-center rounded-full transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => nextEpisode && advanceTo(nextEpisode)}
+                disabled={!nextEpisode}
+                aria-label="Next episode"
+                title="Next episode"
+                className="touch-target grid size-9 place-items-center rounded-full transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronRight className="size-5" />
+              </button>
+            </>
+          )}
 
           <div className="ml-1 flex items-center gap-1.5">
             <button
@@ -852,6 +1010,26 @@ export function PlayerStage({
                 )}
               >
                 <ListVideo className="size-5" />
+              </button>
+            )}
+            {/* Subtitles: jumps straight to the subtitle picker in settings.
+                Only rendered when the stream advertises caption/subtitle
+                tracks (Off alone means there is nothing to pick). */}
+            {subtitleOptions.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEpisodesOpen(false);
+                  setMenu(menu === 'subtitles' ? null : 'subtitles');
+                }}
+                aria-label="Subtitles"
+                aria-expanded={menu === 'subtitles'}
+                className={cn(
+                  'touch-target grid size-9 place-items-center rounded-full transition hover:bg-white/15',
+                  menu === 'subtitles' && 'bg-white/15',
+                )}
+              >
+                <Captions className="size-5" />
               </button>
             )}
             {/* Settings doubles as the quality/speed/audio/subtitles menu
@@ -938,24 +1116,32 @@ export function PlayerStage({
             </div>
             <div className="max-h-48 overflow-y-auto py-1">
               {menu === 'quality' &&
-                (qualityOptions.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-white/50">Auto</p>
+                (qualityOptions.length <= 1 ? (
+                  <p className="px-3 py-2 text-xs text-white/50">
+                    Single quality — the stream plays at its only rendition.
+                  </p>
                 ) : (
                   qualityOptions.map((option) => (
                     <button
-                      key={option.label}
+                      key={option.kind === 'hub' ? option.label : `level-${option.index}`}
                       type="button"
                       onClick={() => {
-                        remote.changeQuality(option.index);
+                        if (option.kind === 'hub') {
+                          onSelectQuality?.(option.label);
+                        } else {
+                          remote.changeQuality(option.index);
+                        }
                         setMenu(null);
                       }}
                       className={cn(
-                        'touch-target flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-white/10',
+                        'touch-target flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm transition hover:bg-white/10',
                         option.selected && 'font-semibold text-primary',
                       )}
                     >
-                      {option.label}
-                      {option.selected && <span className="size-1.5 rounded-full bg-primary" />}
+                      <span className="min-w-0 truncate">{option.label}</span>
+                      {option.selected && (
+                        <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+                      )}
                     </button>
                   ))
                 ))}
@@ -981,19 +1167,34 @@ export function PlayerStage({
               {menu === 'audio' &&
                 audioOptions.map((option) => (
                   <button
-                    key={option.index}
+                    key={
+                      option.kind === 'track' ? `track-${option.index}` : `language-${option.label}`
+                    }
                     type="button"
                     onClick={() => {
-                      remote.changeAudioTrack(option.index);
+                      if (option.kind === 'language') {
+                        onSelectLanguage?.(option.label);
+                      } else {
+                        remote.changeAudioTrack(option.index);
+                      }
                       setMenu(null);
                     }}
                     className={cn(
-                      'touch-target flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-white/10',
+                      'touch-target flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm transition hover:bg-white/10',
                       option.selected && 'font-semibold text-primary',
                     )}
                   >
-                    {option.label}
-                    {option.selected && <span className="size-1.5 rounded-full bg-primary" />}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{option.label}</span>
+                      {option.kind === 'language' && option.original && (
+                        <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/60">
+                          Original
+                        </span>
+                      )}
+                    </span>
+                    {option.selected && (
+                      <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+                    )}
                   </button>
                 ))}
               {menu === 'subtitles' &&

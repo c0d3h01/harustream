@@ -1,4 +1,4 @@
-import type { Episode, Media, Meta } from '@/lib/api/client';
+import type { AudioLanguage, Episode, HubQuality, Media, Meta } from '@/lib/api/client';
 
 export type View = 'home' | 'search' | 'library' | 'settings';
 
@@ -9,15 +9,37 @@ export type Detail = {
 
 export type Player =
   | { kind: 'idle' }
-  | { kind: 'loading'; item: Media; episode: string; episodes: Episode[] }
+  | {
+      kind: 'loading';
+      item: Media;
+      episode: string;
+      episodes: Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
+    }
   | {
       kind: 'playing';
       item: Media;
       episode: string;
       stream: import('@/lib/api/client').Stream;
       episodes: Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
     }
-  | { kind: 'error'; message: string; item?: Media; episodes: Episode[] };
+  | {
+      kind: 'error';
+      message: string;
+      item?: Media;
+      episodes: Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
+    };
 
 export type Notice = { id: number; message: string } | null;
 
@@ -40,15 +62,37 @@ export type Action =
   | { type: 'selected/set'; item: Media }
   | { type: 'selected/merge'; link: string; meta: Meta }
   | { type: 'selected/close' }
-  | { type: 'player/loading'; item: Media; episode: string; episodes: Episode[] }
+  | {
+      type: 'player/loading';
+      item: Media;
+      episode: string;
+      episodes: Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
+    }
   | {
       type: 'player/playing';
       item: Media;
       episode: string;
       stream: import('@/lib/api/client').Stream;
       episodes: import('@/lib/api/client').Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
     }
-  | { type: 'player/error'; message: string; item?: Media; episodes?: Episode[] }
+  | {
+      type: 'player/error';
+      message: string;
+      item?: Media;
+      episodes?: Episode[];
+      audioLanguages?: AudioLanguage[];
+      audioLanguage?: string;
+      hubQualities?: HubQuality[];
+      hubQuality?: string;
+    }
   | { type: 'player/close' }
   | { type: 'notice/show'; message: string }
   | { type: 'notice/dismiss' };
@@ -111,6 +155,10 @@ export function reducer(state: State, action: Action): State {
           item: action.item,
           episode: action.episode,
           episodes: action.episodes,
+          audioLanguages: action.audioLanguages,
+          audioLanguage: action.audioLanguage,
+          hubQualities: action.hubQualities,
+          hubQuality: action.hubQuality,
         },
       };
     case 'player/playing':
@@ -122,6 +170,10 @@ export function reducer(state: State, action: Action): State {
           episode: action.episode,
           stream: action.stream,
           episodes: action.episodes,
+          audioLanguages: action.audioLanguages,
+          audioLanguage: action.audioLanguage,
+          hubQualities: action.hubQualities,
+          hubQuality: action.hubQuality,
         },
       };
     case 'player/error':
@@ -132,6 +184,10 @@ export function reducer(state: State, action: Action): State {
           message: action.message,
           item: action.item ?? playerItem(state),
           episodes: action.episodes ?? playerEpisodes(state),
+          audioLanguages: action.audioLanguages,
+          audioLanguage: action.audioLanguage,
+          hubQualities: action.hubQualities,
+          hubQuality: action.hubQuality,
         },
       };
     case 'player/close':
