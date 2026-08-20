@@ -3,7 +3,8 @@
 import { Bookmark, Play, Search } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import Image from 'next/image';
-import { useRef } from 'react';
+import { type ReactNode, type RefObject, useRef } from 'react';
+import { useIsFinePointer } from '@/components/motion/useIsFinePointer';
 import { usePrefersReducedMotion } from '@/components/motion/usePrefersReducedMotion';
 import { fadeIn, fadeUp, staggerContainer } from '@/components/motion/variants';
 import { Button } from '@/components/ui/button';
@@ -44,16 +45,13 @@ export function Hero({
   const prefersReducedMotion = usePrefersReducedMotion();
   const childVariants = prefersReducedMotion ? fadeIn : fadeUp;
 
-  // Cinematic scroll parallax: the backdrop drifts slower than the page and
-  // pulls in as you scroll away. Purely scroll-linked — disabled entirely
-  // for reduced-motion users (scroll-driven motion is motion-sickness fuel).
+  // Touch devices don't need the cinematic scroll parallax — scroll-linked
+  // transforms on a full-width, gradient-heavy layer are the #1 Android scroll
+  // jank source. On coarse pointers the parallax wrapper (and its useScroll
+  // listener) is not even mounted; the backdrop renders as a static layer.
+  const finePointer = useIsFinePointer();
   const sectionRef = useRef<HTMLElement | null>(null);
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start start', 'end start'],
-  });
-  const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '16%']);
-  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+  const parallaxEnabled = finePointer && !prefersReducedMotion;
 
   if (!item) return <HeroEmpty providerName={providerName} />;
 
@@ -69,32 +67,24 @@ export function Hero({
         'min-h-0 h-[clamp(320px,50svh,500px)]',
       )}
     >
-      {/* Backdrop: Ken Burns settle on load + scroll parallax while leaving. */}
+      {/* Backdrop: Ken Burns settle on load + scroll parallax while leaving.
+          On coarse pointers the parallax wrapper is skipped entirely so no
+          scroll listener or per-frame transform work exists on phones. */}
       <motion.div
         className="absolute inset-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.45 }}
       >
-        <motion.div
-          className="absolute -inset-y-8 inset-x-0"
-          style={prefersReducedMotion ? undefined : { y: bgY, scale: bgScale }}
-        >
-          <div className="absolute inset-0 animate-kenburns motion-reduce:animate-none">
-            {/* LCP element: priority preloads the backdrop through the optimizer. */}
-            <Image
-              src={imageUrl(imageFor({ image: meta?.image || item.image }))}
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-              onError={(e) => {
-                e.currentTarget.style.opacity = '0';
-              }}
-            />
+        {parallaxEnabled ? (
+          <ParallaxBackdrop targetRef={sectionRef}>
+            <BackdropImage item={item} meta={meta} />
+          </ParallaxBackdrop>
+        ) : (
+          <div className="absolute -inset-y-8 inset-x-0">
+            <BackdropImage item={item} meta={meta} />
           </div>
-        </motion.div>
+        )}
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/10" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
@@ -102,8 +92,8 @@ export function Hero({
 
       {/* Ambient glow — slow-drifting primary light behind the content. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-24 top-8 size-72 rounded-full bg-primary/15 blur-3xl animate-orb motion-reduce:animate-none" />
-        <div className="absolute right-0 bottom-0 size-80 rounded-full bg-primary/10 blur-3xl animate-orb motion-reduce:animate-none [animation-delay:-5.5s]" />
+        <div className="absolute -left-24 top-8 size-72 rounded-full bg-primary/15 blur-xl animate-orb sm:blur-3xl motion-reduce:animate-none pointer-coarse:animate-none" />
+        <div className="absolute right-0 bottom-0 size-80 rounded-full bg-primary/10 blur-xl animate-orb sm:blur-3xl motion-reduce:animate-none pointer-coarse:animate-none [animation-delay:-5.5s]" />
       </div>
 
       {/* Top scrim keeps the brand pill and search button legible against
@@ -124,7 +114,7 @@ export function Hero({
       >
         <motion.div
           variants={childVariants}
-          className="flex items-center gap-2.5 rounded-full border border-border/50 bg-background/55 py-1.5 pr-3.5 pl-1.5 backdrop-blur-md"
+          className="flex items-center gap-2.5 rounded-full border border-border/50 bg-background/55 py-1.5 pr-3.5 pl-1.5 backdrop-blur-md pointer-coarse:bg-background/80 pointer-coarse:backdrop-blur-none"
         >
           <Image
             src="/favicon/icon.png"
@@ -140,7 +130,7 @@ export function Hero({
           type="button"
           onClick={onSearch}
           aria-label="Search"
-          className="touch-target grid size-10 place-items-center rounded-full border border-border/50 bg-background/55 text-muted-foreground backdrop-blur-md transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-90"
+          className="touch-target grid size-10 place-items-center rounded-full border border-border/50 bg-background/55 text-muted-foreground backdrop-blur-md transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-90 pointer-coarse:bg-background/80 pointer-coarse:backdrop-blur-none"
         >
           <Search className="size-5" />
         </motion.button>
@@ -155,23 +145,23 @@ export function Hero({
       >
         <motion.div variants={childVariants} className="flex flex-wrap items-center gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-primary sm:text-xs">
-            <span className="text-shimmer motion-reduce:animate-none">
+            <span className="text-shimmer motion-reduce:animate-none pointer-coarse:animate-none">
               Featured on {providerName}
             </span>
           </p>
           <span className="text-[10px] text-muted-foreground sm:text-xs" aria-hidden="true">
             ·
           </span>
-          <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 sm:text-xs">
+          <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 sm:text-xs pointer-coarse:bg-background/75 pointer-coarse:backdrop-blur-none">
             {type === 'series' ? 'Series' : 'Movie'}
           </span>
           {yearMatch && (
-            <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 sm:text-xs">
+            <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur transition-colors hover:border-primary/40 sm:text-xs pointer-coarse:bg-background/75 pointer-coarse:backdrop-blur-none">
               {yearMatch[1]}
             </span>
           )}
           {rating && (
-            <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:border-primary/50 sm:text-xs">
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:border-primary/50 sm:text-xs pointer-coarse:bg-primary/20 pointer-coarse:backdrop-blur-none">
               ★ {rating}
             </span>
           )}
@@ -208,6 +198,50 @@ export function Hero({
         </motion.p>
       </motion.div>
     </section>
+  );
+}
+
+// Scroll-linked parallax wrapper: drifts the backdrop slower than the page
+// and pulls it in as you scroll away. Only ever mounted on fine pointers
+// (desktop) — on touch it would turn every scroll frame into a transform
+// update on a full-width layer.
+function ParallaxBackdrop({
+  targetRef,
+  children,
+}: {
+  targetRef: RefObject<HTMLElement | null>;
+  children: ReactNode;
+}) {
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+    offset: ['start start', 'end start'],
+  });
+  const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '16%']);
+  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+
+  return (
+    <motion.div className="absolute -inset-y-8 inset-x-0" style={{ y: bgY, scale: bgScale }}>
+      {children}
+    </motion.div>
+  );
+}
+
+function BackdropImage({ item, meta }: { item: Media; meta?: Meta }) {
+  return (
+    <div className="absolute inset-0 animate-kenburns motion-reduce:animate-none">
+      {/* LCP element: priority preloads the backdrop through the optimizer. */}
+      <Image
+        src={imageUrl(imageFor({ image: meta?.image || item.image }))}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+        onError={(e) => {
+          e.currentTarget.style.opacity = '0';
+        }}
+      />
+    </div>
   );
 }
 
