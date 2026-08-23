@@ -132,7 +132,11 @@ function handleAbsoluteRequest(req, res) {
     outbound.destroy(new Error('Upstream timed out'));
   });
   outbound.on('error', () => {
-    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/plain' });
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(502, { 'Content-Type': 'text/plain' });
     res.end('Upstream failed');
   });
   req.pipe(outbound);
