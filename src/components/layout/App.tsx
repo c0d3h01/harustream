@@ -223,9 +223,10 @@ export function App() {
   const onPlay = useCallback(
     async (item: Media, hubOverride?: string) => {
       const session = ++playerSessionRef.current;
+      const provider = item.providerId ?? settings.provider;
       dispatch({ type: 'player/loading', item, episode: '1', episodes: [] });
       try {
-        const meta = await getMeta(item.link, item.providerId ?? settings.provider);
+        const meta = await getMeta(item.link, provider);
         if (session !== playerSessionRef.current) return;
         lastMetaRef.current = meta;
         const isSeries = (meta.type || item.type) === 'series';
@@ -238,14 +239,14 @@ export function App() {
           // Series: resolve the per-episode list from the hub, which may be
           // an episodes page or a season page whose meta must be fetched
           // first. Then resolve the first episode's link into a stream.
-          const episodes = await resolveSeriesEpisodes(meta, settings.provider, hub);
+          const episodes = await resolveSeriesEpisodes(meta, provider, hub);
           if (session !== playerSessionRef.current) return;
           if (episodes.length === 0) {
             throw new Error('No episodes found for this series');
           }
           // Try each episode link in order so one slow/dead episode hub can't
           // block playback of the series.
-          const { stream, episode } = await getStreamFallback(episodes, settings.provider);
+          const { stream, episode } = await getStreamFallback(episodes, provider);
           if (session !== playerSessionRef.current) return;
           lastEpisodeRef.current = episode;
           lastMovieHubRef.current = undefined;
@@ -263,7 +264,7 @@ export function App() {
           return;
         }
 
-        const { stream, hub: resolvedHub } = await resolveMovieStream(meta, settings.provider);
+        const { stream, hub: resolvedHub } = await resolveMovieStream(meta, provider);
         if (session !== playerSessionRef.current) return;
         lastMovieHubRef.current = resolvedHub;
         lastEpisodeRef.current = undefined;
@@ -352,6 +353,7 @@ export function App() {
       if (state.playing.kind !== 'playing' && state.playing.kind !== 'loading') return;
       const session = ++playerSessionRef.current;
       const parent = state.playing.item;
+      const provider = parent.providerId ?? settings.provider;
       // Carry the existing episode list forward so the sidebar doesn't flash
       // empty during the loading→playing cycle.
       const prevEpisodes =
@@ -370,7 +372,7 @@ export function App() {
         // A failure is remembered so re-clicking doesn't re-wait the full
         // upstream timeout on the same dead link.
         try {
-          const stream = await getStream(item.link, 'series', settings.provider);
+          const stream = await getStream(item.link, 'series', provider);
           if (session !== playerSessionRef.current) return;
           lastEpisodeRef.current = item;
           lastMovieHubRef.current = undefined;
@@ -384,7 +386,7 @@ export function App() {
             hubQuality: undefined,
           });
         } catch (error) {
-          rememberStreamFailure(settings.provider, 'series', item.link);
+          rememberStreamFailure(provider, 'series', item.link);
           throw error;
         }
       } catch (error) {
@@ -413,6 +415,7 @@ export function App() {
       if (!language) return;
       const session = ++playerSessionRef.current;
       const parent = state.playing.item;
+      const provider = parent.providerId ?? settings.provider;
       const prevEpisodes = state.playing.episodes;
       const hubQualities = state.playing.hubQualities;
       const hubQuality = state.playing.hubQuality;
@@ -429,7 +432,7 @@ export function App() {
       let lastError: unknown;
       for (const hub of language.hubs) {
         try {
-          const stream = await getStream(hub, 'movie', settings.provider);
+          const stream = await getStream(hub, 'movie', provider);
           if (session !== playerSessionRef.current) return;
           if (stream && stream.length > 0) {
             lastMovieHubRef.current = hub;
@@ -447,10 +450,10 @@ export function App() {
             });
             return;
           }
-          rememberStreamFailure(settings.provider, 'movie', hub);
+          rememberStreamFailure(provider, 'movie', hub);
         } catch (error) {
           lastError = error;
-          rememberStreamFailure(settings.provider, 'movie', hub);
+          rememberStreamFailure(provider, 'movie', hub);
         }
         if (session !== playerSessionRef.current) return;
       }
@@ -483,6 +486,7 @@ export function App() {
       if (!quality) return;
       const session = ++playerSessionRef.current;
       const parent = state.playing.item;
+      const provider = parent.providerId ?? settings.provider;
       const prevEpisodes = state.playing.episodes;
       const audioLanguages = state.playing.audioLanguages;
       const audioLanguage = state.playing.audioLanguage;
@@ -499,7 +503,7 @@ export function App() {
       let lastError: unknown;
       for (const hub of quality.hubs) {
         try {
-          const stream = await getStream(hub, 'movie', settings.provider);
+          const stream = await getStream(hub, 'movie', provider);
           if (session !== playerSessionRef.current) return;
           if (stream && stream.length > 0) {
             lastMovieHubRef.current = hub;
@@ -517,10 +521,10 @@ export function App() {
             });
             return;
           }
-          rememberStreamFailure(settings.provider, 'movie', hub);
+          rememberStreamFailure(provider, 'movie', hub);
         } catch (error) {
           lastError = error;
-          rememberStreamFailure(settings.provider, 'movie', hub);
+          rememberStreamFailure(provider, 'movie', hub);
         }
         if (session !== playerSessionRef.current) return;
       }
@@ -550,6 +554,7 @@ export function App() {
     if (state.playing.kind !== 'playing') return;
     const session = playerSessionRef.current;
     const item = state.playing.item;
+    const provider = item.providerId ?? settings.provider;
     const prevEpisodes = state.playing.episodes;
     resolvingMoreRef.current = true;
     const audioLanguages = state.playing.audioLanguages;
@@ -569,9 +574,9 @@ export function App() {
     try {
       if (prevEpisodes.length > 0) {
         if (lastEpisodeRef.current) {
-          rememberStreamFailure(settings.provider, 'series', lastEpisodeRef.current.link);
+          rememberStreamFailure(provider, 'series', lastEpisodeRef.current.link);
         }
-        const { stream, episode } = await getStreamFallback(prevEpisodes, settings.provider);
+        const { stream, episode } = await getStreamFallback(prevEpisodes, provider);
         if (session !== playerSessionRef.current) return;
         lastEpisodeRef.current = episode;
         dispatch({
@@ -589,9 +594,9 @@ export function App() {
       }
       if (!lastMetaRef.current) throw new Error('No further sources available');
       if (lastMovieHubRef.current) {
-        rememberStreamFailure(settings.provider, 'movie', lastMovieHubRef.current);
+        rememberStreamFailure(provider, 'movie', lastMovieHubRef.current);
       }
-      const { stream, hub } = await resolveMovieStream(lastMetaRef.current, settings.provider);
+      const { stream, hub } = await resolveMovieStream(lastMetaRef.current, provider);
       if (session !== playerSessionRef.current) return;
       lastMovieHubRef.current = hub;
       const nextLanguages = audioLanguagesFrom(lastMetaRef.current);
