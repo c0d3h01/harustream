@@ -1,6 +1,6 @@
 'use client';
 
-import { useMediaRemote, useMediaState } from '@vidstack/react';
+import { useMediaContext, useMediaRemote, useMediaState } from '@vidstack/react';
 import { ArrowLeft, Captions, Maximize, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource } from '@/types';
@@ -57,6 +57,7 @@ export function PlayerControls({
   onSubtitle,
   onEpisode,
 }: Props) {
+  const { textTracks } = useMediaContext();
   const remote = useMediaRemote();
   const paused = useMediaState('paused');
   const currentTime = useMediaState('currentTime');
@@ -102,10 +103,23 @@ export function PlayerControls({
     });
   }, [currentTime, duration, episodeRef, episodeTitle, item, paused, progress.save]);
 
+  useEffect(() => {
+    for (const track of textTracks) {
+      track.mode = track.id === subtitleId ? 'showing' : 'disabled';
+    }
+  }, [subtitleId, textTracks]);
+
   const togglePlayback = useCallback(() => {
     remote.togglePaused();
     setResumeVisible(false);
   }, [remote]);
+
+  const selectSubtitle = useCallback(
+    (id: string) => {
+      onSubtitle(id);
+    },
+    [onSubtitle],
+  );
 
   const toggleFullscreen = useCallback(() => {
     remote.toggleFullscreen();
@@ -253,7 +267,7 @@ export function PlayerControls({
             <select
               aria-label="Subtitles"
               value={subtitleId}
-              onChange={(event) => onSubtitle(event.target.value)}
+              onChange={(event) => selectSubtitle(event.target.value)}
               className="max-w-32 rounded bg-black/60 px-2 py-1 text-xs"
             >
               <option value="">Subtitles off</option>

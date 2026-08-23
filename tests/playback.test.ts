@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  chooseEngine,
   clearFailedSources,
   FailureDetector,
   nextEpisode,
@@ -43,15 +44,62 @@ describe('playback source queue', () => {
   });
 });
 
+describe('playback engine selection', () => {
+  it('uses native playback when the browser supports HLS', () => {
+    expect(chooseEngine({ ...source('hls'), format: 'hls' }, () => true)).toBe('native');
+  });
+
+  it('uses Vidstack HLS when native playback is unavailable', () => {
+    expect(chooseEngine({ ...source('hls'), format: 'hls' }, () => false)).toBe('hls');
+  });
+});
+
 describe('playback failure and resume helpers', () => {
   it('advances on never-started and fatal failures', () => {
     vi.useFakeTimers();
     const failures: string[] = [];
     const detector = new FailureDetector(100, (failure) => failures.push(failure));
     detector.start();
+    detector.setPlaying(true);
     vi.advanceTimersByTime(100);
     detector.fatalError();
     expect(failures).toEqual(['never-started', 'fatal-error']);
+  });
+
+  it('does not treat a paused source as stalled', () => {
+    vi.useFakeTimers();
+    const failures: string[] = [];
+    const detector = new FailureDetector(100, (failure) => failures.push(failure));
+    detector.start();
+    detector.setPlaying(false);
+    vi.advanceTimersByTime(500);
+    expect(failures).toEqual([]);
+  });
+
+  it('advances when a playing source stops making progress', () => {
+    vi.useFakeTimers();
+    const failures: string[] = [];
+    const detector = new FailureDetector(100, (failure) => failures.push(failure));
+    detector.start();
+    detector.markStarted();
+    detector.setPlaying(true);
+    vi.advanceTimersByTime(100);
+    expect(failures).toEqual(['stall']);
+  });
+
+  it('ignores the interval while the user is seeking', () => {
+    vi.useFakeTimers();
+    const failures: string[] = [];
+    const detector = new FailureDetector(100, (failure) => failures.push(failure));
+    detector.start();
+    detector.markStarted();
+    detector.setPlaying(true);
+    detector.setSeeking(true);
+    vi.advanceTimersByTime(500);
+    expect(failures).toEqual([]);
+    detector.setSeeking(false);
+    vi.advanceTimersByTime(100);
+    expect(failures).toEqual(['stall']);
   });
 
   it('offers resume only for meaningful, unfinished progress', () => {

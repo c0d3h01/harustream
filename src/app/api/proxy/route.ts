@@ -1,6 +1,11 @@
 import { requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { PROXY_HEADER_PARAMS, type ProxyHeaderParam, proxyStream } from '@/lib/media/streamProxy';
+import {
+  PROXY_HEADER_PARAMS,
+  type ProxyHeaderParam,
+  proxyStream,
+  type SubtitleFormat,
+} from '@/lib/media/streamProxy';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,6 +27,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const target = url.searchParams.get('url')?.trim();
   const range = request.headers.get('range');
+  const subtitleFormat = url.searchParams.get('subtitleFormat') as SubtitleFormat | null;
 
   const headers: Partial<Record<ProxyHeaderParam, string>> = {};
   for (const param of PROXY_HEADER_PARAMS) {
@@ -41,6 +47,8 @@ export async function GET(request: Request) {
     const result = await proxyStream(target, {
       range,
       headers,
+      subtitleFormat:
+        subtitleFormat === 'srt' || subtitleFormat === 'ttml' ? subtitleFormat : undefined,
       signal: request.signal,
     });
     log.info(

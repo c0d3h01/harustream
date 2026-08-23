@@ -3,6 +3,8 @@ export type PlaybackFailure = 'stall' | 'fatal-error' | 'never-started';
 export class FailureDetector {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private started = false;
+  private expectedToPlay = false;
+  private seeking = false;
 
   constructor(
     private readonly timeoutMs: number,
@@ -11,16 +13,38 @@ export class FailureDetector {
 
   start(): void {
     this.started = false;
-    this.arm('never-started');
+    this.expectedToPlay = false;
+    this.seeking = false;
+    this.stop();
   }
 
   markStarted(): void {
     this.started = true;
-    this.arm('stall');
+    if (this.expectedToPlay && !this.seeking) this.arm('stall');
   }
 
   markProgress(): void {
-    if (this.started) this.arm('stall');
+    if (this.started && this.expectedToPlay && !this.seeking) this.arm('stall');
+  }
+
+  setPlaying(playing: boolean): void {
+    this.expectedToPlay = playing;
+    if (!playing) {
+      this.stop();
+    } else if (this.started && !this.seeking) {
+      this.arm('stall');
+    } else if (!this.started && !this.seeking) {
+      this.arm('never-started');
+    }
+  }
+
+  setSeeking(seeking: boolean): void {
+    this.seeking = seeking;
+    if (seeking) {
+      this.stop();
+    } else if (this.expectedToPlay) {
+      this.arm(this.started ? 'stall' : 'never-started');
+    }
   }
 
   fatalError(): void {

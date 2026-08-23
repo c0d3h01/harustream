@@ -1,6 +1,14 @@
+import type { SubtitleFormat } from '@/lib/media/streamProxy';
+
 const SUPPORTED_HEADERS = ['referer', 'origin', 'userAgent', 'cookie'] as const;
 
-export function playbackUrl(url: string, headers?: Record<string, string>): string {
+export type { SubtitleFormat };
+
+export function playbackUrl(
+  url: string,
+  headers?: Record<string, string>,
+  subtitleFormat?: SubtitleFormat,
+): string {
   const params = new URLSearchParams({ url });
   if (headers) {
     for (const name of SUPPORTED_HEADERS) {
@@ -10,6 +18,9 @@ export function playbackUrl(url: string, headers?: Record<string, string>): stri
       );
       if (entry?.[1]) params.set(name, entry[1]);
     }
+  }
+  if (subtitleFormat && subtitleFormat !== 'vtt') {
+    params.set('subtitleFormat', subtitleFormat);
   }
   return `/api/proxy?${params.toString()}`;
 }

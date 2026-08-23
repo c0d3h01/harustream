@@ -4,7 +4,7 @@ export type PlaybackEngine = 'native' | 'hls';
 
 export function chooseEngine(
   source: StreamSource,
-  canPlayNative: (mimeType: string) => boolean = () => false,
+  canPlayNative: (mimeType: string) => boolean = () => true,
 ): PlaybackEngine {
   if (source.format === 'hls' && !canPlayNative('application/vnd.apple.mpegurl')) return 'hls';
   return 'native';

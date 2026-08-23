@@ -1,6 +1,6 @@
 'use client';
 
-import { MediaPlayer, MediaProvider, type PlayerSrc } from '@vidstack/react';
+import { MediaPlayer, MediaProvider, type PlayerSrc, Track } from '@vidstack/react';
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource, Subtitle } from '@/types';
 import { chooseEngine } from '../engine';
@@ -22,88 +22,36 @@ type Props = {
   onEnded: () => void;
 };
 
-type Cue = {
-  start: number;
-  end: number;
-  text: string;
-};
-
-function parseVttTime(value: string): number {
-  const parts = value.trim().split(':').map(Number);
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return parts[0] * 60 + parts[1];
-}
-
-function parseVtt(text: string): Cue[] {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
-  const cues: Cue[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const timing = lines[index].match(
-      /(\d{1,2}:\d{2}(?::\d{2})?\.\d{3})\s+-->\s+(\d{1,2}:\d{2}(?::\d{2})?\.\d{3})/,
-    );
-    if (!timing) continue;
-    const cueLines: string[] = [];
-    for (index += 1; index < lines.length && lines[index].trim(); index += 1) {
-      cueLines.push(lines[index].replace(/<[^>]+>/g, ''));
-    }
-    cues.push({
-      start: parseVttTime(timing[1]),
-      end: parseVttTime(timing[2]),
-      text: cueLines.join('\n'),
-    });
-  }
-  return cues;
-}
-
-function SubtitleOverlay({
-  subtitle,
+function SubtitleTracks({
+  subtitles,
   headers,
+  selectedId,
 }: {
-  subtitle?: Subtitle;
+  subtitles: Subtitle[];
   headers?: Record<string, string>;
+  selectedId: string;
 }) {
-  const subtitleUrl = subtitle?.url;
-  const proxiedSubtitleUrl = subtitleUrl ? playbackUrl(subtitleUrl, headers) : '';
-  const cuesRef = useRef<Cue[]>([]);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    cuesRef.current = [];
-    if (!proxiedSubtitleUrl) return;
-    const controller = new AbortController();
-    fetch(proxiedSubtitleUrl, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Subtitle request failed: ${response.status}`);
-        return response.text();
-      })
-      .then((text) => {
-        cuesRef.current = parseVtt(text);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) cuesRef.current = [];
-      });
-    return () => controller.abort();
-  }, [proxiedSubtitleUrl]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const currentTime = document.querySelector('video')?.currentTime ?? 0;
-      const activeText = cuesRef.current
-        .filter((cue) => currentTime >= cue.start && currentTime < cue.end)
-        .map((cue) => cue.text)
-        .join('\n');
-      if (overlayRef.current) {
-        overlayRef.current.textContent = activeText;
-        overlayRef.current.style.display = activeText ? 'block' : 'none';
-      }
-    }, 200);
-    return () => window.clearInterval(timer);
-  }, []);
   return (
-    <div
-      ref={overlayRef}
-      className="pointer-events-none absolute inset-x-0 bottom-20 z-20 whitespace-pre-line px-6 text-center text-lg text-white [text-shadow:0_1px_3px_rgb(0_0_0)]"
-      style={{ display: 'none' }}
-    />
+    <>
+      {subtitles.map((subtitle) => (
+        <Track
+          key={subtitle.id}
+          id={subtitle.id}
+          src={playbackUrl(subtitle.url, headers, subtitle.format)}
+          kind="subtitles"
+          label={subtitle.label}
+          lang={subtitle.language}
+          type="vtt"
+          default={subtitle.id === selectedId}
+        />
+      ))}
+    </>
   );
+}
+
+function canPlayNative(mimeType: string): boolean {
+  if (typeof document === 'undefined') return true;
+  return document.createElement('video').canPlayType(mimeType) !== '';
 }
 
 export function PlayerView({
@@ -138,7 +86,7 @@ export function PlayerView({
     setSubtitleId('');
   }, [playbackKey]);
   if (!source || !activeEpisode) return null;
-  const engine = chooseEngine(source, () => false);
+  const engine = chooseEngine(source, canPlayNative);
   const sourceUrl = playbackUrl(source.url, source.headers);
   const mediaSource: PlayerSrc =
     engine === 'hls'
@@ -152,18 +100,25 @@ export function PlayerView({
         src={mediaSource}
         title={item.displayTitle}
         playsInline
+        controls
         autoplay={false}
         className="h-full w-full"
+        onPlay={() => detectorRef.current?.setPlaying(true)}
+        onPause={() => detectorRef.current?.setPlaying(false)}
+        onSeeking={() => detectorRef.current?.setSeeking(true)}
+        onSeeked={() => detectorRef.current?.setSeeking(false)}
         onError={() => detectorRef.current?.fatalError()}
         onLoadedMetadata={() => detectorRef.current?.markStarted()}
         onTimeUpdate={() => detectorRef.current?.markProgress()}
         onEnded={onEnded}
       >
-        <MediaProvider />
-        <SubtitleOverlay
-          subtitle={source.subtitles.find((subtitle) => subtitle.id === subtitleId)}
-          headers={source.headers}
-        />
+        <MediaProvider>
+          <SubtitleTracks
+            subtitles={source.subtitles}
+            headers={source.headers}
+            selectedId={subtitleId}
+          />
+        </MediaProvider>
         <PlayerControls
           item={item}
           episodeRef={activeEpisode.ref}
