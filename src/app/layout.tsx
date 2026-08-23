@@ -88,7 +88,7 @@ export default function RootLayout({
             when nothing is stored. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=JSON.parse(localStorage.getItem('harustream:settings')||'{}');var t=s&&s.theme;if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
+            __html: `try{var s=JSON.parse(localStorage.getItem('harustream:settings')||'{}');var t=s&&s.version===1&&s.theme;if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
           }}
         />
       </head>
