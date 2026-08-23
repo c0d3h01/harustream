@@ -6,6 +6,7 @@ import {
   FailureDetector,
   nextEpisode,
   playbackUrl,
+  remapSubtitleId,
   SourceQueue,
   shouldOfferResume,
   updateResumeOffer,
@@ -129,6 +130,17 @@ describe('playback failure and resume helpers', () => {
       duration: 100,
     });
     expect(nextEpisodeOffer.visible).toBe(true);
+  });
+
+  it('remaps a selected subtitle across sources by id then language', () => {
+    const subtitles = [
+      { id: 'b-en', label: 'English', language: 'en', url: 'u', format: 'vtt' },
+      { id: 'b-es', label: 'Spanish', language: 'es', url: 'u', format: 'vtt' },
+    ] as never[];
+    expect(remapSubtitleId('b-en', subtitles, 'en')).toBe('b-en');
+    expect(remapSubtitleId('a-en', subtitles, 'en')).toBe('b-en');
+    expect(remapSubtitleId('a-fr', subtitles, 'fr')).toBe('');
+    expect(remapSubtitleId('a-en', [], 'en')).toBe('');
   });
 
   it('selects the next episode only when auto advance is enabled', () => {

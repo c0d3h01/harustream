@@ -1,6 +1,8 @@
 # Common ignores
 node_modules
 .next/
+.open-next/
+.wrangler/
 .turbo/
 .DS_Store
 .claude/

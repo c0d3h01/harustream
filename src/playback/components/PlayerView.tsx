@@ -6,6 +6,7 @@ import type { Episode, Media, StreamSource, Subtitle } from '@/types';
 import { chooseEngine } from '../engine';
 import { FailureDetector } from '../failure';
 import { playbackUrl } from '../proxy';
+import { remapSubtitleId } from '../subtitles';
 import { PlayerControls } from './PlayerControls';
 
 type Props = {
@@ -22,6 +23,12 @@ type Props = {
   onEnded: () => void;
 };
 
+function applyNativeSubtitleMode(tracks: HTMLTrackElement[], selectedId: string): void {
+  for (const track of tracks) {
+    track.track.mode = track.id === selectedId ? 'showing' : 'disabled';
+  }
+}
+
 function NativeSubtitleTracks({
   subtitles,
   headers,
@@ -33,6 +40,8 @@ function NativeSubtitleTracks({
 }) {
   const provider = useMediaProvider();
   const tracksRef = useRef<HTMLTrackElement[]>([]);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     if (!provider || !('video' in provider)) return;
@@ -61,6 +70,7 @@ function NativeSubtitleTracks({
       return track;
     });
     tracksRef.current = tracks;
+    applyNativeSubtitleMode(tracks, selectedIdRef.current);
     return () => {
       for (const track of tracks) {
         const positionCues = listeners.get(track);
@@ -72,9 +82,7 @@ function NativeSubtitleTracks({
   }, [headers, provider, subtitles]);
 
   useEffect(() => {
-    for (const track of tracksRef.current) {
-      track.track.mode = track.id === selectedId ? 'showing' : 'disabled';
-    }
+    applyNativeSubtitleMode(tracksRef.current, selectedId);
   }, [selectedId]);
 
   return null;
@@ -99,8 +107,14 @@ export function PlayerView({
   onEnded,
 }: Props) {
   const detectorRef = useRef<FailureDetector | undefined>(undefined);
+  const previousEpisodeRef = useRef<string | undefined>(undefined);
   const [subtitleId, setSubtitleId] = useState('');
-  const playbackKey = `${source?.id ?? ''}:${activeEpisode?.ref ?? ''}`;
+  const subtitleLanguageRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!source || !subtitleId) return;
+    const selected = source.subtitles.find((subtitle) => subtitle.id === subtitleId);
+    if (selected) subtitleLanguageRef.current = selected.language;
+  }, [source, subtitleId]);
   const failure = useCallback(() => onSourceFailure(), [onSourceFailure]);
   useEffect(() => {
     if (!source) return;
@@ -113,9 +127,22 @@ export function PlayerView({
     };
   }, [source, failure]);
   useEffect(() => {
-    if (!playbackKey) return;
-    setSubtitleId('');
-  }, [playbackKey]);
+    const episodeRef = activeEpisode?.ref;
+    if (!episodeRef) return;
+    if (previousEpisodeRef.current && previousEpisodeRef.current !== episodeRef) {
+      setSubtitleId('');
+    }
+    previousEpisodeRef.current = episodeRef;
+  }, [activeEpisode?.ref]);
+  // Carry the subtitle choice across source switches: the new source exposes
+  // its own track ids, so re-select by id and fall back to language.
+  useEffect(() => {
+    if (!source) return;
+    setSubtitleId((current) => {
+      if (!current) return current;
+      return remapSubtitleId(current, source.subtitles, subtitleLanguageRef.current);
+    });
+  }, [source]);
   if (!source || !activeEpisode) return null;
   const engine = chooseEngine(source, canPlayNative);
   const sourceUrl = playbackUrl(source.url, source.headers);

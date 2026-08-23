@@ -13,3 +13,4 @@ export {
   shouldOfferResume,
   updateResumeOffer,
 } from './resume';
+export { remapSubtitleId } from './subtitles';

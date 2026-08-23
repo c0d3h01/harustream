@@ -7,7 +7,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 12);
   const started = Date.now();
   const requestHeaders = new Headers(request.headers);
