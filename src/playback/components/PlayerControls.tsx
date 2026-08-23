@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource } from '@/types';
-import { shouldOfferResume } from '../resume';
+import { dismissResumeOffer, updateResumeOffer } from '../resume';
 
 type Props = {
   item: Media;
@@ -111,13 +111,20 @@ export function PlayerControls({
   const currentTime = useMediaState('currentTime');
   const duration = useMediaState('duration');
   const playing = useMediaState('playing');
-  const [resumeVisible, setResumeVisible] = useState(false);
-  const saved = progress.get(item.ref, episodeRef);
+  const episodeKey = `${item.ref}::${episodeRef}`;
+  const [resumeOffer, setResumeOffer] = useState(() =>
+    updateResumeOffer(undefined, episodeKey, progress.get(item.ref, episodeRef)),
+  );
   const playbackRef = useRef({ currentTime, duration });
 
   useEffect(() => {
-    setResumeVisible(shouldOfferResume(saved?.position, saved?.duration));
-  }, [saved?.duration, saved?.position]);
+    setResumeOffer((current) =>
+      updateResumeOffer(current, episodeKey, progress.get(item.ref, episodeRef)),
+    );
+  }, [episodeKey, episodeRef, item.ref, progress.get]);
+  const currentResumeOffer = resumeOffer.episodeKey === episodeKey ? resumeOffer : undefined;
+  const saved = currentResumeOffer?.saved;
+  const resumeVisible = currentResumeOffer?.visible ?? false;
 
   useEffect(() => {
     playbackRef.current = { currentTime, duration };
@@ -153,18 +160,16 @@ export function PlayerControls({
 
   const togglePlayback = useCallback(() => {
     remote.togglePaused();
-    setResumeVisible(false);
-  }, [remote]);
+    setResumeOffer((current) => dismissResumeOffer(current, episodeKey));
+  }, [episodeKey, remote]);
 
   const selectSubtitle = useCallback(
     (id: string) => {
       onSubtitle(id);
-      const provider = media.$provider();
-      if (provider && 'video' in provider) {
-        const video = (provider as { video: HTMLVideoElement }).video;
-        for (const track of video.textTracks) {
-          track.mode = track.id === id ? 'showing' : 'disabled';
-        }
+      // Switch through the player's own track list so cues render in the
+      // player's caption layer rather than inside the video element.
+      for (const track of media.textTracks) {
+        track.mode = track.id === id ? 'showing' : 'disabled';
       }
     },
     [media, onSubtitle],
@@ -238,7 +243,7 @@ export function PlayerControls({
               onClick={() => {
                 remote.seek(saved?.position ?? 0);
                 remote.play();
-                setResumeVisible(false);
+                setResumeOffer((current) => dismissResumeOffer(current, episodeKey));
               }}
             >
               Resume
@@ -249,7 +254,7 @@ export function PlayerControls({
               onClick={() => {
                 remote.seek(0);
                 remote.play();
-                setResumeVisible(false);
+                setResumeOffer((current) => dismissResumeOffer(current, episodeKey));
               }}
             >
               Start over

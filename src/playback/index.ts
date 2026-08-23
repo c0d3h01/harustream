@@ -7,4 +7,9 @@ export {
   markSourceFailed,
   SourceQueue,
 } from './queue';
-export { nextEpisode, shouldOfferResume } from './resume';
+export {
+  dismissResumeOffer,
+  nextEpisode,
+  shouldOfferResume,
+  updateResumeOffer,
+} from './resume';

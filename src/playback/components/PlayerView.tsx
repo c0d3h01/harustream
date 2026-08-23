@@ -1,6 +1,6 @@
 'use client';
 
-import { MediaPlayer, MediaProvider, type PlayerSrc, Track } from '@vidstack/react';
+import { Captions, MediaPlayer, MediaProvider, type PlayerSrc, Track } from '@vidstack/react';
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource, Subtitle } from '@/types';
 import { chooseEngine } from '../engine';
@@ -92,12 +92,11 @@ export function PlayerView({
         ? { src: sourceUrl, type: 'video/mp4' as const }
         : sourceUrl;
   return (
-    <div className="player-shell fixed inset-0 z-50 bg-black">
+    <div className="fixed inset-0 z-50 bg-black">
       <MediaPlayer
         src={mediaSource}
         title={item.displayTitle}
         playsInline
-        controls
         autoplay={false}
         fullscreenOrientation="none"
         className="player-frame"
@@ -113,6 +112,7 @@ export function PlayerView({
         <MediaProvider>
           <SubtitleTracks subtitles={source.subtitles} headers={source.headers} />
         </MediaProvider>
+        <Captions className="player-captions" />
         <PlayerControls
           item={item}
           episodeRef={activeEpisode.ref}

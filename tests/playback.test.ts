@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   chooseEngine,
   clearFailedSources,
+  dismissResumeOffer,
   FailureDetector,
   nextEpisode,
   playbackUrl,
   SourceQueue,
   shouldOfferResume,
+  updateResumeOffer,
 } from '@/playback';
 import type { StreamSource } from '@/types';
 
@@ -106,6 +108,27 @@ describe('playback failure and resume helpers', () => {
     expect(shouldOfferResume(30, 100)).toBe(true);
     expect(shouldOfferResume(1, 100)).toBe(false);
     expect(shouldOfferResume(99, 100)).toBe(false);
+  });
+
+  it('does not reopen a dismissed resume offer when progress is saved again', () => {
+    const episodeKey = 'movie::episode-one';
+    const initial = updateResumeOffer(undefined, episodeKey, { position: 30, duration: 100 });
+    const dismissed = dismissResumeOffer(initial, episodeKey);
+    const afterProgressSave = updateResumeOffer(dismissed, episodeKey, {
+      position: 45,
+      duration: 100,
+    });
+
+    expect(initial.visible).toBe(true);
+    expect(afterProgressSave).toEqual(dismissed);
+    expect(afterProgressSave.visible).toBe(false);
+    expect(afterProgressSave.saved).toEqual({ position: 30, duration: 100 });
+
+    const nextEpisodeOffer = updateResumeOffer(afterProgressSave, 'movie::episode-two', {
+      position: 20,
+      duration: 100,
+    });
+    expect(nextEpisodeOffer.visible).toBe(true);
   });
 
   it('selects the next episode only when auto advance is enabled', () => {
