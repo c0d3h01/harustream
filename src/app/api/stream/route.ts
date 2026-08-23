@@ -4,6 +4,9 @@ import { scopeLogger } from '@/lib/log';
 import { getStreamSources } from '@/media/stream';
 
 export const dynamic = 'force-dynamic';
+// Provider modules may take up to 20s each; keep the function alive past
+// Vercel's default timeout.
+export const maxDuration = 60;
 
 // GET /api/stream?hub=<url>&type=movie|series&provider=<id>
 // `hub` is the link from meta.linkList (movies) or an episode link (series).

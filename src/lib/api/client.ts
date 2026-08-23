@@ -245,21 +245,13 @@ function streamRecentlyFailed(provider: string, type: string, link: string): boo
   return !!deadline && deadline > Date.now();
 }
 
-// Ordered candidate list of providers to try for a title: the preferred
-// provider first, then the others (so a single slow/broken provider can't
-// block playback).
+// Candidate providers for a title. Hub links are provider-specific — another
+// provider's stream module cannot resolve them — so when the owning provider
+// is known only that provider is tried. Fanning out to every registered
+// provider only makes sense when the owner is unknown.
 function providerCandidates(preferred: string): string[] {
-  const seen = new Set<string>();
-  const list: string[] = [];
-  const push = (id: string) => {
-    if (id && !seen.has(id)) {
-      seen.add(id);
-      list.push(id);
-    }
-  };
-  push(preferred);
-  for (const p of getAvailableProviders()) push(p.id);
-  return list;
+  if (preferred) return [preferred];
+  return getAvailableProviders().map((p) => p.id);
 }
 
 // Ordered candidate hubs for a movie: every quality entry's direct link (best
@@ -281,9 +273,8 @@ function hubCandidates(meta: Pick<Meta, 'linkList'>): string[] {
 }
 
 // Tries to resolve a playable stream for a movie, walking the quality hubs of
-// the preferred provider and then falling back to the other registered
-// providers. Every candidate is remembered on failure so a retry skips dead
-// links immediately. Throws a descriptive ProviderError only when every
+// the owning provider. Every candidate is remembered on failure so a retry
+// skips dead links immediately. Throws a descriptive ProviderError only when every
 // candidate has been exhausted. The winning hub is returned so the caller can
 // mark it failed if the stream later turns out unplayable.
 export async function resolveMovieStream(

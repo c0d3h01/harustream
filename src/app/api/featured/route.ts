@@ -5,6 +5,9 @@ import { getFeaturedFeed } from '@/media/catalog';
 import { cachedFetch } from '@/providers/cache';
 
 export const dynamic = 'force-dynamic';
+// Provider modules may take up to 20s each; keep the function alive past
+// Vercel's default timeout.
+export const maxDuration = 60;
 
 // GET /api/featured?provider=<optional>&preferred=<optional>
 //

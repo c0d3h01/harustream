@@ -6,6 +6,10 @@ import { getExecutableProviders } from '@/providers';
 
 export const dynamic = 'force-dynamic';
 
+// The manifest itself is cached in-process for an hour; the CDN layer keeps
+// most provider-list loads from invoking the function at all.
+const PROVIDERS_CACHE_CONTROL = 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600';
+
 // GET /api/providers
 //
 // Live provider list from the manifest (urls.json + manifest.json). This is
@@ -31,7 +35,10 @@ export async function GET(request: Request) {
       { requestId, count: providers.length, durationMs: Date.now() - started },
       'providers fetched from manifest',
     );
-    return NextResponse.json({ success: true, providers });
+    return NextResponse.json(
+      { success: true, providers },
+      { headers: { 'Cache-Control': PROVIDERS_CACHE_CONTROL } },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log.warn(
