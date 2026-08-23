@@ -385,9 +385,18 @@
   color: var(--muted-foreground);
   transform: translateY(-50%);
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 640px) and (max-width: 960px) {
   .player-frame {
     --player-controls-space: 13rem;
+    --player-media-height: min(56.25vw, calc(100vh - var(--player-controls-space)));
+  }
+  .player-frame[data-media-player] [data-media-provider] {
+    flex: none;
+    height: var(--player-media-height);
+    align-self: flex-start;
+  }
+  .player-captions {
+    bottom: calc(100% - var(--player-media-height) + 0.5rem);
   }
   .player-picker-group {
     max-width: none;
