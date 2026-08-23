@@ -23,46 +23,48 @@ export type ProxyTarget = {
 // NO_PROXY host suffixes bypass the proxy (loopback, provider hosts that are
 // already reachable, etc.). Standard comma-separated list of domains, with
 // optional leading dot and optional :port.
-function noProxySet(): Set<string> {
+function noProxyEntries(): string[] {
   const raw = (process.env.NO_PROXY ?? process.env.no_proxy ?? '').trim();
-  if (!raw) return new Set();
-  const hosts = new Set<string>();
-  for (const entry of raw.split(',')) {
-    const host = entry.trim().toLowerCase().replace(/^\./, '');
-    if (host) hosts.add(host);
-  }
-  return hosts;
+  return raw
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase().replace(/^\./, ''))
+    .filter(Boolean);
 }
 
 function shouldBypass(target: URL): boolean {
-  const bypass = noProxySet();
-  if (bypass.size === 0) return false;
+  const bypass = noProxyEntries();
+  if (bypass.length === 0) return false;
   const host = target.hostname.toLowerCase();
-  if (bypass.has(host)) return true;
-  return [...bypass].some((suffix) => host.endsWith(`.${suffix}`) || host === suffix);
+  const authority = target.host.toLowerCase();
+  return bypass.some((entry) => {
+    if (entry === '*') return true;
+    if (entry.includes(':')) return authority === entry;
+    return host === entry || host.endsWith(`.${entry}`);
+  });
 }
 
 // Reads HTTP_PROXY / HTTPS_PROXY / ALL_PROXY (upper or lower case), matching
 // curl's behavior. Returns null when unset or the target is on NO_PROXY.
 export function resolveProxy(targetUrl?: string): ProxyTarget | null {
-  const raw =
-    process.env.HTTPS_PROXY ??
-    process.env.https_proxy ??
-    process.env.HTTP_PROXY ??
-    process.env.http_proxy ??
-    process.env.ALL_PROXY ??
-    process.env.all_proxy ??
-    '';
-  const url = raw.trim();
-  if (!url) return null;
-
+  let requestTarget: URL | undefined;
   if (targetUrl) {
     try {
-      if (shouldBypass(new URL(targetUrl))) return null;
+      requestTarget = new URL(targetUrl);
+      if (shouldBypass(requestTarget)) return null;
     } catch {
       // Unparsable target URL — let the caller surface the real error.
     }
   }
+
+  const httpsProxy = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+  const httpProxy = process.env.HTTP_PROXY ?? process.env.http_proxy;
+  const allProxy = process.env.ALL_PROXY ?? process.env.all_proxy;
+  const raw =
+    requestTarget?.protocol === 'http:'
+      ? (httpProxy ?? allProxy ?? '')
+      : (httpsProxy ?? httpProxy ?? allProxy ?? '');
+  const url = raw.trim();
+  if (!url) return null;
 
   let parsed: URL;
   try {
@@ -100,23 +102,23 @@ export function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   ) as unknown as Promise<Response>;
 }
 
-// Lazily build (and reuse) a ProxyAgent for a resolved proxy target.
-let cachedAgent: ProxyAgent | null = null;
-let cachedUrl = '';
+// Lazily build (and reuse) a ProxyAgent for each resolved proxy target.
+const cachedAgents = new Map<string, ProxyAgent>();
 
 function proxyAgentFor(target: ProxyTarget): ProxyAgent | null {
-  if (cachedAgent && cachedUrl === target.url) return cachedAgent;
-  cachedUrl = target.url;
-  cachedAgent = new ProxyAgent({ uri: target.url, keepAliveTimeout: 30_000 });
-  return cachedAgent;
+  const cached = cachedAgents.get(target.url);
+  if (cached) return cached;
+  const agent = new ProxyAgent({ uri: target.url, keepAliveTimeout: 30_000 });
+  cachedAgents.set(target.url, agent);
+  return agent;
 }
 
 // axios proxy config from the same env vars, for the provider modules' axios
 // instance (they don't go through the ProxyAgent above).
-export function axiosProxyConfig():
-  | { protocol: string; host: string; port: number; auth?: ProxyCredentials }
-  | undefined {
-  const target = resolveProxy();
+export function axiosProxyConfig(
+  targetUrl?: string,
+): { protocol: string; host: string; port: number; auth?: ProxyCredentials } | undefined {
+  const target = resolveProxy(targetUrl);
   if (!target) return undefined;
   let parsed: URL;
   try {
@@ -125,7 +127,7 @@ export function axiosProxyConfig():
     return undefined;
   }
   const config: { protocol: string; host: string; port: number; auth?: ProxyCredentials } = {
-    protocol: parsed.protocol,
+    protocol: parsed.protocol.replace(/:$/, ''),
     host: parsed.hostname,
     port: parsed.port ? Number(parsed.port) : parsed.protocol === 'https:' ? 443 : 80,
   };

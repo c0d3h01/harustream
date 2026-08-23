@@ -17,6 +17,7 @@
 //
 // Env:
 //   PORT            listen port (default 8787)
+//   HOST            listen host (defaults to loopback without auth)
 //   PROXY_USERNAME  optional Basic auth username
 //   PROXY_PASSWORD  optional Basic auth password
 //   LOG_LEVEL       set to "silent" to disable request logging
@@ -28,7 +29,15 @@ import net from 'node:net';
 const PORT = Number(process.env.PORT ?? 8787);
 const USERNAME = process.env.PROXY_USERNAME ?? '';
 const PASSWORD = process.env.PROXY_PASSWORD ?? '';
+const HOST = process.env.HOST ?? (USERNAME && PASSWORD ? '0.0.0.0' : '127.0.0.1');
 const QUIET = (process.env.LOG_LEVEL ?? '').trim() === 'silent';
+
+if (!!USERNAME !== !!PASSWORD) {
+  throw new Error('PROXY_USERNAME and PROXY_PASSWORD must be set together');
+}
+if (!USERNAME && !['127.0.0.1', '::1', 'localhost'].includes(HOST)) {
+  throw new Error('Proxy authentication is required when listening outside loopback');
+}
 
 const expectedAuth =
   USERNAME || PASSWORD ? `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64')}` : '';
@@ -108,21 +117,20 @@ function handleAbsoluteRequest(req, res) {
   headers.host = target.host;
 
   const transport = target.protocol === 'https:' ? https : http;
-  const outbound = transport.request(
-    target,
-    { method: req.method, headers, signal: AbortSignal.timeout(60_000) },
-    (upstream) => {
-      log({
-        method: req.method,
-        host: target.host,
-        path: target.pathname,
-        status: upstream.statusCode,
-      });
-      res.writeHead(upstream.statusCode ?? 502, upstream.headers);
-      upstream.pipe(res);
-    },
-  );
+  const outbound = transport.request(target, { method: req.method, headers }, (upstream) => {
+    log({
+      method: req.method,
+      host: target.host,
+      path: target.pathname,
+      status: upstream.statusCode,
+    });
+    res.writeHead(upstream.statusCode ?? 502, upstream.headers);
+    upstream.pipe(res);
+  });
 
+  outbound.setTimeout(60_000, () => {
+    outbound.destroy(new Error('Upstream timed out'));
+  });
   outbound.on('error', () => {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/plain' });
     res.end('Upstream failed');
@@ -171,6 +179,6 @@ server.on('connect', (req, client, head) => {
   handleConnect(req, client, head);
 });
 
-server.listen(PORT, () => {
-  log({ event: 'listening', port: PORT, auth: expectedAuth ? 'required' : 'disabled' });
+server.listen(PORT, HOST, () => {
+  log({ event: 'listening', host: HOST, port: PORT, auth: expectedAuth ? 'required' : 'disabled' });
 });
