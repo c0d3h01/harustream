@@ -1,8 +1,19 @@
 'use client';
 
 import { useMediaContext, useMediaRemote, useMediaState } from '@vidstack/react';
-import { ArrowLeft, Captions, Maximize, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Captions,
+  ChevronDown,
+  Clapperboard,
+  ListVideo,
+  Maximize,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
+} from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource } from '@/types';
 import { shouldOfferResume } from '../resume';
 
@@ -43,6 +54,43 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 }
 
+function Picker({
+  label,
+  value,
+  title,
+  icon,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  title: string;
+  icon: ReactNode;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="player-picker-group">
+      <span className="text-white/65" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="sr-only">{label}</span>
+      <span className="player-picker-shell">
+        <select
+          aria-label={label}
+          title={title}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="player-picker"
+        >
+          {children}
+        </select>
+        <ChevronDown className="player-picker-chevron" size={14} aria-hidden="true" />
+      </span>
+    </label>
+  );
+}
+
 export function PlayerControls({
   item,
   episodeRef,
@@ -57,7 +105,7 @@ export function PlayerControls({
   onSubtitle,
   onEpisode,
 }: Props) {
-  const { textTracks } = useMediaContext();
+  const media = useMediaContext();
   const remote = useMediaRemote();
   const paused = useMediaState('paused');
   const currentTime = useMediaState('currentTime');
@@ -103,12 +151,6 @@ export function PlayerControls({
     });
   }, [currentTime, duration, episodeRef, episodeTitle, item, paused, progress.save]);
 
-  useEffect(() => {
-    for (const track of textTracks) {
-      track.mode = track.id === subtitleId ? 'showing' : 'disabled';
-    }
-  }, [subtitleId, textTracks]);
-
   const togglePlayback = useCallback(() => {
     remote.togglePaused();
     setResumeVisible(false);
@@ -117,16 +159,23 @@ export function PlayerControls({
   const selectSubtitle = useCallback(
     (id: string) => {
       onSubtitle(id);
+      const provider = media.$provider();
+      if (provider && 'video' in provider) {
+        const video = (provider as { video: HTMLVideoElement }).video;
+        for (const track of video.textTracks) {
+          track.mode = track.id === id ? 'showing' : 'disabled';
+        }
+      }
     },
-    [onSubtitle],
+    [media, onSubtitle],
   );
 
   const toggleFullscreen = useCallback(() => {
     remote.toggleFullscreen();
-    const orientation = screen.orientation as ScreenOrientation & {
-      lock?: (value: string) => Promise<void>;
-    };
-    orientation.lock?.('landscape').catch(() => {});
+    const orientation = typeof screen !== 'undefined' ? screen.orientation : undefined;
+    if (orientation && 'lock' in orientation && typeof orientation.lock === 'function') {
+      orientation.lock('landscape').catch(() => {});
+    }
   }, [remote]);
 
   const onKeyDown = useCallback(
@@ -220,7 +269,7 @@ export function PlayerControls({
           onChange={(event) => remote.seek(Number(event.target.value))}
           className="w-full accent-[var(--primary)]"
         />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="player-control-row mt-2">
           <button
             type="button"
             aria-label={paused ? 'Play' : 'Pause'}
@@ -245,30 +294,34 @@ export function PlayerControls({
           >
             <SkipForward className="size-5" />
           </button>
-          <span className="text-xs tabular-nums text-white/70">
+          <span className="player-time text-xs tabular-nums text-white/70">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
-          <label className="ml-auto flex items-center gap-2 text-xs">
-            <Captions className="size-4" aria-hidden="true" />
-            <select
-              aria-label="Source"
-              value={source.id}
-              onChange={(event) => onSource(event.target.value)}
-              className="max-w-32 rounded bg-black/60 px-2 py-1"
-            >
-              {sources.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Picker
+            label="Source"
+            value={source.id}
+            title={source.label}
+            icon={<ListVideo className="size-4" />}
+            onChange={onSource}
+          >
+            {sources.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.label}
+              </option>
+            ))}
+          </Picker>
           {source.subtitles.length ? (
-            <select
-              aria-label="Subtitles"
+            <Picker
+              label="Subtitles"
               value={subtitleId}
-              onChange={(event) => selectSubtitle(event.target.value)}
-              className="max-w-32 rounded bg-black/60 px-2 py-1 text-xs"
+              title={
+                subtitleId
+                  ? (source.subtitles.find((subtitle) => subtitle.id === subtitleId)?.label ??
+                    'Subtitles off')
+                  : 'Subtitles off'
+              }
+              icon={<Captions className="size-4" />}
+              onChange={selectSubtitle}
             >
               <option value="">Subtitles off</option>
               {source.subtitles.map((subtitle) => (
@@ -276,24 +329,25 @@ export function PlayerControls({
                   {subtitle.label}
                 </option>
               ))}
-            </select>
+            </Picker>
           ) : null}
           {episodes.length > 1 ? (
-            <select
-              aria-label="Episode"
+            <Picker
+              label="Episode"
               value={episodeRef}
-              onChange={(event) => {
-                const next = episodes.find((episode) => episode.ref === event.target.value);
+              title={episodeTitle ?? episodeRef}
+              icon={<Clapperboard className="size-4" />}
+              onChange={(value) => {
+                const next = episodes.find((episode) => episode.ref === value);
                 if (next) onEpisode(next);
               }}
-              className="max-w-36 rounded bg-black/60 px-2 py-1 text-xs"
             >
               {episodes.map((episode) => (
                 <option key={episode.id} value={episode.ref}>
                   {episode.title}
                 </option>
               ))}
-            </select>
+            </Picker>
           ) : null}
           <button
             type="button"

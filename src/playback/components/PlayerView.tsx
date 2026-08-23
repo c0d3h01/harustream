@@ -25,11 +25,9 @@ type Props = {
 function SubtitleTracks({
   subtitles,
   headers,
-  selectedId,
 }: {
   subtitles: Subtitle[];
   headers?: Record<string, string>;
-  selectedId: string;
 }) {
   return (
     <>
@@ -42,7 +40,6 @@ function SubtitleTracks({
           label={subtitle.label}
           lang={subtitle.language}
           type="vtt"
-          default={subtitle.id === selectedId}
         />
       ))}
     </>
@@ -95,14 +92,15 @@ export function PlayerView({
         ? { src: sourceUrl, type: 'video/mp4' as const }
         : sourceUrl;
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="player-shell fixed inset-0 z-50 bg-black">
       <MediaPlayer
         src={mediaSource}
         title={item.displayTitle}
         playsInline
         controls
         autoplay={false}
-        className="h-full w-full"
+        fullscreenOrientation="none"
+        className="player-frame"
         onPlay={() => detectorRef.current?.setPlaying(true)}
         onPause={() => detectorRef.current?.setPlaying(false)}
         onSeeking={() => detectorRef.current?.setSeeking(true)}
@@ -113,11 +111,7 @@ export function PlayerView({
         onEnded={onEnded}
       >
         <MediaProvider>
-          <SubtitleTracks
-            subtitles={source.subtitles}
-            headers={source.headers}
-            selectedId={subtitleId}
-          />
+          <SubtitleTracks subtitles={source.subtitles} headers={source.headers} />
         </MediaProvider>
         <PlayerControls
           item={item}
