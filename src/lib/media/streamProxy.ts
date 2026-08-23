@@ -85,7 +85,7 @@ export function rewriteHlsManifest(
     const trimmed = line.trim();
 
     // Attribute-style URI (e.g. #EXT-X-KEY:METHOD=AES-128,URI="key.bin").
-    if (/^#EXT-X-(?:KEY|MEDIA|MAP|SESSION-KEY):/i.test(trimmed)) {
+    if (trimmed.startsWith('#') && /URI="[^"]+"/i.test(line)) {
       return line.replace(/URI="([^"]+)"/gi, (_m, rawUri: string) => `URI="${resolve(rawUri)}"`);
     }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Media, SearchResult } from '@/types';
 import {
   DEFAULT_LIBRARY,
@@ -25,11 +25,21 @@ function useStoredValue<T>(
   key: string,
   schema: Parameters<typeof readStorage<T>>[1],
   fallback: T,
-): [T, (next: T) => void] {
+): [T, (next: T | ((current: T) => T)) => void] {
   const [value, setValue] = useState(fallback);
-  useEffect(() => setValue(readStorage(key, schema, fallback)), [key, schema, fallback]);
+  const valueRef = useRef(value);
+  useEffect(() => {
+    const next = readStorage(key, schema, fallback);
+    valueRef.current = next;
+    setValue(next);
+  }, [key, schema, fallback]);
   const update = useCallback(
-    (next: T) => {
+    (nextOrUpdater: T | ((current: T) => T)) => {
+      const next =
+        typeof nextOrUpdater === 'function'
+          ? (nextOrUpdater as (current: T) => T)(valueRef.current)
+          : nextOrUpdater;
+      valueRef.current = next;
       setValue(next);
       writeStorage(key, next);
     },
@@ -77,6 +87,7 @@ export function useLibrary(providerId = '') {
         providerId: item.providerId,
         providerName: 'providerName' in item ? item.providerName : item.providerId,
         title: item.title,
+        displayTitle: item.displayTitle,
         posterUrl: item.posterUrl,
         ref: item.ref,
       };
@@ -119,15 +130,15 @@ export function useProgress(providerId = '') {
         return;
       }
       const key = `${ref}::${episodeRef}`;
-      setStored({
+      setStored((current) => ({
         version: 1,
         entries: {
-          ...stored.entries,
+          ...current.entries,
           [key]: { ...meta, position, duration, updatedAt: Date.now() },
         },
-      });
+      }));
     },
-    [setStored, stored.entries],
+    [setStored],
   );
   const clear = useCallback(
     (ref: string, episodeRef: string) => {

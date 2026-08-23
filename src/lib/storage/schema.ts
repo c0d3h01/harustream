@@ -18,6 +18,7 @@ export const libraryItemSchema = z.object({
   providerId: z.string(),
   providerName: z.string(),
   title: z.string(),
+  displayTitle: z.string(),
   posterUrl: z.string().optional(),
   ref: z.string(),
 });
@@ -35,6 +36,7 @@ export const progressEntrySchema = z.object({
   poster: z.string().optional(),
   type: z.string().optional(),
   episodeTitle: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 export const progressSchema = z.object({
