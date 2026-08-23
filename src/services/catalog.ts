@@ -3,6 +3,7 @@ import { getProvider, listProviders } from '@/providers/registry';
 import type { Catalog, SearchResult } from '@/types';
 import { parseRaw, rawPostSchema } from '@/validations/provider';
 import { runFanout } from './fanout';
+import { toSearchResult } from './normalize';
 
 export async function catalog(
   providerId: string,
@@ -20,14 +21,7 @@ export async function catalog(
   return parseRaw(rawPostSchema.array(), posts, {
     provider: provider.id,
     op: 'catalog',
-  }).map((post) => ({
-    id: `${provider.id}:${post.link}`,
-    providerId: provider.id,
-    providerName: provider.name,
-    title: post.title,
-    posterUrl: post.image || undefined,
-    ref: post.link,
-  }));
+  }).map((post) => toSearchResult(post, provider.id, provider.name));
 }
 
 export function providerCatalog(providerId: string): Catalog[] {
