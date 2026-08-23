@@ -8,8 +8,14 @@ import { encodeRef } from '@/lib/refs';
 import { useProgress } from '@/lib/storage';
 
 export function ContinueWatching() {
-  const progress = useProgress();
-  const items = progress.list.slice(0, 12);
+  const movieBoxProgress = useProgress('movieBoxWeb');
+  const moviesmodProgress = useProgress('Moviesmod');
+  const anikotoProgress = useProgress('anikoto');
+  const progress = [movieBoxProgress, moviesmodProgress, anikotoProgress];
+  const items = progress
+    .flatMap((entry) => entry.list)
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, 12);
   if (!items.length) return null;
   return (
     <section className="mt-8" aria-labelledby="continue-heading">
@@ -22,12 +28,14 @@ export function ContinueWatching() {
       <div className="grid grid-flow-col auto-cols-[150px] gap-3 overflow-x-auto pb-3">
         {items.map((item) => {
           const title = item.title ?? 'Untitled';
-          const provider = item.type ?? 'movieBoxWeb';
+          const provider = item.provider ?? 'movieBoxWeb';
           const percentage = Math.round((item.position / item.duration) * 100);
           return (
             <div key={`${item.ref}:${item.episodeRef}`} className="relative">
               <Link
-                href={`/title/${encodeURIComponent(provider)}/${encodeRef(item.ref)}`}
+                href={`/watch/${encodeURIComponent(provider)}/${encodeRef(item.ref)}${
+                  item.episodeRef ? `?episode=${encodeURIComponent(item.episodeRef)}` : ''
+                }`}
                 className="group block overflow-hidden rounded-2xl border border-border/70 bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="relative aspect-[2/3] bg-secondary">
@@ -68,7 +76,11 @@ export function ContinueWatching() {
               <button
                 type="button"
                 aria-label={`Remove ${title} from continue watching`}
-                onClick={() => progress.clear(item.ref, item.episodeRef)}
+                onClick={() =>
+                  progress
+                    .find((entry) => entry.list.some((saved) => saved.ref === item.ref))
+                    ?.clear(item.ref, item.episodeRef)
+                }
                 className="absolute top-1 right-1 grid size-8 place-items-center rounded-full bg-background/80 text-foreground opacity-0 backdrop-blur transition hover:bg-background group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="size-3.5" aria-hidden="true" />

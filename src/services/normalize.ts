@@ -23,6 +23,18 @@ function idFor(providerId: string, ref: string): string {
   return `${providerId}:${stableId(`${providerId}:${ref}`)}`;
 }
 
+const DISPLAY_NOISE =
+  /\s+(?:dual\s+audio|multi\s+audio|blu-?ray|web-?dl|webrip|hdtv|hdrip|proper|repack|x264|x265|hevc|h264|aac|dts|ddp?\s*\d*(?:\.\d+)?|10bit|extended|uncut|complete|full\s+movie|free\s+download)\b.*$/i;
+const DISPLAY_SIZE_OR_QUALITY = /\s+(?:\d{3,4}p|\d+(?:\.\d+)?\s*(?:gb|mb)|\d+\s*(?:gb|mb))\b.*$/i;
+
+export function displayTitle(rawTitle: string): string {
+  let title = rawTitle.trim().replace(/^download\s+/i, '');
+  title = title.replace(/\s*\|\|.*$/u, '');
+  title = title.replace(DISPLAY_NOISE, '');
+  title = title.replace(DISPLAY_SIZE_OR_QUALITY, '');
+  return title.replace(/\s{2,}/g, ' ').trim() || rawTitle.trim();
+}
+
 export function toSearchResult(
   raw: RawPost,
   providerId: string,
@@ -33,6 +45,7 @@ export function toSearchResult(
     providerId,
     providerName,
     title: raw.title,
+    displayTitle: displayTitle(raw.title),
     posterUrl: raw.image || undefined,
     ref: raw.link,
   };
@@ -69,6 +82,7 @@ export function toMedia(raw: RawInfo, providerId: string, ref: string): Media {
     providerId,
     ref,
     title: raw.title,
+    displayTitle: displayTitle(raw.title),
     kind: raw.type.toLowerCase() === 'series' ? 'series' : 'movie',
     posterUrl: raw.image || raw.poster || undefined,
     synopsis: raw.synopsis || '',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  displayTitle,
   orderSources,
   toEpisode,
   toMedia,
@@ -9,6 +10,23 @@ import {
 import { anikotoHls, movieBoxSeries, moviesmodMovie } from './fixtures/provider-output';
 
 describe('provider normalization', () => {
+  it('derives concise display titles without changing raw titles', () => {
+    expect(
+      displayTitle(
+        'Download Interstellar (2014) Dual Audio {Hindi-English} 480p [650MB] || 720p [1.5GB]',
+      ),
+    ).toBe('Interstellar (2014)');
+    expect(
+      displayTitle(
+        'Download Breaking Bad (Season 1 – 5) Dual Audio {Hindi-English} BluRay 480p [200MB]',
+      ),
+    ).toBe('Breaking Bad (Season 1 – 5)');
+    expect(displayTitle('Breaking Bad S1-S5')).toBe('Breaking Bad S1-S5');
+    expect(displayTitle('Sinbad: Night at High Noon and the Wonder Gate')).toBe(
+      'Sinbad: Night at High Noon and the Wonder Gate',
+    );
+  });
+
   it('normalizes a provider post fixture', () => {
     const result = toSearchResult(
       { title: 'Interstellar', link: '/movie/interstellar', image: 'https://img.test/i.jpg' },

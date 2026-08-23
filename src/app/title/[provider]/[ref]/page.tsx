@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { TitleExperience } from '@/components/title/TitleExperience';
+import { TitleLoadError } from '@/components/title/TitleLoadError';
+import { asAppError } from '@/lib/errors';
 import { decodeRef } from '@/lib/refs';
 import { media } from '@/services/media';
 
@@ -13,8 +15,14 @@ export default async function TitlePage({ params }: Props) {
   let item: Awaited<ReturnType<typeof media>>;
   try {
     item = await media(decodeURIComponent(provider), decodeRef(encodedRef));
-  } catch {
-    notFound();
+  } catch (error) {
+    const appError = asAppError(error);
+    if (appError.code === 'NOT_FOUND') notFound();
+    return (
+      <Shell>
+        <TitleLoadError />
+      </Shell>
+    );
   }
   return (
     <Shell>

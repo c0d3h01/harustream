@@ -2,13 +2,16 @@
 
 import { Check, ChevronDown, Film, Loader2, Play } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { episodes as fetchEpisodes, sources as fetchSources } from '@/lib/api/client';
 import { imageUrl } from '@/lib/media/images';
+import { encodeRef } from '@/lib/refs';
 import { useLibrary } from '@/lib/storage';
 import type { Episode, Media, StreamSource } from '@/types';
 
 export function TitleExperience({ item }: { item: Media }) {
+  const router = useRouter();
   const library = useLibrary(item.providerId);
   const [groupIndex, setGroupIndex] = useState(0);
   const [episodeList, setEpisodeList] = useState<Episode[]>([]);
@@ -73,14 +76,22 @@ export function TitleExperience({ item }: { item: Media }) {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               {item.providerId}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{item.title}</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">
+              {item.displayTitle}
+            </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               {item.synopsis}
             </p>
             <button
               type="button"
-              onClick={() => void (group?.items[0] && loadSources(group.items[0].ref, item.kind))}
-              disabled={!group?.items[0] || loadingSources}
+              onClick={() =>
+                router.push(
+                  `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}${
+                    episode ? `?episode=${encodeURIComponent(episode.ref)}` : ''
+                  }`,
+                )
+              }
+              disabled={!group || (item.kind === 'movie' && !group.items[0]) || loadingSources}
               className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {loadingSources ? (
@@ -88,7 +99,7 @@ export function TitleExperience({ item }: { item: Media }) {
               ) : (
                 <Play className="size-4 fill-current" />
               )}
-              Resolve sources
+              Play now
             </button>
           </div>
         </div>
@@ -153,13 +164,31 @@ export function TitleExperience({ item }: { item: Media }) {
             )}
           </section>
         ) : null}
-        <SourceList sources={sources} loading={loadingSources} />
+        <SourceList
+          sources={sources}
+          loading={loadingSources}
+          onPlay={() =>
+            router.push(
+              `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}${
+                episode ? `?episode=${encodeURIComponent(episode.ref)}` : ''
+              }`,
+            )
+          }
+        />
       </aside>
     </div>
   );
 }
 
-function SourceList({ sources, loading }: { sources: StreamSource[]; loading: boolean }) {
+function SourceList({
+  sources,
+  loading,
+  onPlay,
+}: {
+  sources: StreamSource[];
+  loading: boolean;
+  onPlay: () => void;
+}) {
   return (
     <section className="rounded-2xl border border-border/70 bg-card/70 p-5">
       <h2 className="font-semibold">Available sources</h2>
@@ -180,9 +209,9 @@ function SourceList({ sources, loading }: { sources: StreamSource[]; loading: bo
               </div>
               <button
                 type="button"
-                disabled
+                onClick={onPlay}
                 className="rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-muted-foreground"
-                title="Playback arrives in phase 3"
+                title="Play this title"
               >
                 Play
               </button>

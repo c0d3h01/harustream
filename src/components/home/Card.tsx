@@ -16,7 +16,7 @@ export function Card({ item, priority = false }: { item: SearchResult; priority?
         {item.posterUrl ? (
           <Image
             src={imageUrl(item.posterUrl)}
-            alt={`${item.title} poster`}
+            alt={`${item.displayTitle} poster`}
             fill
             priority={priority}
             sizes="(min-width: 1024px) 170px, (min-width: 640px)  twentyvw, 42vw"
@@ -32,7 +32,7 @@ export function Card({ item, priority = false }: { item: SearchResult; priority?
         </span>
       </div>
       <div className="p-3">
-        <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
+        <p className="line-clamp-2 text-sm font-semibold">{item.displayTitle}</p>
         <p className="mt-1 text-xs text-muted-foreground">
           {item.providerName} · {kind}
         </p>

@@ -6,6 +6,7 @@ export interface SearchResult {
   providerId: string;
   providerName: string;
   title: string;
+  displayTitle: string;
   posterUrl?: string;
   ref: string;
 }
@@ -33,6 +34,7 @@ export interface Media {
   providerId: string;
   ref: string;
   title: string;
+  displayTitle: string;
   kind: MediaKind;
   posterUrl?: string;
   synopsis: string;

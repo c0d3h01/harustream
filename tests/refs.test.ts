@@ -4,6 +4,7 @@ import { decodeRef, encodeRef } from '@/lib/refs';
 describe('opaque title references', () => {
   it.each([
     'https://themoviebox.org/moviesDetail/breaking-bad',
+    '火影忍者 — Naruto',
     '{"subjectId":"6207982430134357800","detailPath":"breaking-bad-ej6Bp0MCAo7","language":"Original Audio"}',
   ])('round trips %s', (value) => {
     const encoded = encodeRef(value);
