@@ -1,6 +1,6 @@
 'use client';
 
-import { useMediaContext, useMediaRemote, useMediaState } from '@vidstack/react';
+import { useMediaRemote, useMediaState } from '@vidstack/react';
 import {
   ArrowLeft,
   Captions,
@@ -105,7 +105,6 @@ export function PlayerControls({
   onSubtitle,
   onEpisode,
 }: Props) {
-  const media = useMediaContext();
   const remote = useMediaRemote();
   const paused = useMediaState('paused');
   const currentTime = useMediaState('currentTime');
@@ -166,13 +165,8 @@ export function PlayerControls({
   const selectSubtitle = useCallback(
     (id: string) => {
       onSubtitle(id);
-      // Switch through the player's own track list so cues render in the
-      // player's caption layer rather than inside the video element.
-      for (const track of media.textTracks) {
-        track.mode = track.id === id ? 'showing' : 'disabled';
-      }
     },
-    [media, onSubtitle],
+    [onSubtitle],
   );
 
   const toggleFullscreen = useCallback(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Captions, MediaPlayer, MediaProvider, type PlayerSrc, Track } from '@vidstack/react';
+import { MediaPlayer, MediaProvider, type PlayerSrc, useMediaProvider } from '@vidstack/react';
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import type { Episode, Media, StreamSource, Subtitle } from '@/types';
 import { chooseEngine } from '../engine';
@@ -22,28 +22,62 @@ type Props = {
   onEnded: () => void;
 };
 
-function SubtitleTracks({
+function NativeSubtitleTracks({
   subtitles,
   headers,
+  selectedId,
 }: {
   subtitles: Subtitle[];
   headers?: Record<string, string>;
+  selectedId: string;
 }) {
-  return (
-    <>
-      {subtitles.map((subtitle) => (
-        <Track
-          key={subtitle.id}
-          id={subtitle.id}
-          src={playbackUrl(subtitle.url, headers, subtitle.format)}
-          kind="subtitles"
-          label={subtitle.label}
-          lang={subtitle.language}
-          type="vtt"
-        />
-      ))}
-    </>
-  );
+  const provider = useMediaProvider();
+  const tracksRef = useRef<HTMLTrackElement[]>([]);
+
+  useEffect(() => {
+    if (!provider || !('video' in provider)) return;
+    const video = provider.video;
+    if (!(video instanceof HTMLVideoElement)) return;
+    const listeners = new Map<HTMLTrackElement, () => void>();
+    const tracks = subtitles.map((subtitle) => {
+      const track = document.createElement('track');
+      track.id = subtitle.id;
+      track.kind = 'subtitles';
+      track.label = subtitle.label;
+      track.srclang = subtitle.language;
+      track.src = playbackUrl(subtitle.url, headers, subtitle.format);
+      const positionCues = () => {
+        for (const cue of track.track.cues ?? []) {
+          if ('line' in cue) {
+            const vttCue = cue as VTTCue;
+            vttCue.snapToLines = false;
+            vttCue.line = 60;
+          }
+        }
+      };
+      track.addEventListener('load', positionCues);
+      listeners.set(track, positionCues);
+      video.append(track);
+      return track;
+    });
+    tracksRef.current = tracks;
+    return () => {
+      for (const track of tracks) {
+        const positionCues = listeners.get(track);
+        if (positionCues) track.removeEventListener('load', positionCues);
+        track.remove();
+      }
+      tracksRef.current = [];
+    };
+  }, [headers, provider, subtitles]);
+
+  useEffect(() => {
+    for (const track of tracksRef.current) {
+      track.track.mode = track.id === selectedId ? 'showing' : 'disabled';
+    }
+  }, [selectedId]);
+
+  return null;
 }
 
 function canPlayNative(mimeType: string): boolean {
@@ -109,10 +143,12 @@ export function PlayerView({
         onTimeUpdate={() => detectorRef.current?.markProgress()}
         onEnded={onEnded}
       >
-        <MediaProvider>
-          <SubtitleTracks subtitles={source.subtitles} headers={source.headers} />
-        </MediaProvider>
-        <Captions className="player-captions" />
+        <MediaProvider />
+        <NativeSubtitleTracks
+          subtitles={source.subtitles}
+          headers={source.headers}
+          selectedId={subtitleId}
+        />
         <PlayerControls
           item={item}
           episodeRef={activeEpisode.ref}
