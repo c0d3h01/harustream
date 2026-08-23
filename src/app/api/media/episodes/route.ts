@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
 import { AppError } from '@/lib/errors';
-import { sources } from '@/services/sources';
+import { episodes } from '@/services/episodes';
+import { providerRefQuery } from '@/validations/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +10,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const requestId = requestIdOf(request);
   const params = new URL(request.url).searchParams;
-  const provider = params.get('provider') ?? '';
-  const ref = params.get('ref') ?? params.get('hub') ?? '';
-  const kind = params.get('kind') ?? params.get('type') ?? 'movie';
-  if (!provider || !ref) {
-    return apiErrorResponse(new AppError('BAD_REQUEST', 'Missing provider or hub'), requestId);
+  const parsed = providerRefQuery.safeParse({
+    provider: params.get('provider'),
+    ref: params.get('ref') ?? params.get('link'),
+  });
+  if (!parsed.success) {
+    return apiErrorResponse(new AppError('BAD_REQUEST', 'Invalid episodes query'), requestId);
   }
   try {
-    return NextResponse.json(await sources(provider, ref, kind, request.signal));
+    return NextResponse.json(await episodes(parsed.data.provider, parsed.data.ref, request.signal));
   } catch (error) {
     return apiErrorResponse(error, requestId);
   }

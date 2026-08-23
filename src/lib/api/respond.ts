@@ -1,50 +1,18 @@
-// Shared response/error helpers for all API route handlers. Keeps error
-// handling consistent across the app: every handler returns the same JSON
-// shape and logs a verbose entry with the request id stamped by the proxy
-// middleware.
-
 import { NextResponse } from 'next/server';
-import { ProviderError as RuntimeProviderError } from '@/providers/errors';
-import { describeProviderError, ProviderError } from './errors';
+import { AppError, errorResponseBody, httpStatusForError } from '@/lib/errors';
 
-// Error payload shape sent to the browser. `requestId` lets the user report
-// a failing request and us to find it in the logs.
-export function apiErrorResponse(error: unknown, requestId?: string): NextResponse {
-  if (error instanceof ProviderError) {
-    return NextResponse.json(
-      {
-        error: describeProviderError(error),
-        code: error.code,
-        ...(requestId ? { requestId } : {}),
-      },
-      { status: error.status >= 400 && error.status < 600 ? error.status : 502 },
-    );
-  }
-
-  // Provider runtime errors (from src/providers) carry their own status/code
-  // and a user-safe message; surface them as-is instead of a generic 500.
-  if (error instanceof RuntimeProviderError) {
-    return NextResponse.json(
-      {
-        error: error.message,
-        code: error.code,
-        ...(requestId ? { requestId } : {}),
-      },
-      { status: error.status >= 400 && error.status < 600 ? error.status : 502 },
-    );
-  }
-
-  return NextResponse.json(
-    {
-      error: 'Something went wrong while loading content.',
-      ...(requestId ? { requestId } : {}),
-    },
-    { status: 500 },
-  );
+export function requestIdOf(request: Request): string {
+  return request.headers.get('x-request-id') || crypto.randomUUID();
 }
 
-// Reads the `x-request-id` header that the proxy middleware stamps onto every
-// /api request (falls back to a fresh id when absent).
-export function requestIdOf(request: Request): string {
-  return request.headers.get('x-request-id') ?? crypto.randomUUID().slice(0, 12);
+export function apiErrorResponse(error: unknown, requestId: string) {
+  const cause =
+    error instanceof AppError
+      ? error
+      : new AppError('UPSTREAM', error instanceof Error ? error.message : String(error), {
+          cause: error,
+        });
+  return NextResponse.json(errorResponseBody(cause, requestId), {
+    status: httpStatusForError(cause),
+  });
 }
