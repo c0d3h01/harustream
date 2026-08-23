@@ -14,6 +14,7 @@
 //    win over config defaults and are carried onto rewritten HLS URLs
 //  - private/internal hosts are rejected (SSRF guard)
 
+import { TtlCache } from '@/lib/cache';
 import { scopeLogger } from '@/lib/log';
 
 export type ProxyHeaders = Record<string, string>;
@@ -105,9 +106,10 @@ export function rewriteHlsManifest(
 // The User-Agent we present to provider hosts. Configurable so hosts that
 // fingerprint by UA can be tuned without a code change.
 function upstreamUserAgent(explicit?: string): string {
+  const configured = process.env.STREAM_PROXY_USER_AGENT?.trim();
   return (
-    explicit?.trim() ??
-    process.env.STREAM_PROXY_USER_AGENT ??
+    explicit?.trim() ||
+    configured ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   );
 }
@@ -145,6 +147,14 @@ export function isInternalHost(host: string): boolean {
 // small (KBs); the cap is a safety net against a misbehaving upstream that
 // claims HLS but streams unbounded bytes.
 const MAX_MANIFEST_BYTES = 2 << 20; // 2 MiB
+const IDENTITY_CACHE_TTL_MS = 5 * 60 * 1000;
+const AUTH_REJECTION_STATUSES = new Set([401, 403, 406, 426]);
+type IdentityVariant = 'provider' | 'bare';
+const proxyIdentityCache = new TtlCache<IdentityVariant>();
+
+export function clearProxyIdentityCache(): void {
+  proxyIdentityCache.clear();
+}
 
 function ttmlTime(value: string): number {
   const parts = value.trim().split(':').map(Number);
@@ -220,58 +230,79 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
     throw new Error('Target host is not reachable');
   }
 
-  const referer = upstreamReferer(target, options.headers?.referer);
-  const origin = options.headers?.origin?.trim() || referer;
-  const headers: Record<string, string> = {
-    'User-Agent': upstreamUserAgent(options.headers?.userAgent),
-    Referer: referer,
-    Accept: '*/*',
-    // Origin mirrors Referer so provider hosts that enforce hotlink
-    // protection on both headers see a consistent browser-like identity.
-    // An explicit provider Origin (e.g. themoviebox.org) wins over that.
-    Origin: origin,
-  };
-  const cookie = options.headers?.cookie?.trim();
-  if (cookie) headers.Cookie = cookie;
-  if (options.range) headers.Range = options.range;
-
   const started = Date.now();
-  let upstream: Response;
-  try {
-    upstream = await fetch(url, {
-      headers,
-      cache: 'no-store',
-      redirect: 'follow',
-      signal: options.signal,
-    });
-  } catch (error) {
-    log.error(
-      { url, code: (error as Error).name ?? 'FETCH', durationMs: Date.now() - started },
-      'upstream stream fetch failed',
-    );
-    throw new Error(
-      (error as Error).name === 'AbortError' ? 'Stream request aborted' : 'Upstream unreachable',
-    );
-  }
+  const providerHeaders = (): Record<string, string> => {
+    const referer = upstreamReferer(target, options.headers?.referer);
+    const origin = options.headers?.origin?.trim() || referer;
+    return { Referer: referer, Origin: origin };
+  };
+  const requestHeaders = (variant: IdentityVariant): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'User-Agent': upstreamUserAgent(options.headers?.userAgent),
+      Accept: '*/*',
+    };
+    if (variant === 'provider') Object.assign(headers, providerHeaders());
+    const cookie = options.headers?.cookie?.trim();
+    if (cookie) headers.Cookie = cookie;
+    if (options.range) headers.Range = options.range;
+    return headers;
+  };
+  const fetchVariant = async (variant: IdentityVariant): Promise<Response> => {
+    try {
+      const response = await fetch(url, {
+        headers: requestHeaders(variant),
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: options.signal,
+      });
+      log.debug(
+        {
+          url,
+          status: response.status,
+          variant,
+          contentType: response.headers.get('content-type'),
+          durationMs: Date.now() - started,
+        },
+        'upstream responded',
+      );
+      return response;
+    } catch (error) {
+      log.error(
+        { url, code: (error as Error).name ?? 'FETCH', variant, durationMs: Date.now() - started },
+        'upstream stream fetch failed',
+      );
+      throw new Error(
+        (error as Error).name === 'AbortError' ? 'Stream request aborted' : 'Upstream unreachable',
+      );
+    }
+  };
 
-  const contentType = upstream.headers.get('content-type');
-  log.debug(
-    { url, status: upstream.status, contentType, durationMs: Date.now() - started },
-    'upstream responded',
-  );
+  const cachedVariant = proxyIdentityCache.get(target.host);
+  const firstVariant: IdentityVariant = cachedVariant ?? 'provider';
+  let upstream = await fetchVariant(firstVariant);
 
   // Non-2xx responses are surfaced with their status so the client video
   // element reports a truthful error instead of a silent stall.
   if (!upstream.ok) {
-    if (!upstream.body) {
+    if (AUTH_REJECTION_STATUSES.has(upstream.status)) {
+      const originalStatus = upstream.status;
+      await upstream.body?.cancel().catch(() => {});
+      const retryVariant: IdentityVariant = firstVariant === 'provider' ? 'bare' : 'provider';
+      upstream = await fetchVariant(retryVariant);
+      if (!upstream.ok) {
+        await upstream.body?.cancel().catch(() => {});
+        throw new Error(`Upstream error (${originalStatus})`);
+      }
+      proxyIdentityCache.set(target.host, retryVariant, IDENTITY_CACHE_TTL_MS);
+    } else {
+      await upstream.body?.cancel().catch(() => {});
       throw new Error(`Upstream error (${upstream.status})`);
     }
-    // Drain the upstream body so the connection is reusable, then surface
-    // the status to the caller as a plain error.
-    await upstream.body.cancel().catch(() => {});
-    throw new Error(`Upstream error (${upstream.status})`);
+  } else {
+    proxyIdentityCache.set(target.host, firstVariant, IDENTITY_CACHE_TTL_MS);
   }
 
+  const contentType = upstream.headers.get('content-type');
   const passthrough: ProxyHeaders = {
     'Content-Type': contentType ?? 'application/octet-stream',
     'Cache-Control': 'public, max-age=3600',

@@ -1,5 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { rewriteHlsManifest, srtToVtt, ttmlToVtt } from '@/lib/media/streamProxy';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  clearProxyIdentityCache,
+  proxyStream,
+  rewriteHlsManifest,
+  srtToVtt,
+  ttmlToVtt,
+} from '@/lib/media/streamProxy';
+
+const response = (status: number, body = 'media') =>
+  new Response(body, {
+    status,
+    headers: { 'content-type': 'video/mp4' },
+  });
+
+afterEach(() => {
+  clearProxyIdentityCache();
+  vi.unstubAllGlobals();
+});
 
 describe('HLS manifest rewriting', () => {
   it('proxies URI attributes and bare relative and absolute resources', () => {
@@ -62,5 +79,83 @@ describe('subtitle conversion', () => {
     expect(srtToVtt('1\n00:00:01,000 --> 00:00:02,500\nHello\nworld')).toBe(
       'WEBVTT\n\n00:00:01.000 --> 00:00:02.500\nHello\nworld\n',
     );
+  });
+});
+
+describe('upstream identity retry ladder', () => {
+  it('uses provider headers without retrying when they succeed', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await proxyStream('https://cdn-success.test/video.mp4', {
+      headers: {
+        userAgent: 'Test Browser',
+        referer: 'https://provider.test',
+        origin: 'https://provider.test',
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).get('User-Agent')).toBe('Test Browser');
+    expect(new Headers(init?.headers).get('Referer')).toBe('https://provider.test');
+    expect(new Headers(init?.headers).get('Origin')).toBe('https://provider.test');
+  });
+
+  it('retries without referer and origin after an auth-shaped rejection', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403))
+      .mockResolvedValueOnce(response(200));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await proxyStream('https://cdn-retry.test/video.mp4', {
+      headers: {
+        referer: 'https://themoviebox.org',
+        origin: 'https://themoviebox.org',
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, retryInit] = fetchMock.mock.calls[1];
+    const retryHeaders = new Headers(retryInit?.headers);
+    expect(retryHeaders.get('User-Agent')).toContain('Mozilla/');
+    expect(retryHeaders.has('Referer')).toBe(false);
+    expect(retryHeaders.has('Origin')).toBe(false);
+  });
+
+  it('surfaces the original auth rejection when both variants fail', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403))
+      .mockResolvedValueOnce(response(426));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      proxyStream('https://cdn-both-fail.test/video.mp4', {
+        headers: { referer: 'https://themoviebox.org' },
+      }),
+    ).rejects.toThrow('Upstream error (403)');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('remembers the successful variant for the upstream host', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403))
+      .mockResolvedValueOnce(response(200))
+      .mockResolvedValueOnce(response(200));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const url = 'https://cdn-cached.test/video.mp4';
+    const options = { headers: { referer: 'https://themoviebox.org' } };
+    await proxyStream(url, options);
+    await proxyStream(url, options);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const [, retryInit] = fetchMock.mock.calls[1];
+    const [, cachedInit] = fetchMock.mock.calls[2];
+    expect(new Headers(retryInit?.headers).has('Referer')).toBe(false);
+    expect(new Headers(cachedInit?.headers).has('Referer')).toBe(false);
   });
 });
