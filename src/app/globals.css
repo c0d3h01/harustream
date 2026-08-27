@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@vidstack/react/player/styles/base.css";
+@import "@vidstack/react/player/styles/default/theme.css";
+@import "@vidstack/react/player/styles/default/layouts/video.css";
+@import "@vidstack/react/player/styles/default/layouts/audio.css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -285,6 +288,21 @@
 }
 
 /* Vidstack official CSS custom properties — dark cinema theme (minimal essential set) */
+[data-media-player].player-viewport {
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+[data-media-player].player-viewport [data-media-provider] video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+[data-media-player].player-viewport .vds-controls {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
 [data-media-player] {
   /* Core video theming */
   --video-bg: #000000;
