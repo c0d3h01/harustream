@@ -61,21 +61,29 @@ export function PlayerView({
   const detectorRef = useRef<FailureDetector | undefined>(undefined);
   const resumedRef = useRef(false);
   const lastTimeRef = useRef(0);
-  const reloadAttemptRef = useRef(0);
-  const [reloadKey, setReloadKey] = useState(0);
+  const failureHandledRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!source) return;
     resumedRef.current = false;
-    reloadAttemptRef.current = 0;
+    failureHandledRef.current = false;
     lastTimeRef.current = 0;
-    const detector = new FailureDetector(20_000, () => onSourceFailure());
+    setIsReady(false);
+    const detector = new FailureDetector(20_000, () => {
+      if (failureHandledRef.current) return;
+      failureHandledRef.current = true;
+      onSourceFailure();
+    });
     detectorRef.current = detector;
     detector.start();
     return () => {
       detector.stop();
       detectorRef.current = undefined;
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, onSourceFailure]);
@@ -110,7 +118,6 @@ export function PlayerView({
   return (
     <>
       <MediaPlayer
-        key={reloadKey}
         ref={player}
         className="fixed inset-0 z-50 h-full w-full bg-black"
         src={src}
@@ -118,7 +125,7 @@ export function PlayerView({
         playsInline
         streamType="on-demand"
         viewType="video"
-        aria-busy={!resumedRef.current}
+        aria-busy={!isReady}
         onLoadStart={() => detectorRef.current?.markStarted()}
         onPlay={() => detectorRef.current?.setPlaying(true)}
         onPause={() => detectorRef.current?.setPlaying(false)}
@@ -126,18 +133,14 @@ export function PlayerView({
         onSeeked={() => detectorRef.current?.setSeeking(false)}
         onError={(detail) => {
           const code = (detail as { code?: number }).code;
-          if (code !== MEDIA_ERR_SRC_NOT_SUPPORTED && reloadAttemptRef.current < 1) {
-            reloadAttemptRef.current += 1;
-            detectorRef.current?.stop();
-            setReloadKey((key) => key + 1);
-            return;
-          }
-          const errorMsg =
+          if (failureHandledRef.current) return;
+          failureHandledRef.current = true;
+          setErrorMessage(
             code === MEDIA_ERR_SRC_NOT_SUPPORTED
               ? 'Video format not supported. Trying next source.'
-              : 'Playback error. Retrying...';
-          setErrorMessage(errorMsg);
-          setTimeout(() => setErrorMessage(null), 3000);
+              : 'Playback error. Trying another source.',
+          );
+          retryTimerRef.current = setTimeout(() => setErrorMessage(null), 3000);
           detectorRef.current?.fatalError();
         }}
         onTimeUpdate={(detail) => {
@@ -149,17 +152,18 @@ export function PlayerView({
         onCanPlay={() => {
           if (resumedRef.current) return;
           resumedRef.current = true;
+          setIsReady(true);
+          const element = player.current?.el;
+          const media = element?.querySelector('video');
+          const duration = media && Number.isFinite(media.duration) ? media.duration : undefined;
           const recoverPosition = lastTimeRef.current;
           const saved = progress.get(item.ref, activeEpisode.ref);
+          const candidate = recoverPosition > 5 ? recoverPosition : saved?.position;
           const position =
-            recoverPosition > 5
-              ? recoverPosition
-              : saved && saved.position > 5 && saved.position < saved.duration - 10
-                ? saved.position
-                : undefined;
-          if (position !== undefined) {
-            player.current?.remoteControl.seek(position);
-          }
+            candidate !== undefined && candidate > 5 && duration !== undefined
+              ? Math.min(candidate, Math.max(0, duration - 10))
+              : undefined;
+          if (position !== undefined && media) media.currentTime = position;
         }}
         onProviderChange={(
           provider: MediaProviderAdapter | null,
@@ -168,11 +172,16 @@ export function PlayerView({
           // Both adaptive libraries load from the bundle — never a CDN.
           if (isHLSProvider(provider)) {
             provider.library = () => import('hls.js');
+            provider.config = {
+              enableWorker: true,
+              lowLatencyMode: true,
+              backBufferLength: 90,
+              capLevelToPlayerSize: true,
+            };
           } else if (isDASHProvider(provider)) {
             provider.library = async () => {
               const mod = await import('dashjs');
               const dash = ((mod as { default?: unknown }).default ?? mod) as typeof mod;
-              (window as unknown as { dashjs?: unknown }).dashjs = dash;
               return { default: dash };
             };
             // dashjs.LogLevel.NONE (5) — verbose defaults are a production leak.
