@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@vidstack/react/player/styles/base.css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,6 +46,13 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --safe-bottom: max(0.75rem, env(safe-area-inset-bottom));
   --safe-top: max(0.75rem, env(safe-area-inset-top));
+  /* Inter variable font, self-hosted via next/font/local in [lang]/layout.tsx
+     (exposed as --font-inter). Falls back to the system stack while loading.
+     shadcn components read font-sans from here. */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-heading: var(--font-sans);
 }
 
 /* The default theme is a neutral graphite charcoal. Additional themes are
@@ -195,6 +202,7 @@
   }
   html {
     background: var(--background);
+    @apply font-sans;
   }
   body {
     @apply bg-background text-foreground;
@@ -263,6 +271,55 @@
     min-block-size: 44px;
     min-inline-size: 44px;
   }
+}
+
+/* 44dp touch floor: extend Vidstack preset control-bar button hit areas
+   without changing their visual size. Menu items keep list sizing. */
+[data-media-player] .vds-controls .vds-controls-group .vds-button:not(.vds-menu-item) {
+  position: relative;
+}
+[data-media-player] .vds-controls .vds-controls-group .vds-button:not(.vds-menu-item)::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+
+/* Vidstack official CSS custom properties — dark cinema theme (minimal essential set) */
+[data-media-player] {
+  /* Core video theming */
+  --video-bg: #000000;
+  --video-brand: #e11d48;
+  --video-controls-color: #f8fafc;
+  --video-focus-ring-color: rgb(78 156 246);
+  --video-sm-button-size: 44px;
+
+  /* Core audio theming */
+  --audio-bg: #000000;
+  --audio-brand: #e11d48;
+  --audio-controls-color: #f8fafc;
+  --audio-button-size: 44px;
+  --audio-focus-ring-color: rgb(78 156 246);
+}
+
+/* Reduced motion — disable caption transition */
+@media (prefers-reduced-motion: reduce) {
+  [data-media-player] {
+    --video-captions-transition: none;
+  }
+}
+
+/* High contrast — enhance focus rings via official properties */
+@media (prefers-contrast: more) {
+  [data-media-player] {
+    --video-focus-ring-color: #fff;
+    --video-focus-ring: 0 0 0 4px var(--video-focus-ring-color);
+    --video-border: 2px solid #fff;
+    --audio-focus-ring-color: #fff;
+    --audio-focus-ring: 0 0 0 4px var(--audio-focus-ring-color);
+    --audio-border: 2px solid #fff;
+  }
+}
+@layer utilities {
   /* Optimization for horizontal scrolling rails */
   .contain-paint {
     contain: layout paint;

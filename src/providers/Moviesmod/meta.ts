@@ -1,0 +1,60 @@
+import { throwProviderError } from '../providerErrors';
+import type { Info, Link, ProviderContext } from '../types';
+import { BASE_URL } from './posts';
+
+export const getMeta = async ({
+  link,
+  signal,
+  providerContext,
+}: {
+  link: string;
+  signal?: AbortSignal;
+  providerContext: ProviderContext;
+}): Promise<Info> => {
+  try {
+    const { axios, cheerio } = providerContext;
+    const url = new URL(link, `${BASE_URL}/`).href;
+    const res = await axios.get(url, { signal });
+    const data = res.data;
+    const $ = cheerio.load(data);
+    const meta = {
+      title:
+        $('.imdbwp__title').text() ||
+        $("strong:contains('Full Name:')").parent().clone().children().remove().end().text().trim(),
+      synopsis: $('.imdbwp__teaser').text() || $('.liTOue').children('p').first().text(),
+      image:
+        $('.imdbwp__thumb').find('img').attr('src') ||
+        $("span:contains('ScreenShots:')").parent().next('p').children('img').first().attr('src') ||
+        '',
+      imdbId: $('.imdbwp__link').attr('href')?.split('/')[4] || '',
+      type: $('.thecontent').text().toLocaleLowerCase().includes('season') ? 'series' : 'movie',
+    };
+    const links: Link[] = [];
+
+    $('h3,h4').each((_i, element) => {
+      const seriesTitle = $(element).text();
+      // const batchZipLink = $(element)
+      //   .next("p")
+      //   .find(".maxbutton-batch-zip,.maxbutton-zip-download")
+      //   .attr("href");
+      const episodesLink = $(element)
+        .next('p')
+        .find('.maxbutton-episode-links,.maxbutton-g-drive,.maxbutton-af-download')
+        .attr('href');
+      const movieLink = $(element).next('p').find('.maxbutton-download-links').attr('href');
+
+      if (movieLink || (episodesLink && episodesLink !== 'javascript:void(0);')) {
+        links.push({
+          title: seriesTitle.replace('Download ', '').trim() || 'Download',
+          episodesLink: episodesLink || '',
+          directLinks: movieLink ? [{ link: movieLink, title: 'Movie', type: 'movie' }] : [],
+          quality: seriesTitle?.match(/\d+p\b/)?.[0] || '',
+        });
+      }
+    });
+    // console.log('mod meta', links);
+    return { ...meta, linkList: links, webUrl: url };
+  } catch (err) {
+    throwProviderError('MoviesMod', 'metadata', err);
+  }
+};

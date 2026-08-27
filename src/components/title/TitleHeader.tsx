@@ -1,0 +1,99 @@
+import { Check, Film, Loader2, Play } from 'lucide-react';
+import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useT } from '@/lib/i18n';
+import { imageUrl } from '@/lib/media/images';
+import { useLibrary } from '@/lib/storage';
+import type { Media } from '@/types';
+
+type TitleHeaderProps = {
+  item: Media;
+  /** False while no playable group exists or sources are still resolving. */
+  canPlay: boolean;
+  loadingSources: boolean;
+  onPlay: () => void;
+};
+
+/** Poster, title block, synopsis and the primary actions for a title.
+ *  Posters are 2:3 portrait; a side-by-side layout shows the full artwork
+ *  without cropping and keeps the title above the fold on small screens. */
+export function TitleHeader({ item, canPlay, loadingSources, onPlay }: TitleHeaderProps) {
+  const library = useLibrary(item.providerId);
+  const saved = library.has(item.ref);
+  const t = useT();
+  return (
+    <section>
+      <div className="flex gap-4 sm:gap-6">
+        <div className="relative aspect-2/3 w-28 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary sm:w-36 lg:w-44">
+          {item.posterUrl ? (
+            <Image
+              src={imageUrl(item.posterUrl)}
+              alt={t('home.posterAlt', { title: item.displayTitle })}
+              fill
+              priority
+              sizes="(min-width: 1024px) 11rem, (min-width: 640px) 9rem, 7rem"
+              className="object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center text-muted-foreground">
+              <Film className="size-8 opacity-40" aria-hidden="true" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            {item.providerId}
+          </p>
+          <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-balance sm:text-3xl">
+            {item.displayTitle}
+          </h1>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">
+              {item.kind === 'series' ? t('kind.series') : t('kind.movie')}
+            </Badge>
+            {item.rating ? (
+              <Badge variant="outline" className="text-primary">
+                ★ {item.rating}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Synopsis */}
+      {item.synopsis ? (
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          {item.synopsis}
+        </p>
+      ) : null}
+
+      {/* Actions — primary CTA is full-width on mobile for one-handed reach */}
+      <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <Button
+          onClick={onPlay}
+          disabled={!canPlay || loadingSources}
+          className="h-12 w-full gap-2.5 rounded-xl px-6 font-semibold sm:w-auto"
+        >
+          {loadingSources ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Play className="size-4 fill-current" aria-hidden="true" />
+          )}
+          {t('title.playNow')}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => library.toggle(item)}
+          aria-pressed={saved}
+          className="h-11 justify-center rounded-lg sm:justify-start"
+        >
+          {saved ? <Check className="text-primary" aria-hidden="true" /> : null}
+          {saved ? t('title.saved') : t('title.save')}
+        </Button>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,91 @@
+import { throwProviderError } from '../providerErrors';
+import type { Post, ProviderContext } from '../types';
+import { providerBaseUrl } from '../urls';
+
+// Moviesmod rotates domains; update this constant when the site moves.
+export const BASE_URL = providerBaseUrl('Moviesmod');
+
+export const getPosts = async ({
+  filter,
+  page,
+  signal,
+  providerContext,
+}: {
+  filter: string;
+  page: number;
+  providerValue?: string;
+  signal: AbortSignal;
+  providerContext: ProviderContext;
+}): Promise<Post[]> => {
+  const { axios, cheerio } = providerContext;
+  const url = `${BASE_URL + filter}/page/${page}/`;
+  return posts({
+    url,
+    signal,
+    axios,
+    cheerio,
+    operation: 'posts',
+  });
+};
+
+export const getSearchPosts = async ({
+  searchQuery,
+  page,
+  signal,
+  providerContext,
+}: {
+  searchQuery: string;
+  page: number;
+  providerValue?: string;
+  signal: AbortSignal;
+  providerContext: ProviderContext;
+}): Promise<Post[]> => {
+  const { axios, cheerio } = providerContext;
+  const url = `${BASE_URL}/search/${searchQuery}/page/${page}/`;
+  return posts({
+    url,
+    signal,
+    axios,
+    cheerio,
+    operation: 'search posts',
+  });
+};
+
+async function posts({
+  url,
+  signal,
+  axios,
+  cheerio,
+  operation,
+}: {
+  url: string;
+  signal: AbortSignal;
+  axios: ProviderContext['axios'];
+  cheerio: ProviderContext['cheerio'];
+  operation: string;
+}): Promise<Post[]> {
+  try {
+    const res = await axios.get(url, { signal });
+    const data = res.data;
+    const $ = cheerio.load(data);
+    const catalog: Post[] = [];
+    $('.post-cards')
+      .find('article')
+      .each((_i, element) => {
+        const title = $(element).find('a').attr('title');
+        const link = $(element).find('a').attr('href');
+        const image = $(element).find('img').attr('src');
+        if (title && link && image) {
+          const postUrl = new URL(link, `${BASE_URL}/`);
+          catalog.push({
+            title: title,
+            link: `${postUrl.pathname}${postUrl.search}${postUrl.hash}`,
+            image: image,
+          });
+        }
+      });
+    return catalog;
+  } catch (err) {
+    throwProviderError('MoviesMod', operation, err);
+  }
+}

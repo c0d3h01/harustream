@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 
 // Body scroll lock shared by every fullscreen overlay (detail and player

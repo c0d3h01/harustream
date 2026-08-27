@@ -2,4 +2,7 @@
 # `allowBuilds` (pnpm >= 10.26 / 11) replaces the removed
 # `onlyBuiltDependencies` allowlist.
 allowBuilds:
+  esbuild: true
   msw: true
+  sharp: true
+  workerd: true
