@@ -119,7 +119,7 @@ export function PlayerView({
     <>
       <MediaPlayer
         ref={player}
-        className="fixed inset-0 z-50 h-full w-full bg-black"
+        className="player-viewport fixed inset-0 z-50 h-[100dvh] w-full bg-black"
         src={src}
         title={item.displayTitle}
         playsInline
