@@ -85,6 +85,7 @@ export async function GET(request: Request) {
 
   // ── Mode 2: passthrough an explicit upstream URL ──
   const range = request.headers.get('range');
+  const subtitleFormat = url.searchParams.get('subtitleFormat')?.trim();
   const headers: Partial<Record<ProxyHeaderParam, string>> = {};
   for (const param of PROXY_HEADER_PARAMS) {
     const value = url.searchParams.get(param)?.trim();
@@ -105,6 +106,8 @@ export async function GET(request: Request) {
     headers,
     label: {},
     range,
+    subtitleFormat:
+      subtitleFormat === 'srt' || subtitleFormat === 'ttml' ? subtitleFormat : undefined,
   });
 }
 
@@ -116,15 +119,17 @@ type RespondArgs = {
   headers: Partial<Record<ProxyHeaderParam, string>>;
   label: Record<string, unknown>;
   range?: string | null;
+  subtitleFormat?: 'srt' | 'ttml';
 };
 
 async function respond(request: Request, args: RespondArgs): Promise<Response> {
-  const { log, requestId, started, targetUrl, headers, label, range } = args;
+  const { log, requestId, started, targetUrl, headers, label, range, subtitleFormat } = args;
   try {
     const result = await proxyStream(targetUrl, {
       range,
       headers,
       signal: request.signal,
+      subtitleFormat,
     });
     log.info(
       { requestId, ...label, status: result.status, durationMs: Date.now() - started },
