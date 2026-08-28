@@ -32,15 +32,29 @@ export function providerCatalog(providerId: string): Catalog[] {
 export async function featured(signal?: AbortSignal) {
   const results = await runFanout(
     listProviders(),
-    (provider, providerSignal) =>
-      catalog(provider.id, provider.catalog[0]?.filter ?? '', 1, providerSignal),
+    async (provider, providerSignal) =>
+      Promise.all(
+        provider.catalog.slice(0, 4).map(async (entry) => ({
+          title: entry.title,
+          items: await catalog(provider.id, entry.filter, 1, providerSignal),
+        })),
+      ),
     signal,
   );
   const rails = results
-    .filter((result): result is typeof result & { value: SearchResult[] } => Boolean(result.value))
-    .map((result) => ({
-      title: result.provider.name,
-      items: result.value,
-    }));
+    .filter(
+      (
+        result,
+      ): result is typeof result & { value: Array<{ title: string; items: SearchResult[] }> } =>
+        Boolean(result.value?.length),
+    )
+    .flatMap((result) =>
+      result.value
+        .filter((entry) => entry.items.length > 0)
+        .map((entry) => ({
+          title: `${result.provider.name} · ${entry.title}`,
+          items: entry.items,
+        })),
+    );
   return { rails };
 }

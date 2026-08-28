@@ -27,11 +27,6 @@ export function Shell({ children }: { children: ReactNode }) {
               haru<span className="text-primary">stream</span>
             </span>
           </Link>
-          <div className="ml-auto hidden sm:block">
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              HaruStream
-            </span>
-          </div>
         </div>
       </header>
       <main className="mx-auto min-h-screen w-full max-w-[1440px] px-4 pb-28 sm:px-6 lg:px-10">

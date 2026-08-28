@@ -4,14 +4,19 @@ import { ArrowUpRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import { localeHref, useLocale } from '@/lib/i18n';
 
-const providers = [
-  { name: 'Netflix', label: 'Netflix picks', tone: 'bg-red-950/80' },
-  { name: 'prime video', label: 'Prime Video', tone: 'bg-sky-950/80' },
-  { name: 'Disney+', label: 'Disney+ hot picks', tone: 'bg-indigo-950/80' },
-  { name: 'HBO max', label: 'HBO Max', tone: 'bg-violet-950/80' },
-  { name: 'Apple TV+', label: 'Apple Originals', tone: 'bg-slate-800' },
-  { name: 'Sony LIV', label: 'Sony LIV', tone: 'bg-orange-950/80' },
+import { vegaProviderInventory } from '@/providers/vegaProviders';
+
+const providerCards = [
+  { id: 'netflixMirror', name: 'Netflix', label: 'Provider mirror', tone: 'bg-red-950/80' },
+  { id: 'primeMirror', name: 'Prime Video', label: 'Provider mirror', tone: 'bg-sky-950/80' },
+  { id: 'hiAnime', name: 'AniWave', label: 'Anime catalog', tone: 'bg-indigo-950/80' },
+  { id: 'movieBox', name: 'MovieBox', label: 'Movies & series', tone: 'bg-violet-950/80' },
+  { id: 'flixhq', name: 'FlixHQ', label: 'Movies & series', tone: 'bg-slate-800' },
+  { id: 'showbox', name: 'Showbox', label: 'Movies & series', tone: 'bg-orange-950/80' },
 ];
+
+const knownProviderIds = new Set(vegaProviderInventory.map((provider) => provider.id));
+const providers = providerCards.filter((provider) => knownProviderIds.has(provider.id));
 
 export function ProviderRail() {
   const { locale } = useLocale();
