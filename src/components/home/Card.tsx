@@ -8,7 +8,15 @@ import { imageUrl } from '@/lib/media/images';
 import { encodeRef } from '@/lib/refs';
 import type { SearchResult } from '@/types';
 
-export function Card({ item, priority = false }: { item: SearchResult; priority?: boolean }) {
+export function Card({
+  item,
+  priority = false,
+  rank,
+}: {
+  item: SearchResult;
+  priority?: boolean;
+  rank?: number;
+}) {
   const t = useT();
   const { locale } = useLocale();
   // Same heuristic the Moviesmod meta parser uses; upstream search results
@@ -23,6 +31,14 @@ export function Card({ item, priority = false }: { item: SearchResult; priority?
       className="group block min-w-0 overflow-hidden rounded-xl border border-border/60 bg-card text-left shadow-xs transition duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-2/3 overflow-hidden bg-secondary">
+        {rank ? (
+          <span
+            className="absolute bottom-1 left-2 z-10 text-6xl font-black leading-none text-foreground/90 drop-shadow-lg"
+            aria-label={`Rank ${rank}`}
+          >
+            {rank}
+          </span>
+        ) : null}
         {item.posterUrl ? (
           <Image
             src={imageUrl(item.posterUrl)}

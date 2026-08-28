@@ -1,8 +1,6 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { forwardRef, type ReactNode } from 'react';
-import { SPRING } from '@/components/motion/transitions';
 import { cn } from '@/lib/utils';
 
 // Single shared scroller DOM node used by every horizontal rail. Bleeds to
@@ -45,16 +43,13 @@ export function RailArrow({
   children: ReactNode;
 }) {
   return (
-    <motion.button
+    <button
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-      transition={SPRING}
       className="touch-target grid place-items-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:bg-secondary"
     >
       {children}
-    </motion.button>
+    </button>
   );
 }

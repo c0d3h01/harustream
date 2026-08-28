@@ -35,7 +35,11 @@ export function Rails({ rails }: { rails: FeaturedRail[] }) {
             <RailScroller>
               {rail.items.map((item, index) => (
                 <div key={item.id} className="w-[140px] shrink-0 snap-start sm:w-[170px]">
-                  <Card item={item} priority={index < 4} />
+                  <Card
+                    item={item}
+                    priority={index < 4}
+                    rank={railIndex === 1 && index < 10 ? index + 1 : undefined}
+                  />
                 </div>
               ))}
             </RailScroller>

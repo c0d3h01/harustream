@@ -1,9 +1,7 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { staggerContainer, viewFadeUp } from '@/components/motion/variants';
 import { EpisodeGrid } from '@/components/title/EpisodeGrid';
 import { SourceGroupPicker } from '@/components/title/SourceGroupPicker';
 import { SourceList } from '@/components/title/SourceList';
@@ -92,32 +90,27 @@ export function TitleExperience({ item }: { item: Media }) {
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.75fr)]">
       {/* ── Left column: poster + info ── */}
-      <motion.section variants={viewFadeUp} initial="hidden" animate="visible">
+      <section>
         <TitleHeader
           item={item}
           canPlay={canPlay}
           loadingSources={loadingSources}
           onPlay={handlePlay}
         />
-      </motion.section>
+      </section>
 
       {/* ── Right column: source selection + episodes + sources ── */}
-      <motion.aside
-        className="space-y-5 lg:sticky lg:top-24 lg:self-start"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.section variants={viewFadeUp}>
+      <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+        <section>
           <SourceGroupPicker
             groups={item.groups}
             selectedIndex={groupIndex}
             onSelect={setGroupIndex}
           />
-        </motion.section>
+        </section>
 
         {group?.kind === 'episodes' ? (
-          <motion.section variants={viewFadeUp}>
+          <section>
             <EpisodeGrid
               loading={loadingEpisodes}
               error={episodesError}
@@ -125,18 +118,18 @@ export function TitleExperience({ item }: { item: Media }) {
               selectedId={episode?.id}
               onSelect={selectEpisode}
             />
-          </motion.section>
+          </section>
         ) : null}
 
-        <motion.section variants={viewFadeUp}>
+        <section>
           <SourceList
             loading={loadingSources}
             error={sourceError}
             sources={sources}
             onPlay={handlePlay}
           />
-        </motion.section>
-      </motion.aside>
+        </section>
+      </aside>
     </div>
   );
 }
