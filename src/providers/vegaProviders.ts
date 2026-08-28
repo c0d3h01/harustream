@@ -5,7 +5,21 @@ import type { VegaProviderDescriptor } from './vegaAdapter';
  * each provider must be ported through adaptVegaProvider and verified against
  * the current normalized contract before it can make network requests.
  */
-export const vegaProviderInventory: VegaProviderDescriptor[] = [
+const providerNames: Record<string, string> = {
+  vega: 'Vega',
+  movieBox: 'MoviesBox',
+  torrentio: 'Torrentio',
+  hiAnime: 'HiAnime',
+  flixhq: 'FlixHQ',
+  showbox: 'Showbox',
+  netflixMirror: 'Netflix',
+  primeMirror: 'Prime Video',
+};
+
+const providerIds = [
+  'vega',
+  'movieBox',
+  'torrentio',
   '1cinevood',
   '4khdhub',
   'Joya9tv',
@@ -52,9 +66,12 @@ export const vegaProviderInventory: VegaProviderDescriptor[] = [
   'vega',
   'world4u',
   'zeefliz',
-].map((id) => ({
+];
+
+export const vegaProviderInventory: VegaProviderDescriptor[] = providerIds.map((id) => ({
   id,
-  name: id,
+  name: providerNames[id] ?? id,
+
   status: 'experimental',
   source: 'vega-adapter',
   note: 'Awaiting contract validation and legal/service health review.',

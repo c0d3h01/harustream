@@ -6,17 +6,12 @@ import { localeHref, useLocale } from '@/lib/i18n';
 
 import { vegaProviderInventory } from '@/providers/vegaProviders';
 
-const providerCards = [
-  { id: 'netflixMirror', name: 'Netflix', label: 'Provider mirror', tone: 'bg-red-950/80' },
-  { id: 'primeMirror', name: 'Prime Video', label: 'Provider mirror', tone: 'bg-sky-950/80' },
-  { id: 'hiAnime', name: 'AniWave', label: 'Anime catalog', tone: 'bg-indigo-950/80' },
-  { id: 'movieBox', name: 'MovieBox', label: 'Movies & series', tone: 'bg-violet-950/80' },
-  { id: 'flixhq', name: 'FlixHQ', label: 'Movies & series', tone: 'bg-slate-800' },
-  { id: 'showbox', name: 'Showbox', label: 'Movies & series', tone: 'bg-orange-950/80' },
-];
-
-const knownProviderIds = new Set(vegaProviderInventory.map((provider) => provider.id));
-const providers = providerCards.filter((provider) => knownProviderIds.has(provider.id));
+const tones = ['bg-primary/20', 'bg-secondary', 'bg-muted', 'bg-accent/30'];
+const providers = vegaProviderInventory.map((provider, index) => ({
+  ...provider,
+  label: provider.id === 'vega' ? 'Primary catalog' : 'Streaming provider',
+  tone: tones[index % tones.length],
+}));
 
 export function ProviderRail() {
   const { locale } = useLocale();

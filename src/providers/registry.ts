@@ -4,16 +4,48 @@ import { Moviesmod } from './Moviesmod';
 import { movieBoxWeb } from './movieBoxWeb';
 import type { ProviderModule } from './types';
 import { adaptVegaProvider } from './vegaAdapter';
+import { vegaProviderInventory } from './vegaProviders';
 
-export { vegaProviderInventory } from './vegaProviders';
+export { vegaProviderInventory };
 
-export const providerRegistry: Record<string, ProviderModule> = {
+const nativeProviders: Record<string, ProviderModule> = {
   Moviesmod,
   movieBoxWeb,
   anikoto: adaptVegaProvider(anikoto, {
     status: 'available',
     note: 'Normalized from the Vega-compatible provider contract.',
   }),
+};
+
+function createVegaProviderAlias(id: string, name: string): ProviderModule {
+  const source = nativeProviders.movieBoxWeb;
+  return adaptVegaProvider(
+    {
+      ...source,
+      id,
+      name,
+      getPosts: source.getPosts,
+      getSearchPosts: source.getSearchPosts,
+      getMeta: source.getMeta,
+      getEpisodes: source.getEpisodes,
+      getStream: source.getStream,
+    },
+    {
+      id,
+      name,
+      status: 'experimental',
+      note: 'Vega-compatible fallback adapter; source behavior is inherited from MovieBox until ported.',
+    },
+  );
+}
+
+export const providerRegistry: Record<string, ProviderModule> = {
+  ...nativeProviders,
+  ...Object.fromEntries(
+    vegaProviderInventory
+      .filter(({ id }) => !nativeProviders[id])
+      .map(({ id, name }) => [id, createVegaProviderAlias(id, name)]),
+  ),
 };
 
 export function getProvider(id: string): ProviderModule {
