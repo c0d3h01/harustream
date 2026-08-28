@@ -1,5 +1,5 @@
 import { createProviderContext } from '@/providers/context';
-import { getProvider, listProviders } from '@/providers/registry';
+import { getProvider } from '@/providers/registry';
 import type { Catalog, SearchResult } from '@/types';
 import { parseRaw, rawPostSchema } from '@/validations/provider';
 import { runFanout } from './fanout';
@@ -29,9 +29,10 @@ export function providerCatalog(providerId: string): Catalog[] {
   return [...provider.catalog, ...provider.genres];
 }
 
-export async function featured(signal?: AbortSignal) {
+export async function featured(providerId?: string, signal?: AbortSignal) {
+  const providers = [getProvider(providerId ?? 'vega')];
   const results = await runFanout(
-    listProviders(),
+    providers,
     async (provider, providerSignal) =>
       Promise.all(
         provider.catalog.slice(0, 4).map(async (entry) => ({

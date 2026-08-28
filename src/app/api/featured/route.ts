@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const requestId = requestIdOf(request);
   try {
-    return NextResponse.json(await featured(request.signal));
+    return NextResponse.json(await featured(undefined, request.signal));
   } catch (error) {
     return apiErrorResponse(error, requestId);
   }

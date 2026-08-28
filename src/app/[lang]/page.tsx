@@ -8,19 +8,25 @@ import { featured } from '@/services/catalog';
 
 export const dynamic = 'force-dynamic';
 
-async function FeaturedRails() {
-  const { rails } = await featured();
+async function FeaturedRails({ provider }: { provider?: string }) {
+  const { rails } = await featured(provider);
   return <Rails rails={rails} />;
 }
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ provider?: string }>;
+}) {
+  const { provider } = await searchParams;
+
   return (
     <Shell>
       <HomeHero />
       <ContinueWatching />
       <ProviderRail />
       <Suspense fallback={<div className="mt-8 h-64 animate-pulse rounded-2xl bg-secondary" />}>
-        <FeaturedRails />
+        <FeaturedRails provider={provider} />
       </Suspense>
     </Shell>
   );

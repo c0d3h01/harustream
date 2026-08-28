@@ -33,12 +33,12 @@ export function ProviderRail() {
           View all <ArrowUpRight className="size-4" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="flex snap-x gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {providers.map((provider) => (
           <Link
             key={provider.name}
-            href={localeHref(locale, `/search?q=${encodeURIComponent(provider.name)}`)}
-            className={`group relative flex min-h-24 items-end overflow-hidden rounded-xl border border-border/70 p-4 ${provider.tone} transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+            href={localeHref(locale, `/?provider=${encodeURIComponent(provider.id)}`)}
+            className={`group relative flex min-h-24 w-44 shrink-0 snap-start items-end overflow-hidden rounded-xl border border-border/70 p-4 ${provider.tone} transition duration-200 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
           >
             <div className="absolute right-3 top-3 grid size-7 place-items-center rounded-full bg-foreground/10 text-muted-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
               <Play className="size-3 fill-current" />
