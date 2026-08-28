@@ -1,6 +1,6 @@
 import { throwProviderError } from '../providerErrors';
 import type { ProviderContext, Stream, TextTracks } from '../types';
-import { absoluteUrl, BASE_URL, decodeLink, providerValue } from './utils';
+import { absoluteUrl, BASE_URL, decodeLink } from './utils';
 
 type PlayStream = {
   format?: string;

@@ -1,5 +1,5 @@
 import type { Post, ProviderContext } from '../types';
-import { absoluteUrl, BASE_URL, parseNuxtData, providerValue } from './utils';
+import { absoluteUrl, BASE_URL, parseNuxtData } from './utils';
 
 type SubjectPreview = {
   detailPath?: string;

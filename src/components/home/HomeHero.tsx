@@ -2,6 +2,7 @@
 
 import { Info, Play, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { CinematicBackdrop } from '@/components/home/CinematicBackdrop';
 import { Button } from '@/components/ui/button';
 import { localeHref, useLocale, useT } from '@/lib/i18n';
 
@@ -10,6 +11,7 @@ export function HomeHero() {
   const { locale } = useLocale();
   return (
     <section className="relative -mx-4 min-h-[520px] overflow-hidden sm:-mx-6 lg:-mx-10">
+      <CinematicBackdrop />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_35%,color-mix(in_oklch,var(--primary)_22%,transparent),transparent_38%),linear-gradient(90deg,var(--background)_8%,color-mix(in_oklch,var(--background)_70%,transparent)_48%,transparent_100%)]" />
       <div className="relative mx-auto flex min-h-[520px] max-w-[1440px] items-end px-4 pb-14 sm:px-10 sm:pb-20">
         <div className="max-w-2xl">

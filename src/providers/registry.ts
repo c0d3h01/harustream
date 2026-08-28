@@ -4,6 +4,7 @@ import { Moviesmod } from './Moviesmod';
 import { movieBoxWeb } from './movieBoxWeb';
 import type { ProviderModule } from './types';
 import { adaptVegaProvider } from './vegaAdapter';
+
 export { vegaProviderInventory } from './vegaProviders';
 
 export const providerRegistry: Record<string, ProviderModule> = {

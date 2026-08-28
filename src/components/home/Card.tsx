@@ -32,10 +32,7 @@ export function Card({
     >
       <div className="relative aspect-2/3 overflow-hidden bg-secondary">
         {rank ? (
-          <span
-            className="absolute bottom-1 left-2 z-10 text-6xl font-black leading-none text-foreground/90 drop-shadow-lg"
-            aria-label={`Rank ${rank}`}
-          >
+          <span className="absolute bottom-1 left-2 z-10 text-6xl font-black leading-none text-foreground/90 drop-shadow-lg">
             {rank}
           </span>
         ) : null}
