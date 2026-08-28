@@ -20,7 +20,7 @@ export function Card({ item, priority = false }: { item: SearchResult; priority?
         locale,
         `/title/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}`,
       )}
-      className="group block min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-xs transition hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group block min-w-0 overflow-hidden rounded-xl border border-border/60 bg-card text-left shadow-xs transition duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-2/3 overflow-hidden bg-secondary">
         {item.posterUrl ? (

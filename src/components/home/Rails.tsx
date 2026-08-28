@@ -10,7 +10,7 @@ export function Rails({ rails }: { rails: FeaturedRail[] }) {
   const t = useT();
   const baseId = useId();
   return (
-    <div className="mt-10 space-y-10">
+    <div className="mt-2 space-y-12 sm:mt-8">
       {rails.map((rail, railIndex) => {
         // useId-derived ids are stable per rail; the raw rail title contained
         // spaces/quotes which made invalid HTML ids and duplicate-key risks.

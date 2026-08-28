@@ -20,7 +20,7 @@ export function SiteNav() {
   return (
     <nav
       aria-label={t('nav.primary')}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-40 -translate-x-1/2"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-40 -translate-x-1/2 md:hidden"
     >
       {/* min-w scales down on ≤360px phones so all five items fit without
           clipping; scrollbar-none keeps the overflow fallback clean. */}

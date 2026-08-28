@@ -12,14 +12,22 @@ export function LibraryView() {
   const t = useT();
   const { locale } = useLocale();
   return (
-    <section className="pt-12">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-        {t('library.eyebrow')}
-      </p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{t('library.heading')}</h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        {t('library.savedCount', { count: library.items.length })}
-      </p>
+    <section className="pt-10 sm:pt-14">
+      <div className="flex flex-col justify-between gap-5 border-b border-border/60 pb-8 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            {t('library.eyebrow')}
+          </p>
+          <h1 className="mt-2 text-4xl font-bold tracking-[-0.04em]">{t('library.heading')}</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t('library.savedCount', { count: library.items.length })}
+          </p>
+        </div>
+        <div className="flex gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="rounded-full bg-primary/15 px-3 py-2 text-primary">Watchlist</span>
+          <span className="rounded-full bg-secondary px-3 py-2">Continue watching</span>
+        </div>
+      </div>
       {library.items.length ? (
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
           {library.items.map((item) => (

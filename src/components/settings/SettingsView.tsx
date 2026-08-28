@@ -14,13 +14,17 @@ export function SettingsView() {
   const { settings, update } = useSettings();
   const t = useT();
   return (
-    <section className="mx-auto max-w-3xl pt-12 sm:pt-16">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-        {t('settings.eyebrow')}
-      </p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{t('settings.heading')}</h1>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">{t('settings.description')}</p>
-      <div className="mt-8 space-y-4">
+    <section className="mx-auto max-w-4xl pt-10 sm:pt-14">
+      <div className="border-b border-border/60 pb-8">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+          {t('settings.eyebrow')}
+        </p>
+        <h1 className="mt-2 text-4xl font-bold tracking-[-0.04em]">{t('settings.heading')}</h1>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+          {t('settings.description')}
+        </p>
+      </div>
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
         <PlaybackSettings
           autoAdvance={settings.autoAdvance}
           onAutoAdvanceChange={(enabled) => update({ autoAdvance: enabled })}
