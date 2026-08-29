@@ -63,12 +63,14 @@ export function PlayerView({
   const lastTimeRef = useRef(0);
   const failureHandledRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const endedRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!source) return;
     resumedRef.current = false;
+    endedRef.current = false;
     failureHandledRef.current = false;
     lastTimeRef.current = 0;
     setIsReady(false);
@@ -123,6 +125,7 @@ export function PlayerView({
         src={src}
         title={item.displayTitle}
         playsInline
+        loop={false}
         streamType="on-demand"
         viewType="video"
         aria-busy={!isReady}
@@ -148,7 +151,11 @@ export function PlayerView({
           if (typeof time === 'number') lastTimeRef.current = time;
           detectorRef.current?.markProgress();
         }}
-        onEnded={onEnded}
+        onEnded={() => {
+          if (endedRef.current) return;
+          endedRef.current = true;
+          onEnded();
+        }}
         onCanPlay={() => {
           if (resumedRef.current) return;
           resumedRef.current = true;
