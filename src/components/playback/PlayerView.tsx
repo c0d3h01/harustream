@@ -103,6 +103,14 @@ export function PlayerView({
     return sourceUrl ? playerSrc(sourceUrl, source.format) : null;
   }, [source, activeEpisode, item]);
 
+  useEffect(() => {
+    const media = player.current?.el?.querySelector('video');
+    if (!media) return;
+    // Some provider adapters can preserve the native loop flag across source swaps.
+    media.loop = false;
+    media.removeAttribute('loop');
+  }, [source]);
+
   const tracks = useMemo(
     () =>
       source?.subtitles.map((subtitle) => ({
@@ -162,6 +170,10 @@ export function PlayerView({
           setIsReady(true);
           const element = player.current?.el;
           const media = element?.querySelector('video');
+          if (media) {
+            media.loop = false;
+            media.removeAttribute('loop');
+          }
           const duration = media && Number.isFinite(media.duration) ? media.duration : undefined;
           const recoverPosition = lastTimeRef.current;
           const saved = progress.get(item.ref, activeEpisode.ref);
