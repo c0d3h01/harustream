@@ -168,6 +168,15 @@ function byteLength(value: string): number {
   return encoder.encode(value).byteLength;
 }
 
+function safeTargetLog(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return '[invalid-url]';
+  }
+}
+
 export function clearProxyIdentityCache(): void {
   proxyIdentityCache.clear();
 }
@@ -273,7 +282,7 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
       });
       log.debug(
         {
-          url,
+          target: safeTargetLog(url),
           status: response.status,
           variant,
           contentType: response.headers.get('content-type'),
@@ -284,7 +293,7 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
       return response;
     } catch (error) {
       log.error(
-        { url, code: (error as Error).name ?? 'FETCH', variant, durationMs: Date.now() - started },
+        { target: safeTargetLog(url), code: (error as Error).name ?? 'FETCH', variant, durationMs: Date.now() - started },
         'upstream stream fetch failed',
       );
       throw new Error(

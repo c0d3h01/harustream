@@ -34,6 +34,9 @@ export async function GET(request: Request) {
   const started = Date.now();
   const url = new URL(request.url);
   const target = url.searchParams.get('url')?.trim();
+  if (target && target.length > 4096) {
+    return apiErrorResponse(new AppError('BAD_REQUEST', 'Invalid proxy target'), requestId);
+  }
 
   // ── Mode 1: resolve provider source, then stream it ──
   if (!target) {
@@ -94,7 +97,7 @@ export async function GET(request: Request) {
   const headers: Partial<Record<ProxyHeaderParam, string>> = {};
   for (const param of PROXY_HEADER_PARAMS) {
     const value = url.searchParams.get(param)?.trim();
-    if (value) headers[param] = value;
+    if (value && value.length <= 2048) headers[param] = value;
   }
   // When STREAM_PROXY_SECRET is configured, only URLs this app minted may
   // pass through — otherwise the endpoint is an open relay for anyone.
@@ -155,7 +158,8 @@ function upstreamFailure(
     provider?: string;
   },
 ): Response {
-  const message = (error as Error).message;
+  const rawMessage = error instanceof Error ? error.message : 'Upstream request failed';
+  const message = rawMessage.replace(/https?:\/\/[^\s)]+/gi, '[upstream]');
   ctx.log.error(
     {
       requestId: ctx.requestId,

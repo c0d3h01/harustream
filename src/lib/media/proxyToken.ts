@@ -71,8 +71,8 @@ export function signProxyTarget(
 }
 
 /**
- * Verify a signed passthrough target. Tokens disabled => allow (opt-in
- * hardening); expired/tampered/malformed => reject.
+ * Verify a signed passthrough target. Local development may use unsigned
+ * targets; production always fails closed when the signing secret is missing.
  */
 export function verifyProxyTarget(
   url: string,
@@ -82,7 +82,7 @@ export function verifyProxyTarget(
   now: number = Date.now(),
 ): boolean {
   const secret = proxyTokenSecret();
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== 'production';
   if (!sig || !exp) return false;
   const expSeconds = Number(exp);
   if (!Number.isSafeInteger(expSeconds)) return false;
