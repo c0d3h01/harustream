@@ -1,7 +1,9 @@
 'use client';
 
+import { motion } from 'motion/react';
 import { useId } from 'react';
 import { memo, useMemo } from 'react';
+import { viewFadeUp, viewScaleIn } from '@/components/motion/variants';
 import { RailScroller } from '@/components/ui/rail';
 import { useT } from '@/lib/i18n';
 import type { FeaturedRail } from '@/types';
@@ -20,7 +22,14 @@ function RailsInner({ rails }: RailsProps) {
       rails.map((rail, railIndex) => {
         const headingId = `${baseId}-rail-${railIndex}`;
         return (
-          <section key={headingId} aria-labelledby={headingId}>
+          <motion.section
+            key={headingId}
+            aria-labelledby={headingId}
+            variants={viewFadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.18 }}
+          >
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
@@ -36,16 +45,25 @@ function RailsInner({ rails }: RailsProps) {
             </div>
             <RailScroller>
               {rail.items.map((item, index) => (
-                <div key={item.id} className="w-[140px] shrink-0 snap-start sm:w-[170px]">
+                <motion.div
+                  key={item.id}
+                  className="w-[140px] shrink-0 snap-start sm:w-[170px]"
+                  variants={viewScaleIn}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, amount: 0.35 }}
+                  whileHover={{ y: -6 }}
+                  transition={{ duration: 0.35 }}
+                >
                   <Card
                     item={item}
                     priority={index < 4}
                     rank={railIndex === 1 && index < 10 ? index + 1 : undefined}
                   />
-                </div>
+                </motion.div>
               ))}
             </RailScroller>
-          </section>
+          </motion.section>
         );
       }),
     [rails, baseId, t],
