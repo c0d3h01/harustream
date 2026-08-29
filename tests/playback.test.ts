@@ -51,8 +51,10 @@ describe('playback src type hints', () => {
       type: 'application/dash+xml',
     });
     expect(playerSrc('https://cdn.test/x.mp4', 'mp4')).toMatchObject({ type: 'video/mp4' });
-    expect(playerSrc('https://cdn.test/x.mkv', 'mkv')).toMatchObject({ type: '?' });
-    expect(playerSrc('https://cdn.test/stream', undefined)).toMatchObject({ type: '?' });
+    expect(playerSrc('https://cdn.test/x.mkv', 'mkv')).toMatchObject({
+      type: 'video/x-matroska',
+    });
+    expect(playerSrc('https://cdn.test/stream', undefined)).toMatchObject({ type: 'video/*' });
   });
 });
 

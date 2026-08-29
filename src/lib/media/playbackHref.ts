@@ -11,9 +11,9 @@ export type PlaybackContext = {
 };
 
 // Vidstack only routes to its HLS/DASH providers when the MIME type is
-// explicit or the URL ends in .m3u8/.mpd — proxied URLs match neither, so
-// every format gets an unambiguous type hint. `?` forces the generic video
-// provider (mkv/other: let the browser sniff the bytes).
+// explicit or the URL ends in .m3u8/.mpd. Proxied URLs do not expose a useful
+// extension, so unknown/container formats receive a generic media type rather
+// than an incorrect video/mp4 hint.
 export function playerSrc(sourceUrl: string, format?: StreamSource['format']): PlayerSrc {
   switch (format) {
     case 'hls':
@@ -22,8 +22,14 @@ export function playerSrc(sourceUrl: string, format?: StreamSource['format']): P
       return { src: sourceUrl, type: 'application/dash+xml' } as DASHSrc;
     case 'mp4':
       return { src: sourceUrl, type: 'video/mp4' };
+    case 'mkv':
+      // Keep the container identity explicit so Vidstack selects its native
+      // loader and emits a terminal error instead of leaving its spinner up.
+      return { src: sourceUrl, type: 'video/x-matroska' } as unknown as PlayerSrc;
     default:
-      return { src: sourceUrl, type: '?' } as unknown as PlayerSrc;
+      // Unknown proxied streams must use the generic video loader. A missing
+      // type makes Vidstack reject URLs that have no visible file extension.
+      return { src: sourceUrl, type: 'video/*' } as unknown as PlayerSrc;
   }
 }
 
