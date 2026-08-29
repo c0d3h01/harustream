@@ -4,6 +4,7 @@ import { TitleExperience } from '@/components/title/TitleExperience';
 import { TitleLoadError } from '@/components/title/TitleLoadError';
 import { asAppError } from '@/lib/errors';
 import { decodeRef } from '@/lib/refs';
+import { featured } from '@/services/catalog';
 import { media } from '@/services/media';
 
 export const dynamic = 'force-dynamic';
@@ -24,10 +25,14 @@ export default async function TitlePage({ params }: Props) {
       </Shell>
     );
   }
+  const related = (await featured()).rails
+    .flatMap((rail) => rail.items)
+    .filter((candidate) => candidate.id !== item.id && candidate.providerId === item.providerId);
+
   return (
     <Shell>
       <div className="pt-6 sm:pt-10">
-        <TitleExperience item={item} />
+        <TitleExperience item={item} related={related} />
       </div>
     </Shell>
   );
