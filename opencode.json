@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "exclude": [
+    "node_modules/**",
+    ".next/**",
+    "dist/**",
+    "build/**",
+    "**/*.lock",
+    "pnpm-lock.yaml",
+    "*.log"
+  ],
+  "mcp": {
+    "haru-mcp": {
+      "type": "local",
+      "command": ["pnpm", "exec", "tsx", "src/scripts/mcp.ts"],
+      "enabled": true,
+      "environment": {
+        "NODE_ENV": "development"
+      },
+      "timeout": 300000
+    }
+  }
+}

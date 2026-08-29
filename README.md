@@ -59,13 +59,14 @@ All configuration happens through environment variables — see [.env.example](.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PROVIDER_MANIFEST_URL` | ✅ | — | URL of the live provider manifest (`urls.json`) listing every channel |
-| `NEXT_PUBLIC_SITE_NAME` | — | `harustream` | Public site name override |
+| `NEXT_PUBLIC_PROVIDER_API_URL` | — | — | Absolute origin of a deployed provider API (used for client-side preconnect) |
 | `PROVIDER_TIMEOUT_MS` | — | `20000` | Provider module execution timeout |
 | `PROVIDER_MAX_ATTEMPTS` | — | `2` | Manifest/module fetch retries |
 | `PROVIDER_CONCURRENCY` | — | `6` | Max concurrent provider executions during fan-out |
 | `PROVIDER_DEADLINE_MS` | — | `12000` | Overall fan-out deadline |
 | `LOG_LEVEL` | — | `info` (prod) | pino log level (`fatal`…`trace`) |
-| `STREAM_PROXY_USER_AGENT` / `STREAM_PROXY_REFERER` | — | — | UA/Referer presented to provider hosts by the stream proxy |
+| `STREAM_PROXY_USER_AGENT` | — | — | UA presented to provider hosts by the stream proxy |
+| `NEXT_PUBLIC_STREAM_PROXY_URL` | — | — | Cloudflare Worker (`src/proxy/`) fronting media streams; falls back to `/api/proxy` |
 | `STREAM_PROXY_ALLOW_PRIVATE` | — | off | Allow private/internal upstream hosts (**dev only**) |
 | `NEXT_PUBLIC_IMAGE_ORIGINS` | — | — | Comma-separated poster origins for `<link rel="preconnect">` |
 
@@ -84,6 +85,14 @@ src/
 ```
 
 The core split: **`providers/` executes untrusted provider code**, **`media/` decides what to fetch and shapes the API contract**. Read the full write-up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Providers
+
+Built-in providers live in `src/providers/` — one folder per provider, wired
+through `src/providers/registry.ts` and configured in `src/providers/urls.json`
+(single source of truth for provider names & base URLs; no remote fetching).
+See **[`src/providers/PROVIDERS.md`](src/providers/PROVIDERS.md)** — the
+developer guide for adding, removing, and maintaining providers.
 
 ## 🧰 Scripts
 

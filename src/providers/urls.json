@@ -1,0 +1,26 @@
+{
+  "anikoto": {
+    "name": "Anikoto",
+    "url": "https://anikototv.to"
+  },
+  "hiAnime": {
+    "name": "HiAnime",
+    "url": "https://hianime.to"
+  },
+  "flixhq": {
+    "name": "FlixHQ",
+    "url": "https://flixhq.to"
+  },
+  "torrentio": {
+    "name": "Torrentio",
+    "url": "https://torrentio.strem.fun"
+  },
+  "movieBoxWeb": {
+    "name": "MovieBox Web",
+    "url": "https://officialmoviebox.com"
+  },
+  "vega": {
+    "name": "Vega",
+    "url": "https://new2.vegamovies.futbol"
+  }
+}

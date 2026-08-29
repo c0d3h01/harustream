@@ -5,9 +5,15 @@ node_modules
 .DS_Store
 .claude/
 *.tsbuildinfo
+.wrangler
 
 # Environment variables
 .env
 .env*.local
 *.env.prod
 .vercel
+
+# Nix
+result
+result-*
+.direnv/
