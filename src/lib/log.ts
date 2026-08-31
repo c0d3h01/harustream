@@ -6,8 +6,8 @@
 // Every child logger carries a `service` label and callers can attach their
 // own context (request id, provider, route, …) for traceability.
 //
-// Edge note: middleware/proxy runs on the edge runtime, which cannot spawn
-// the pino-pretty worker thread, so we fall back to plain JSON there.
+// Edge note: if the proxy or any route runs on the edge runtime, it cannot
+// spawn the pino-pretty worker thread, so we fall back to plain JSON there.
 
 import { type Level, type Logger, pino } from 'pino';
 
