@@ -5,9 +5,23 @@ node_modules
 .DS_Store
 .claude/
 *.tsbuildinfo
+.wrangler
 
 # Environment variables
 .env
 .env*.local
 *.env.prod
+.envrc
 .vercel
+.vscode
+
+# Nix
+result
+result-*
+.direnv/
+
+# temporarily
+design/
+
+# Agent skills
+.agents/skills/

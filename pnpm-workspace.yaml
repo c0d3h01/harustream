@@ -2,4 +2,13 @@
 # `allowBuilds` (pnpm >= 10.26 / 11) replaces the removed
 # `onlyBuiltDependencies` allowlist.
 allowBuilds:
+  esbuild: true
   msw: true
+  sharp: true
+  workerd: true
+
+# Force upstream MCP SDK to a patched version (>=1.25.4) for the
+# high-severity GHSA-345p-7cg4-v4c7 advisory; next-devtools-mcp pins an
+# older 1.25.x range.
+overrides:
+  '@modelcontextprotocol/sdk': ^1.30.0
