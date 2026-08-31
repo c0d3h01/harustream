@@ -1,0 +1,42 @@
+<evaluation>
+   <qa_pair>
+      <question>List the tools available on this MCP server. Every tool name follows the scheme {service}_{action}_{resource}. What is the exact lowercase service prefix shared by all tool names? Respond with only the prefix.</question>
+      <answer>haru</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>One of the available tools reports liveness and runtime metadata and accepts no arguments. Call it to read the reported server_name field. Respond with the exact server_name string.</question>
+      <answer>haru-mcp-server</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>The server runs external shell commands through a wrapper that reads its timeout from an environment variable ending in _MS. If that variable is not set, determine the default timeout the wrapper applies to every command. This value is also exposed by the no-arg observability tool under limits.command_timeout_ms. Respond with the number of milliseconds.</question>
+      <answer>30000</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>The observability tool exposes the active configuration limits of the server. Read limits.max_response_mb: this is the default cap in megabytes applied to tool output before it is truncated. What is that default? Respond with the number only.</question>
+      <answer>4</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Some tools in this server can modify the repository. The gate that controls them is controlled by a single environment variable. Using the observability tool's limits block, determine the exact name of the variable that controls allow_file_writes. Respond with the variable name only (upper case).</question>
+      <answer>MCP_ALLOW_FILE_WRITES</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>The codebase-read and file-read tools process repository files in parallel with a fixed degree of concurrency read from an environment variable. Use the observability tool to read limits.read_concurrency and report the default concurrency value. Respond with the number only.</question>
+      <answer>10</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>The "read entire codebase" tool stops processing after a maximum number of repository files to avoid exhausting context. Find the default maximum by reading the tool's description, or locate the configuration constant used as its default in the server's configuration module. Respond with the number only.</question>
+      <answer>2000</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>A pagination helper is shared across the search tools: given the full result set plus limit and offset, it returns a slice and a flag describing whether more results remain. Find this helper in the server code. On the page object it returns, what is the exact field name of the integer indicating how many results are skipped by the next request? Respond with the field name only.</question>
+      <answer>next_offset</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>The shell command wrapper used by every tool never throws on child-process failure; it always resolves to a result object with stdout, stderr, and a numeric code field. Read the wrapper in the configuration module. When the child process finishes normally after capturing output, what value is recorded in that code field? Respond with the number only.</question>
+      <answer>0</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>One search tool groups matches by file and reports a total that counts distinct files containing the pattern. Run the case-sensitive pattern "getRegisteredToolCount" with the default settings and read the total field from its json output. Respond with the total only.</question>
+      <answer>2</answer>
+   </qa_pair>
+</evaluation>
