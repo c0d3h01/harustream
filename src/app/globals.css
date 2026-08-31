@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@vidstack/react/player/styles/base.css";
+@import "@vidstack/react/player/styles/default/theme.css";
+@import "@vidstack/react/player/styles/default/layouts/video.css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,138 +48,64 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --safe-bottom: max(0.75rem, env(safe-area-inset-bottom));
   --safe-top: max(0.75rem, env(safe-area-inset-top));
+  /* Geist — self-hosted via the geist package in [lang]/layout.tsx (exposed
+     as --font-geist-sans / --font-geist-mono). GeistSans is the app-wide
+     grotesk; GeistMono is reserved for accents (eyebrows, labels, meta). */
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, Monaco, "Cascadia Mono",
+    monospace;
+  --font-heading: var(--font-sans);
 }
 
-/* The default theme is a neutral graphite charcoal. Additional themes are
-   selected with a `data-theme` attribute on <html>; a tiny inline script in
-   layout.tsx restores the stored choice before first paint to avoid a flash.
-   All themes are dark, so `color-scheme: dark` is set once on :root. */
+/* Liquid glass — single dark translucent theme matching the dock. */
 :root {
   color-scheme: dark;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  /* graphite (default) — neutral charcoal */
-  --background: oklch(0.13 0.005 0);
-  --foreground: oklch(0.95 0.004 0);
-  --card: oklch(0.18 0.005 0);
-  --card-foreground: oklch(0.95 0.004 0);
-  --popover: oklch(0.19 0.005 0);
-  --popover-foreground: oklch(0.95 0.004 0);
-  --primary: oklch(0.8 0 0);
-  --primary-foreground: oklch(0.13 0.005 0);
-  --secondary: oklch(0.22 0.005 0);
-  --secondary-foreground: oklch(0.95 0.004 0);
-  --muted: oklch(0.22 0.005 0);
-  --muted-foreground: oklch(0.68 0.005 0);
-  --accent: oklch(0.22 0.005 0);
-  --accent-foreground: oklch(0.95 0.004 0);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.8 0 0);
-  --sidebar: oklch(0.18 0.005 0);
-  --sidebar-foreground: oklch(0.95 0.004 0);
-  --sidebar-primary: oklch(0.8 0 0);
-  --sidebar-primary-foreground: oklch(0.13 0.005 0);
-  --sidebar-accent: oklch(0.22 0.005 0);
-  --sidebar-accent-foreground: oklch(0.95 0.004 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.8 0 0);
-}
+  --background: oklch(0.12 0 0);
+  --foreground: oklch(0.98 0 0);
 
-/* black — pure-black cinema */
-:root[data-theme="black"] {
-  --background: oklch(0 0 0);
-  --foreground: oklch(0.97 0.005 260);
-  --card: oklch(0.13 0.015 260);
-  --card-foreground: oklch(0.97 0.005 260);
-  --popover: oklch(0.14 0.015 260);
-  --popover-foreground: oklch(0.97 0.005 260);
-  --primary: oklch(0.8 0.16 190);
-  --primary-foreground: oklch(0.11 0.02 260);
-  --secondary: oklch(0.18 0.02 260);
-  --secondary-foreground: oklch(0.97 0.005 260);
-  --muted: oklch(0.18 0.02 260);
-  --muted-foreground: oklch(0.68 0.02 260);
-  --accent: oklch(0.18 0.02 260);
-  --accent-foreground: oklch(0.97 0.005 260);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.72 0.03 260);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.13 0.015 260);
-  --sidebar-foreground: oklch(0.97 0.005 260);
-  --sidebar-primary: oklch(0.8 0.16 190);
-  --sidebar-primary-foreground: oklch(0.11 0.02 260);
-  --sidebar-accent: oklch(0.18 0.02 260);
-  --sidebar-accent-foreground: oklch(0.97 0.005 260);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.03 260);
-}
+  /* Solid dark base — Tailwind opacity modifiers (bg-card/40) need
+     an opaque starting color to produce visible translucent fills. */
+  --card: oklch(0.16 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(0.98 0 0);
 
-/* midnight — deep indigo/blue cinema */
-:root[data-theme="midnight"] {
-  --background: oklch(0.105 0.02 260);
-  --foreground: oklch(0.96 0.012 260);
-  --card: oklch(0.155 0.025 260);
-  --card-foreground: oklch(0.96 0.012 260);
-  --popover: oklch(0.165 0.025 260);
-  --popover-foreground: oklch(0.96 0.012 260);
-  --primary: oklch(0.7 0.19 265);
-  --primary-foreground: oklch(0.12 0.02 260);
-  --secondary: oklch(0.2 0.03 260);
-  --secondary-foreground: oklch(0.96 0.012 260);
-  --muted: oklch(0.2 0.03 260);
-  --muted-foreground: oklch(0.68 0.03 260);
-  --accent: oklch(0.2 0.03 260);
-  --accent-foreground: oklch(0.96 0.012 260);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.19 265);
-  --sidebar: oklch(0.155 0.025 260);
-  --sidebar-foreground: oklch(0.96 0.012 260);
-  --sidebar-primary: oklch(0.7 0.19 265);
-  --sidebar-primary-foreground: oklch(0.12 0.02 260);
-  --sidebar-accent: oklch(0.2 0.03 260);
-  --sidebar-accent-foreground: oklch(0.96 0.012 260);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.7 0.19 265);
-}
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.12 0 0);
 
-/* ocean — cool cyan/teal tint */
-:root[data-theme="ocean"] {
-  --background: oklch(0.11 0.022 220);
-  --foreground: oklch(0.96 0.01 220);
-  --card: oklch(0.16 0.022 220);
-  --card-foreground: oklch(0.96 0.01 220);
-  --popover: oklch(0.17 0.022 220);
-  --popover-foreground: oklch(0.96 0.01 220);
-  --primary: oklch(0.82 0.14 195);
-  --primary-foreground: oklch(0.11 0.02 220);
-  --secondary: oklch(0.2 0.02 220);
-  --secondary-foreground: oklch(0.96 0.01 220);
-  --muted: oklch(0.2 0.02 220);
-  --muted-foreground: oklch(0.68 0.025 220);
-  --accent: oklch(0.2 0.02 220);
-  --accent-foreground: oklch(0.96 0.01 220);
+  --secondary: oklch(0.22 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.22 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+
+  --accent: oklch(0.25 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.82 0.14 195);
-  --sidebar: oklch(0.16 0.022 220);
-  --sidebar-foreground: oklch(0.96 0.01 220);
-  --sidebar-primary: oklch(0.82 0.14 195);
-  --sidebar-primary-foreground: oklch(0.11 0.02 220);
-  --sidebar-accent: oklch(0.2 0.02 220);
-  --sidebar-accent-foreground: oklch(0.96 0.01 220);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.82 0.14 195);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.98 0 0);
+
+  --sidebar: oklch(0.14 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0.12 0 0);
+  --sidebar-accent: oklch(0.22 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.98 0 0);
+
+  /* Glass tokens — match the dock. */
+  --glass-blur: 40px;
+  --glass-border: oklch(1 0 0 / 10%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
 }
 
 @layer base {
@@ -195,6 +123,8 @@
   }
   html {
     background: var(--background);
+    scroll-behavior: smooth;
+    @apply font-sans;
   }
   body {
     @apply bg-background text-foreground;
@@ -223,9 +153,98 @@
     background: color-mix(in oklch, var(--primary) 35%, transparent);
     color: var(--foreground);
   }
+
+  /* ---------------------------------------------------------------
+     AnimatedSection — scroll-triggered reveal
+     The component sets `data-visible` via IntersectionObserver; the
+     CSS handles the animation so we get 0 JS during the transition.
+     ---------------------------------------------------------------- */
+  .animated-section {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+  .animated-section[data-visible] {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  /* Staggered children: each direct child delays by its index × 50ms. */
+  .animated-section[data-stagger] > * {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+    transition:
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: calc(var(--stagger-index, 0) * 50ms + 150ms);
+  }
+  .animated-section[data-stagger][data-visible] > * {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* ---------------------------------------------------------------
+     Hero scroll-linked parallax (Chrome/Edge only; graceful no-op
+     in Safari/Firefox — content renders without the scroll effect).
+     ---------------------------------------------------------------- */
+  @supports (animation-timeline: scroll()) {
+    .hero-root .hero-inner {
+      animation: hero-scroll-exit linear both;
+      animation-timeline: scroll();
+      animation-range: 0% 60%;
+    }
+    .hero-root .hero-backdrop {
+      animation: hero-backdrop-zoom linear both;
+      animation-timeline: scroll();
+      animation-range: 0% 60%;
+    }
+    @keyframes hero-scroll-exit {
+      to {
+        opacity: 0;
+        transform: translateY(-12%);
+      }
+    }
+    @keyframes hero-backdrop-zoom {
+      to {
+        transform: scale(1.12);
+      }
+    }
+  }
+
+  /* Disable all custom motion for reduced-motion users. */
+  @media (prefers-reduced-motion: reduce) {
+    .animated-section,
+    .animated-section[data-stagger] > * {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .hero-root .hero-inner,
+    .hero-root .hero-backdrop {
+      animation: none;
+    }
+  }
 }
 
 @layer utilities {
+  /* Matches the dock: bg-card/40 + backdrop-blur-2xl + hairline + glow. */
+  .glass {
+    background: color-mix(in oklch, var(--card) 40%, transparent);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  }
+  /* Lighter nested glass. */
+  .glass-subtle {
+    background: color-mix(in oklch, var(--card) 25%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid oklch(1 0 0 / 7%);
+    box-shadow: var(--glass-highlight);
+  }
   /* Safe-area aware padding for notches / gesture bars. The env() value
      is 0px on desktop so the fallback (1rem / 0.75rem) wins there. */
   .pt-safe {
@@ -263,6 +282,151 @@
     min-block-size: 44px;
     min-inline-size: 44px;
   }
+}
+
+/* 44dp touch floor: extend Vidstack preset control-bar button hit areas
+   without changing their visual size. Menu items keep list sizing. */
+[data-media-player] .vds-controls .vds-controls-group .vds-button:not(.vds-menu-item) {
+  position: relative;
+}
+[data-media-player] .vds-controls .vds-controls-group .vds-button:not(.vds-menu-item)::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+
+/* Vidstack official CSS custom properties — dark cinema theme (minimal essential set) */
+[data-media-player].player-viewport {
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+[data-media-player].player-viewport [data-media-provider] video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+[data-media-player].player-viewport .vds-controls {
+  padding: 0 clamp(1rem, 4vw, 5rem) max(0.75rem, env(safe-area-inset-bottom));
+}
+
+[data-media-player].cinema-player .vds-controls {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in oklch, black 84%, transparent) 82%
+  );
+}
+
+[data-media-player].cinema-player .vds-controls-group {
+  gap: clamp(0.5rem, 1.8vw, 1.5rem);
+}
+
+[data-media-player].cinema-player .vds-controls-group .vds-button {
+  color: var(--video-controls-color);
+  transition:
+    transform 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+[data-media-player].cinema-player .vds-controls-group .vds-button:hover,
+[data-media-player].cinema-player .vds-controls-group .vds-button:focus-visible {
+  color: var(--video-brand);
+  transform: scale(1.08);
+}
+
+[data-media-player].cinema-player .vds-time-slider {
+  --media-slider-track-height: 3px;
+  --media-slider-track-fill-bg: var(--video-brand);
+  --media-slider-track-progress-bg: color-mix(in oklch, white 32%, transparent);
+  margin-block: 0 0.25rem;
+}
+
+[data-media-player].cinema-player .vds-time-slider .vds-slider-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--video-brand);
+  border: 0;
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--video-brand) 22%, transparent);
+}
+
+[data-media-player].cinema-player .vds-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  [data-media-player].cinema-player .vds-video-layout .vds-controls-group {
+    min-height: 3.25rem;
+  }
+
+  [data-media-player].cinema-player .vds-video-layout .vds-controls-group:first-child {
+    padding-top: 0.5rem;
+  }
+
+  [data-media-player].cinema-player .vds-video-layout .vds-controls-group:last-child {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  [data-media-player].cinema-player .vds-video-layout .vds-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-media-player].cinema-player .vds-controls {
+    padding-inline: 0.75rem;
+  }
+
+  [data-media-player].cinema-player .vds-controls-group {
+    gap: 0.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-media-player].cinema-player .vds-controls-group .vds-button {
+    transition: none;
+  }
+}
+
+[data-media-player] {
+  /* Core video theming */
+  --video-bg: #000000;
+  --video-brand: #e11d48;
+  --video-controls-color: #f8fafc;
+  --video-focus-ring-color: rgb(78 156 246);
+  --video-sm-button-size: 44px;
+
+  /* Core audio theming */
+  --audio-bg: #000000;
+  --audio-brand: #e11d48;
+  --audio-controls-color: #f8fafc;
+  --audio-button-size: 44px;
+  --audio-focus-ring-color: rgb(78 156 246);
+}
+
+/* Reduced motion — disable caption transition */
+@media (prefers-reduced-motion: reduce) {
+  [data-media-player] {
+    --video-captions-transition: none;
+  }
+}
+
+/* High contrast — enhance focus rings via official properties */
+@media (prefers-contrast: more) {
+  [data-media-player] {
+    --video-focus-ring-color: #fff;
+    --video-focus-ring: 0 0 0 4px var(--video-focus-ring-color);
+    --video-border: 2px solid #fff;
+    --audio-focus-ring-color: #fff;
+    --audio-focus-ring: 0 0 0 4px var(--audio-focus-ring-color);
+    --audio-border: 2px solid #fff;
+  }
+}
+@layer utilities {
   /* Optimization for horizontal scrolling rails */
   .contain-paint {
     contain: layout paint;
