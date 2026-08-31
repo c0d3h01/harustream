@@ -7,5 +7,6 @@ export {
   SPRING_SOFT,
   VIEWPORT,
 } from './transitions';
+export { useIsFinePointer } from './useIsFinePointer';
 export { usePrefersReducedMotion } from './usePrefersReducedMotion';
 export { fadeIn, fadeUp, staggerContainer, viewFadeUp, viewScaleIn, viewStagger } from './variants';

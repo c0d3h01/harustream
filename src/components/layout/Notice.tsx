@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DURATIONS, EASE } from '@/components/motion/transitions';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/lib/i18n';
 
 type Props = {
   message: string;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function Notice({ message, onDismiss }: Props) {
+  const t = useT();
   return (
     // AnimatePresence in App drives enter/exit; slides down from the header.
     <motion.div
@@ -26,7 +28,7 @@ export function Notice({ message, onDismiss }: Props) {
         size="icon-sm"
         variant="ghost"
         onClick={onDismiss}
-        aria-label="Dismiss notice"
+        aria-label={t('notice.dismiss')}
         className="touch-target shrink-0"
       >
         <X className="size-4" />
