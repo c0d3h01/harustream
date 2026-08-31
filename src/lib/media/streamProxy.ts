@@ -16,6 +16,7 @@
 
 import { TtlCache } from '@/lib/cache';
 import { scopeLogger } from '@/lib/log';
+import { signProxyTarget } from './proxyToken';
 
 export type ProxyHeaders = Record<string, string>;
 export type SubtitleFormat = 'vtt' | 'srt' | 'ttml';
@@ -52,6 +53,7 @@ function isHlsManifest(contentType: string | null, url: string): boolean {
 // Build the proxied href for an upstream media URL. Relative URLs are
 // resolved against the manifest they were found in. `headers` are appended
 // in a fixed order (referer, origin, userAgent, cookie) after the url param.
+// When proxy tokens are enabled the href carries exp+sig so mode 2 accepts it.
 export function proxiedUrl(
   raw: string,
   base?: string,
@@ -62,6 +64,16 @@ export function proxiedUrl(
   for (const key of PROXY_HEADER_PARAMS) {
     const value = headers[key];
     if (value) params.set(key, value);
+  }
+  const signed = signProxyTarget(
+    target,
+    Object.fromEntries(PROXY_HEADER_PARAMS.map((key) => [key, headers[key] ?? ''])) as Parameters<
+      typeof signProxyTarget
+    >[1],
+  );
+  if (signed) {
+    params.set('exp', String(signed.exp));
+    params.set('sig', signed.sig);
   }
   return `/api/proxy?${params.toString()}`;
 }
@@ -156,6 +168,15 @@ function byteLength(value: string): number {
   return encoder.encode(value).byteLength;
 }
 
+function safeTargetLog(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return '[invalid-url]';
+  }
+}
+
 export function clearProxyIdentityCache(): void {
   proxyIdentityCache.clear();
 }
@@ -235,21 +256,6 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
   }
 
   const started = Date.now();
-  // Optional egress hop (scripts/ci-proxy.mjs on a GitHub Actions runner):
-  // when set, upstream fetches are forwarded through the CI proxy instead of
-  // leaving from this server's IP — provider CDNs that block datacenter
-  // ranges (e.g. MovieBox) are reachable again. Identity headers travel as
-  // query params because the egress proxy rebuilds them itself.
-  const egressBase = process.env.STREAM_EGRESS_PROXY_URL?.trim().replace(/\/+$/, '');
-  const egressUrl = egressBase
-    ? `${egressBase}/api/proxy?${new URLSearchParams({
-        url,
-        ...(options.headers?.referer ? { referer: options.headers.referer } : {}),
-        ...(options.headers?.origin ? { origin: options.headers.origin } : {}),
-        ...(options.headers?.userAgent ? { userAgent: options.headers.userAgent } : {}),
-        ...(options.headers?.cookie ? { cookie: options.headers.cookie } : {}),
-      })}`
-    : url;
   const providerHeaders = (): Record<string, string> => {
     const referer = upstreamReferer(target, options.headers?.referer);
     const origin = options.headers?.origin?.trim() || referer;
@@ -260,15 +266,15 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
       'User-Agent': upstreamUserAgent(options.headers?.userAgent),
       Accept: '*/*',
     };
-    if (!egressBase && variant === 'provider') Object.assign(headers, providerHeaders());
+    if (variant === 'provider') Object.assign(headers, providerHeaders());
     const cookie = options.headers?.cookie?.trim();
-    if (cookie && !egressBase) headers.Cookie = cookie;
-    if (options.range && !egressBase) headers.Range = options.range;
+    if (cookie) headers.Cookie = cookie;
+    if (options.range) headers.Range = options.range;
     return headers;
   };
   const fetchVariant = async (variant: IdentityVariant): Promise<Response> => {
     try {
-      const response = await fetch(egressUrl, {
+      const response = await fetch(url, {
         headers: requestHeaders(variant),
         cache: 'no-store',
         redirect: 'follow',
@@ -276,7 +282,7 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
       });
       log.debug(
         {
-          url,
+          target: safeTargetLog(url),
           status: response.status,
           variant,
           contentType: response.headers.get('content-type'),
@@ -287,7 +293,12 @@ export async function proxyStream(url: string, options: ProxyOptions = {}): Prom
       return response;
     } catch (error) {
       log.error(
-        { url, code: (error as Error).name ?? 'FETCH', variant, durationMs: Date.now() - started },
+        {
+          target: safeTargetLog(url),
+          code: (error as Error).name ?? 'FETCH',
+          variant,
+          durationMs: Date.now() - started,
+        },
         'upstream stream fetch failed',
       );
       throw new Error(
