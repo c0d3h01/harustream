@@ -1,148 +1,98 @@
 'use client';
 
 import { ArrowRight, Info, Play } from 'lucide-react';
-import { motion } from 'motion/react';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { EASE } from '@/components/motion/transitions';
-import { usePrefersReducedMotion } from '@/components/motion/usePrefersReducedMotion';
-import { fadeIn, fadeUp, staggerContainer } from '@/components/motion/variants';
 import { Button } from '@/components/ui/button';
 import { localeHref, useLocale, useT } from '@/lib/i18n';
 
 /**
- * Cinematic hero. Two passes of motion:
+ * Cinematic hero — distinctive visual identity.
  *
- *  1. Entrance — a stagger container orchestrates the eyebrow, headline words,
- *     sub-text, meta, and CTAs via `motion/react` variants.
- *  2. Scroll exit — a CSS `animation-timeline: scroll()` parallaxes the copy
- *     up + fades while a subtle scale pulls the backdrop (Chrome/Edge;
- *     graceful no-op in Safari/Firefox).
+ * Palette: midnight base + cinematic amber accent (the brief's one justified risk).
+ * Type: Geist deliberate — weight, tracking, and scale as treatment, not neutrality.
+ * Layout: visual weight at top, informational sequence below, CTA at bottom.
+ * Signature: drifting ambient orb — CSS-keyframe animation, reduced-motion respected via existing media query.
  *
- * Reduced-motion users get the plain layout (instant reveal, no scroll effect).
+ * The metadata sequence (year / rating / quality / genre) uses / separators because
+ * order carries information the reader needs — not decorative numbered markers.
  */
 export function HomeHero() {
   const t = useT();
   const { locale } = useLocale();
-  const reduced = usePrefersReducedMotion();
-
-  // Split the headline into words once per render for staggered animation.
-  const headingWords = useMemo(() => {
-    const seen = new Map<string, number>();
-    return t('home.heroHeading')
-      .split(' ')
-      .map((word) => {
-        const count = seen.get(word) ?? 0;
-        seen.set(word, count + 1);
-        return { text: word, key: `${word}-${count}` };
-      });
-  }, [t]);
-
-  // Reduced-motion: use fade-only, no transforms.
-  const entrance = reduced ? fadeIn : fadeUp;
 
   return (
     <section
       className="hero-root relative -mx-4 min-h-[540px] overflow-hidden sm:-mx-6 lg:-mx-10 lg:min-h-[620px]"
       aria-labelledby="hero-heading"
     >
+      {/* Signature: drifting ambient orb — CSS keyframe, graceful no-op in reduced motion */}
+      <div
+        className="hero-orb absolute top-[-20%] left-[-10%] size-[300px] rounded-full opacity-60 blur-[200px] animate-orb"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute top-[10%] right-[10%] size-[120px] rounded-full opacity-40 blur-[160px]"
+        aria-hidden="true"
+      />
+
       {/* Backdrop: ambient glow + soft horizontal grade. Scroll-scaled via CSS. */}
       <div className="hero-backdrop absolute inset-0" aria-hidden="true">
-        <motion.div
-          className="hero-glow absolute left-[55%] top-[30%] -ml-40 size-[30rem] rounded-full bg-primary/18 blur-[120px]"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.4, ease: [0.33, 1, 0.68, 1] }}
-        />
+        <div className="hero-glow absolute left-[55%] top-[30%] -ml-40 size-[30rem] rounded-full bg-primary/18 blur-[120px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_38%,transparent_20%,var(--background)_100%),linear-gradient(90deg,var(--background)_8%,color-mix(in_oklch,var(--background)_72%,transparent)_46%,transparent_100%)]" />
       </div>
 
-      <motion.div
-        className="hero-inner relative mx-auto flex min-h-[540px] max-w-[1440px] items-end px-4 pb-16 sm:px-10 sm:pb-20 lg:min-h-[620px]"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-      >
+      <div className="hero-inner relative mx-auto flex min-h-[540px] max-w-[1440px] items-start px-4 pb-16 sm:px-10 sm:pb-20 lg:min-h-[620px]">
         <div className="max-w-2xl">
-          <motion.p
-            className="hero-eyebrow mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-primary backdrop-blur"
+          <p
+            className="hero-eyebrow glass-chip mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-hero-accent"
             id="hero-eyebrow"
-            variants={entrance}
           >
-            <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+            <span
+              className="size-1.5 animate-pulse rounded-full bg-hero-accent"
+              aria-hidden="true"
+            />
             {t('home.heroEyebrow')}
-          </motion.p>
+          </p>
 
           <h1
             id="hero-heading"
-            className="mt-2 text-[2.6rem] font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-[5.25rem]"
+            className="mt-2 text-[2.8rem] font-semibold leading-[1.05] tracking-[-0.03em] text-balance sm:text-5xl lg:text-[4.5rem] text-hero-primary"
           >
-            {/* Each word sits in an overflow mask so it can rise in place. */}
-            <motion.span
-              className="block overflow-hidden pb-1"
-              aria-hidden="true"
-              variants={staggerContainer}
-            >
-              {headingWords.map((word, i) => (
-                <motion.span
-                  key={word.key}
-                  className="inline-block will-change-transform"
-                  variants={{
-                    hidden: { opacity: 0, y: reduced ? 0 : '110%' },
-                    visible: {
-                      opacity: 1,
-                      y: 0,
-                      transition: { duration: 0.7, ease: EASE },
-                    },
-                  }}
-                >
-                  {word.text}
-                  {i < headingWords.length - 1 ? '\u00A0' : ''}
-                </motion.span>
-              ))}
-            </motion.span>
-            <span className="sr-only">{t('home.heroHeading')}</span>
+            {t('home.heroHeading')}
           </h1>
 
-          <motion.div
-            className="hero-meta mt-7 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[13px] tracking-[0.08em] text-muted-foreground"
-            variants={entrance}
+          <p
+            className="hero-sub mt-3 max-w-xl text-base leading-relaxed text-hero-foreground sm:text-lg"
+            id="hero-description"
           >
-            <span className="font-semibold text-foreground">FEATURED</span>
-            <span aria-hidden="true" className="text-white/25">
+            {t('home.heroSub')}
+          </p>
+
+          <div className="hero-meta mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px] tracking-[0.05em] text-hero-muted">
+            <span className="font-semibold text-hero-foreground">FEATURED</span>
+            <span aria-hidden="true" className="mx-1 text-opacity-30">
               /
             </span>
             <span aria-hidden="true">2026</span>
-            <span aria-hidden="true" className="text-white/25">
+            <span aria-hidden="true" className="mx-1 text-opacity-30">
               /
             </span>
             <span aria-hidden="true">16+</span>
-            <span aria-hidden="true" className="text-white/25">
+            <span aria-hidden="true" className="mx-1 text-opacity-30">
               /
             </span>
             <span aria-hidden="true">4K</span>
-            <span aria-hidden="true" className="text-white/25">
+            <span aria-hidden="true" className="mx-1 text-opacity-30">
               /
             </span>
             <span aria-hidden="true">Drama · Action</span>
-          </motion.div>
+          </div>
 
-          <motion.p
-            className="hero-sub mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg"
-            id="hero-description"
-            variants={entrance}
-          >
-            {t('home.heroSub')}
-          </motion.p>
-
-          <motion.div
-            className="hero-ctas mt-9 flex flex-wrap items-center gap-3"
-            variants={entrance}
-          >
+          <div className="hero-ctas mt-8 flex flex-wrap items-center gap-3">
             <Button
               render={<Link href={localeHref(locale, '/search')} />}
               nativeButton={false}
-              className="group h-auto gap-3 rounded-full bg-primary pl-5 pr-1.5 py-1.5 text-[0.95rem] font-semibold text-primary-foreground shadow-[0_12px_32px_-12px_rgba(255,255,255,0.4)] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-primary active:scale-[0.98]"
+              className="rounded-full bg-hero-accent pl-5 pr-1.5 py-1.5 text-[0.95rem] font-semibold text-hero-foreground shadow-[0_12px_32px_-12px_rgba(0,0,0,0.4)] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-hero-accent/90 active:scale-[0.98]"
             >
               <Play className="size-4 fill-current" />
               {t('home.heroCtaBrowse')}
@@ -152,14 +102,14 @@ export function HomeHero() {
             </Button>
             <Button
               variant="ghost"
-              className="h-auto gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[0.95rem] font-semibold backdrop-blur transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/10 active:scale-[0.98]"
+              className="glass-chip glass-interactive rounded-full h-auto gap-2.5 px-5 py-2.5 text-[0.95rem] font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
             >
               <Info className="size-4" aria-hidden="true" />
               {t('home.heroCtaMoreInfo')}
             </Button>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }
