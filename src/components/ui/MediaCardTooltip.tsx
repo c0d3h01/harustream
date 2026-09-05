@@ -93,8 +93,8 @@ interface CardTooltipProps {
 }
 
 const PANEL_WIDTH = 320;
-const PANEL_GAP = 12;
-const VIEWPORT_MARGIN = 8;
+const PANEL_GAP = 10;
+const VIEWPORT_MARGIN = 12;
 
 export function CardTooltip({
   anchor,
@@ -122,12 +122,14 @@ export function CardTooltip({
       const height = el.offsetHeight;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      let left = anchor.right + PANEL_GAP;
-      if (left + PANEL_WIDTH > vw - VIEWPORT_MARGIN) {
-        left = anchor.left - PANEL_WIDTH - PANEL_GAP;
-      }
+      let left = anchor.left + anchor.width / 2 - PANEL_WIDTH / 2;
       left = Math.max(VIEWPORT_MARGIN, Math.min(left, vw - PANEL_WIDTH - VIEWPORT_MARGIN));
-      let top = anchor.top + anchor.height / 2 - height / 2;
+      const belowTop = anchor.bottom + PANEL_GAP;
+      const aboveTop = anchor.top - height - PANEL_GAP;
+      let top = belowTop;
+      if (belowTop + height > vh - VIEWPORT_MARGIN && aboveTop >= VIEWPORT_MARGIN) {
+        top = aboveTop;
+      }
       top = Math.max(VIEWPORT_MARGIN, Math.min(top, vh - height - VIEWPORT_MARGIN));
       setPos({ left, top, ready: true });
     };
@@ -157,8 +159,8 @@ export function CardTooltip({
       onPointerEnter={onEnter}
       onPointerLeave={onLeave}
       className={[
-        'glass-strong fixed z-[60] w-[320px] overflow-hidden rounded-2xl',
-        'transition-opacity duration-150 motion-safe:animate-[tooltip-in_160ms_ease-out]',
+        'glass-strong fixed z-[60] w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-2xl shadow-2xl will-change-[left,top,opacity]',
+        'transition-opacity duration-100 motion-safe:animate-[tooltip-in_120ms_ease-out]',
         pos.ready ? 'opacity-100' : 'opacity-0',
       ].join(' ')}
       style={{ left: pos.left, top: pos.top }}

@@ -132,6 +132,7 @@ function MediaCardInner({
   const intentTimer = useRef<number | null>(null);
   const closeTimer = useRef<number | null>(null);
   const tipFetch = useRef<AbortController | null>(null);
+  const tipTarget = useRef<HTMLElement | null>(null);
 
   const closeTooltip = useCallback(() => {
     if (intentTimer.current !== null) {
@@ -144,22 +145,37 @@ function MediaCardInner({
     }
     tipFetch.current?.abort();
     tipFetch.current = null;
+    tipTarget.current = null;
     setTipAnchor(null);
     setTipDetails(null);
     setTipLoading(false);
   }, []);
 
-  // Drop the tooltip on unmount / scroll / resize / Escape (stale position).
+  // Keep the portal attached to its card while horizontal rails scroll.
+  // Closing on scroll makes the tooltip unusable for keyboard and trackpad users.
   useEffect(() => {
-    window.addEventListener('scroll', closeTooltip, { capture: true, passive: true });
-    window.addEventListener('resize', closeTooltip);
+    const updateAnchor = () => {
+      const target = tipTarget.current;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      setTipAnchor({
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeTooltip();
     };
+    window.addEventListener('scroll', updateAnchor, { capture: true, passive: true });
+    window.addEventListener('resize', updateAnchor);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('scroll', closeTooltip, { capture: true });
-      window.removeEventListener('resize', closeTooltip);
+      window.removeEventListener('scroll', updateAnchor, { capture: true });
+      window.removeEventListener('resize', updateAnchor);
       window.removeEventListener('keydown', onKey);
       closeTooltip();
     };
@@ -175,6 +191,7 @@ function MediaCardInner({
       }
       if (tipAnchor !== null || intentTimer.current !== null) return;
       const target = event.currentTarget;
+      tipTarget.current = target;
       intentTimer.current = window.setTimeout(() => {
         intentTimer.current = null;
         const rect = target.getBoundingClientRect();

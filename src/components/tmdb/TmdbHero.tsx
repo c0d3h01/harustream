@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Check, Plus, Star, Volume2, VolumeX } from 'lucide-react';
+import { Calendar, Check, Plus, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,7 +13,6 @@ import { tmdbImageUrl } from '@/tmdb/images';
 import { AmbientBackdrop } from './AmbientBackdrop';
 import { tmdbPath } from './TmdbMediaCard';
 import { TmdbPlayButton } from './TmdbPlayButton';
-import { TrailerEmbed } from './TrailerEmbed';
 
 export interface HeroSlide {
   card: TmdbCard;
@@ -36,10 +35,6 @@ const ROTATE_MS = 8000;
 export function TmdbHero({ slides }: TmdbHeroProps) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  // Shared by the active trailer and its mute toggle (remounts the embed
-  // on toggle — position loss is invisible on a looping backdrop).
-  const [trailerMuted, setTrailerMuted] = useState(true);
-
   const count = slides.length;
   const safeIndex = count === 0 ? 0 : Math.min(index, count - 1);
   const active = slides[safeIndex] as HeroSlide | undefined;
@@ -56,7 +51,6 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
 
   if (!active) return null;
 
-  const activeTrailerKey = active.detail?.trailers?.[0]?.key;
   const headingId = `hero-heading-${active.card.kind}-${active.card.tmdbId}`;
 
   return (
@@ -83,13 +77,8 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
           active={i === safeIndex}
           headingId={`hero-heading-${slide.card.kind}-${slide.card.tmdbId}`}
           eager={i === 0}
-          trailerMuted={trailerMuted}
         />
       ))}
-
-      {activeTrailerKey ? (
-        <HeroMuteToggle muted={trailerMuted} onToggle={() => setTrailerMuted((m) => !m)} />
-      ) : null}
 
       {count > 1 && !reduceMotion ? (
         <div className="absolute right-4 bottom-6 z-10 flex items-center gap-1 sm:right-10">
@@ -125,16 +114,13 @@ function HeroSlideView({
   active,
   headingId,
   eager,
-  trailerMuted,
 }: {
   slide: HeroSlide;
   active: boolean;
   headingId: string;
   eager: boolean;
-  trailerMuted: boolean;
 }) {
   const { card, detail } = slide;
-  const trailerKey = detail?.trailers?.[0]?.key;
   const backdropSrc = card.backdropPath ? tmdbImageUrl(card.backdropPath, 'w1280') : undefined;
   return (
     <div
@@ -157,9 +143,7 @@ function HeroSlideView({
             className="object-cover object-center opacity-65"
           />
         ) : null}
-        {trailerKey && active && false ? (
-          <TrailerEmbed trailerKey={trailerKey} muted={trailerMuted} />
-        ) : null}
+
         <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--background)_5%,color-mix(in_oklch,var(--background)_78%,transparent)_42%,transparent_82%),linear-gradient(0deg,var(--background)_0%,transparent_48%,color-mix(in_oklch,var(--background)_42%,transparent)_100%)]" />
       </div>
 
@@ -265,25 +249,6 @@ function HeroSaveButton({ card }: { card: TmdbCard }) {
         <Check className="size-5" aria-hidden="true" />
       ) : (
         <Plus className="size-5" aria-hidden="true" />
-      )}
-    </button>
-  );
-}
-
-/** 44px sound toggle for the banner trailer (bottom-right, clear of CTAs). */
-function HeroMuteToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={!muted}
-      aria-label={muted ? 'Unmute banner trailer' : 'Mute banner trailer'}
-      className="glass-chip absolute right-4 bottom-16 z-10 grid size-11 cursor-pointer place-items-center rounded-full text-foreground transition-all duration-150 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-10"
-    >
-      {muted ? (
-        <VolumeX className="size-5" aria-hidden="true" />
-      ) : (
-        <Volume2 className="size-5" aria-hidden="true" />
       )}
     </button>
   );
