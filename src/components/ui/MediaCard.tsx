@@ -228,7 +228,7 @@ function MediaCardInner({
           alt={posterAlt}
           fill
           priority={priority}
-          sizes="(min-width: 1024px) 184px, (min-width: 640px) 168px, 148px"
+          sizes="(min-width: 1024px) 202px, (min-width: 640px) 176px, 138px"
           className="object-cover transition duration-500 hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
         />
   );
@@ -239,7 +239,7 @@ function MediaCardInner({
           info lives in the centered overlay (hover/focus on desktop,
           always visible on touch). ---------- */}
 <div
-          className="relative aspect-[2/3] overflow-hidden rounded-[1.15rem] bg-secondary shadow-[0_14px_36px_-18px_rgba(0,0,0,0.9)] ring-1 ring-white/10 transition-transform duration-300 group-hover:-translate-y-1 group-hover:ring-white/20 motion-reduce:transition-none"
+          className="relative aspect-[2/3] overflow-hidden rounded-[0.8rem] bg-secondary shadow-[0_18px_40px_-20px_rgba(0,0,0,0.95)] ring-1 ring-white/10 transition-transform duration-300 group-hover:-translate-y-1 group-hover:ring-white/20 motion-reduce:transition-none sm:rounded-[1rem]"
         onPointerEnter={startTooltip}
         onPointerLeave={scheduleClose}
       >
@@ -331,7 +331,7 @@ function MediaCardInner({
   const card = (
     <div
       className={[
-        'glass-card group block min-w-0 cursor-pointer overflow-hidden rounded-xl text-left transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_12px_40px_-8px_oklch(0.82_0.12_230_/_18%)] active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'group block min-w-0 cursor-pointer overflow-hidden rounded-[0.8rem] text-left transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_12px_40px_-8px_oklch(0.82_0.12_230_/_18%)] active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-[1rem]',
         className,
       ].join(' ')}
     >

@@ -16,10 +16,10 @@ export function Shell({ children }: { children: ReactNode }) {
             `viewTransitionName: site-header` (see globals.css). Stays fixed
             while page content slides underneath on nav-forward/nav-back. */}
         <header
-          className="sticky top-0 z-40 px-3 pt-[max(0.625rem,env(safe-area-inset-top))] sm:px-5"
+          className="sticky top-0 z-40 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8 lg:px-12"
           style={{ viewTransitionName: 'site-header' }}
         >
-          <div className="glass-header glass-specular mx-auto flex h-16 w-full max-w-[1440px] items-center gap-3 rounded-[1.25rem] px-3.5 sm:h-[4.5rem] sm:rounded-full sm:px-5 lg:px-6">
+          <div className="glass-header glass-specular mx-auto flex h-14 w-full max-w-[1440px] items-center gap-3 rounded-full px-3 sm:h-16 sm:px-5 lg:px-6">
             <Link
               href={localeHref(locale, '/')}
               className="group inline-flex shrink-0 items-center gap-2.5 rounded-full transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -42,7 +42,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
         {/* Lifted above the fixed ambient hero backdrop (z-0) so page
             content always paints over the page-wide blur tint. */}
-        <main className="relative z-[1] mx-auto min-h-screen w-full max-w-[1440px] px-4 pb-28 sm:px-6 lg:px-10">
+        <main className="relative z-[1] mx-auto min-h-screen w-full max-w-[1480px] px-3 pb-28 sm:px-8 lg:px-12">
           {children}
         </main>
       </div>

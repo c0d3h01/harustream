@@ -61,7 +61,7 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
 
   return (
     <section
-      className="hero-root relative -mx-4 min-h-[600px] overflow-hidden rounded-b-[2rem] border border-white/10 sm:-mx-6 sm:min-h-[640px] sm:rounded-b-[2.5rem] lg:-mx-10 lg:min-h-[700px]"
+      className="hero-root relative -mx-3 min-h-[640px] overflow-hidden border-b border-white/10 sm:-mx-8 sm:min-h-[680px] lg:-mx-12 lg:min-h-[760px]"
       aria-roledescription="carousel"
       aria-labelledby={headingId}
       onPointerEnter={() => setPaused(true)}
@@ -154,16 +154,16 @@ function HeroSlideView({
             fill
             priority={eager}
             sizes="100vw"
-            className="object-cover object-top opacity-60"
+            className="object-cover object-center opacity-65"
           />
         ) : null}
-        {trailerKey && active ? (
+        {trailerKey && active && false ? (
           <TrailerEmbed trailerKey={trailerKey} muted={trailerMuted} />
         ) : null}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_38%,transparent_20%,var(--background)_100%),linear-gradient(90deg,var(--background)_8%,color-mix(in_oklch,var(--background)_72%,transparent)_46%,transparent_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--background)_5%,color-mix(in_oklch,var(--background)_78%,transparent)_42%,transparent_82%),linear-gradient(0deg,var(--background)_0%,transparent_48%,color-mix(in_oklch,var(--background)_42%,transparent)_100%)]" />
       </div>
 
-      <div className="hero-inner relative mx-auto flex min-h-[600px] max-w-[1440px] items-end px-5 pb-20 sm:min-h-[640px] sm:px-10 sm:pb-24 lg:min-h-[700px] lg:px-14">
+      <div className="hero-inner relative mx-auto flex min-h-[640px] max-w-[1480px] items-end px-5 pb-20 sm:min-h-[680px] sm:px-12 sm:pb-24 lg:min-h-[760px] lg:px-16">
         <div className="max-w-2xl">
           <HeroEyebrow />
           {detail?.logoPath ? (
@@ -208,7 +208,7 @@ function HeroSlideView({
           </div>
 
           {(detail?.overview || card.overview) && (
-            <p className="hero-sub mt-4 line-clamp-3 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+            <p className="hero-sub mt-4 line-clamp-3 max-w-[36rem] text-base leading-7 text-foreground/75 sm:text-lg">
               {detail?.overview || card.overview}
             </p>
           )}

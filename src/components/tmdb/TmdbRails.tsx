@@ -23,7 +23,7 @@ export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
   const t = useT();
   const seen = new Set<string>();
   return (
-    <div className="home-rails mt-6 flex flex-col gap-14 sm:mt-10 sm:gap-16">
+    <div className="home-rails mt-10 flex flex-col gap-16 sm:mt-14 sm:gap-20">
       {sections.map((section, sectionIndex) => {
         const headingId = `${baseId}-tmdb-${sectionIndex}`;
         if (section.items.length === 0) return null;
@@ -46,7 +46,7 @@ export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
                 seen.add(dedupeKey);
                 return (
                   <ViewTransition key={dedupeKey}>
-                    <div data-rail-card className="w-[148px] shrink-0 snap-start sm:w-[168px] lg:w-[184px]">
+                    <div data-rail-card className="w-[138px] shrink-0 snap-start sm:w-[176px] lg:w-[202px]">
                       <TmdbMediaCard
                         card={item}
                         priority={sectionIndex === 0 && index < 4}
