@@ -29,19 +29,10 @@ function signPassthroughParams(params: URLSearchParams): URLSearchParams {
   return params;
 }
 
-// Main media src, authoritative variant. DASH plays directly from the viewer
-// (embed-friendly by design); worker mode streams through signed worker URLs;
-// resolve-and-stream mode keeps provider-signed URLs off the client entirely.
+// Main media src, authoritative variant. All formats stream through
+// resolve-and-stream mode, which keeps provider-signed URLs off the client
+// and resolves IP-bound crypto per request server-side.
 export function mediaPlaybackHref(source: StreamSource, context: PlaybackContext): string {
-  if (source.format === 'mpd') return source.url;
-  const worker =
-    process.env.STREAM_PROXY_URL?.trim().replace(/\/+$/, '') ||
-    process.env.NEXT_PUBLIC_STREAM_PROXY_URL?.trim().replace(/\/+$/, '');
-  if (worker) {
-    const params = new URLSearchParams({ url: source.url });
-    for (const [name, value] of headerParams(source.headers)) params.set(name, value);
-    return `${worker}/?${signPassthroughParams(params).toString()}`;
-  }
   return streamPlaybackUrl(source, context);
 }
 

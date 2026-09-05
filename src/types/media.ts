@@ -83,8 +83,8 @@ export interface StreamSource {
   subtitles: Subtitle[];
   skip?: SkipInterval[];
   /**
-   * Server-minted playback href — DASH direct URL, signed worker URL, or the
-   * resolve-and-stream /api/proxy path. The browser must not build its own.
+   * Server-minted playback href — the resolve-and-stream /api/proxy path.
+   * The browser must not build its own.
    */
   playbackHref?: string;
 }

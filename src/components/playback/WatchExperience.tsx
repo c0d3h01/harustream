@@ -11,23 +11,30 @@ import type { Episode, Media } from '@/types';
 export function WatchExperience({
   item,
   initialEpisodeRef,
+  tmdbContext,
 }: {
   item: Media;
   initialEpisodeRef?: string;
+  tmdbContext?: { kind: string; id: number };
 }) {
   const router = useRouter();
   const t = useT();
   const { locale } = useLocale();
   const updateEpisodeUrl = useCallback(
     (episode: Episode) => {
+      const params = new URLSearchParams({ episode: episode.ref });
+      if (tmdbContext) {
+        params.set('tmdbKind', tmdbContext.kind);
+        params.set('tmdbId', String(tmdbContext.id));
+      }
       router.replace(
         localeHref(
           locale,
-          `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}?episode=${encodeURIComponent(episode.ref)}`,
+          `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}?${params.toString()}`,
         ),
       );
     },
-    [item.providerId, item.ref, locale, router],
+    [item.providerId, item.ref, locale, router, tmdbContext],
   );
   const session = usePlaybackSession(item, initialEpisodeRef, updateEpisodeUrl);
 
@@ -62,14 +69,14 @@ export function WatchExperience({
             <button
               type="button"
               onClick={session.retry}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black touch-target"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black touch-target transition-transform duration-150 hover:scale-[1.03] active:scale-95"
             >
               {t('watch.tryAgain')}
             </button>
             <button
               type="button"
               onClick={() => router.back()}
-              className="rounded-lg bg-white/15 px-4 py-2 text-sm touch-target"
+              className="rounded-lg bg-white/15 px-4 py-2 text-sm touch-target transition-transform duration-150 hover:bg-white/20 active:scale-95"
             >
               {t('watch.backToTitle')}
             </button>

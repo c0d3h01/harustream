@@ -1,7 +1,6 @@
 'use client';
 
-import { Play } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState, ViewTransition } from 'react';
 import { AnimatedSection } from '@/components/ui/AnimatedSection';
 import { Button } from '@/components/ui/button';
 import type { MediaCardItem } from '@/components/ui/MediaCard';
@@ -40,12 +39,16 @@ export function ContinueWatchingRail() {
 
   const handleClearAll = () => {
     if (!confirming) {
-      setConfirming(true);
-      confirmTimer.current = window.setTimeout(() => setConfirming(false), 3000);
+      // Arm the confirm — runs in a transition so the label swap can VT.
+      startTransition(() => setConfirming(true));
+      confirmTimer.current = window.setTimeout(
+        () => startTransition(() => setConfirming(false)),
+        3000,
+      );
       return;
     }
     if (confirmTimer.current) window.clearTimeout(confirmTimer.current);
-    setConfirming(false);
+    startTransition(() => setConfirming(false));
     progress.forEach((entry) => {
       entry.clearAll();
     });
@@ -64,7 +67,7 @@ export function ContinueWatchingRail() {
             size="sm"
             variant="ghost"
             onClick={handleClearAll}
-            className="touch-target text-xs text-muted-foreground hover:text-destructive"
+            className="touch-target text-xs transition-all duration-200 active:scale-95 text-muted-foreground hover:text-destructive"
           >
             {confirming ? t('home.clearAllConfirm') : t('home.clearAll')}
           </Button>
@@ -74,47 +77,49 @@ export function ContinueWatchingRail() {
         {items.map((item, index) => {
           const provider = item.provider ?? 'movieBoxWeb';
           const percentage = item.duration ? Math.round((item.position / item.duration) * 100) : 0;
-          const href = localeHref(
-            locale,
-            `/watch/${encodeURIComponent(provider)}/${encodeRef(item.ref)}${item.episodeRef ? `?episode=${encodeURIComponent(item.episodeRef)}` : ''}`,
-          );
+          // Entries carrying TMDB context link back to TMDB detail with TMDB
+          // art; legacy entries keep the direct watch URL.
+          const tmdb =
+            item.tmdbKind && item.tmdbId ? { kind: item.tmdbKind, id: item.tmdbId } : null;
+          const href = tmdb
+            ? localeHref(locale, `/${tmdb.kind}/${tmdb.id}`)
+            : localeHref(
+                locale,
+                `/watch/${encodeURIComponent(provider)}/${encodeRef(item.ref)}${item.episodeRef ? `?episode=${encodeURIComponent(item.episodeRef)}` : ''}`,
+              );
 
           const cardItem: MediaCardItem = {
             id: `${provider}:${item.ref}:${item.episodeRef}`,
             providerId: provider,
             providerName: provider,
-            title: item.title ?? t('home.untitled'),
-            displayTitle: item.title ?? t('home.untitled'),
-            posterUrl: item.poster,
+            title: item.tmdbTitle ?? item.title ?? t('home.untitled'),
+            displayTitle: item.tmdbTitle ?? item.title ?? t('home.untitled'),
+            posterUrl: (tmdb ? item.tmdbPoster : undefined) ?? item.poster,
             ref: item.ref,
             kind: item.type,
           };
 
           return (
-            <div
-              key={`${provider}:${item.ref}:${item.episodeRef}`}
-              className="cw-card w-[150px] shrink-0 snap-start"
-            >
-              <MediaCard
-                item={cardItem}
-                href={href}
-                priority={index < 4}
-                progress={percentage}
-                onRemove={() => {
-                  const entry = progress.find((e) =>
-                    e.list.some((saved) => saved.ref === item.ref),
-                  );
-                  if (entry) entry.clear(item.ref, item.episodeRef);
-                }}
-              >
-                <span
-                  className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition group-hover:opacity-100"
-                  aria-hidden="true"
-                >
-                  <Play className="size-3.5 fill-current" />
-                </span>
-              </MediaCard>
-            </div>
+            <ViewTransition key={`${provider}:${item.ref}:${item.episodeRef}`}>
+              <div className="cw-card w-[140px] shrink-0 snap-start">
+                <MediaCard
+                  item={cardItem}
+                  href={href}
+                  priority={index < 4}
+                  progress={percentage}
+                  onRemove={() => {
+                    // Removal shrinks the rail — transition so siblings glide
+                    // (layout displacement morph) instead of teleporting.
+                    startTransition(() => {
+                      const entry = progress.find((e) =>
+                        e.list.some((saved) => saved.ref === item.ref),
+                      );
+                      if (entry) entry.clear(item.ref, item.episodeRef);
+                    });
+                  }}
+                />
+              </div>
+            </ViewTransition>
           );
         })}
       </RailScroller>

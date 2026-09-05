@@ -25,3 +25,4 @@ design/
 
 # Agent skills
 .agents/skills/
+.env*

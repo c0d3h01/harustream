@@ -91,26 +91,25 @@ describe('playback proxy URL', () => {
     expect(url.searchParams.get('sourceId')).toBe('first');
   });
 
-  it('plays DASH sources directly with no proxy', () => {
+  it('routes DASH sources through the resolving proxy like everything else', () => {
     const dash = { ...source('dash'), format: 'mpd' as const, url: 'https://cdn.test/x.mpd?q=1' };
     const context = { providerId: 'movieBoxWeb', ref: '{"subjectId":"1"}', kind: 'series' };
-    expect(mediaPlaybackUrl(dash, context)).toBe('https://cdn.test/x.mpd?q=1');
+    const url = new URL(`https://app.test${mediaPlaybackUrl(dash, context)}`);
+    expect(url.pathname).toBe('/api/proxy');
+    expect(url.searchParams.get('sourceId')).toBe('dash');
   });
 
-  it('routes non-DASH media through the Cloudflare worker when configured', () => {
+  it('routes all media through the resolving proxy (no worker, no direct URLs)', () => {
     const mp4 = source('first');
     const url = new URL(
-      mediaPlaybackUrl(
-        mp4,
-        {
-          providerId: 'movieBoxWeb',
-          ref: '{"subjectId":"1"}',
-          kind: 'series',
-        },
-        'https://proxy.workers.dev',
-      ),
+      `https://app.test${mediaPlaybackUrl(mp4, {
+        providerId: 'movieBoxWeb',
+        ref: '{"subjectId":"1"}',
+        kind: 'series',
+      })}`,
     );
-    expect(url.origin).toBe('https://proxy.workers.dev');
-    expect(url.searchParams.get('url')).toBe(mp4.url);
+    expect(url.pathname).toBe('/api/proxy');
+    expect(url.searchParams.get('provider')).toBe('movieBoxWeb');
+    expect(url.searchParams.get('sourceId')).toBe('first');
   });
 });

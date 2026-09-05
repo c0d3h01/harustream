@@ -1,6 +1,9 @@
 import { Check, Film, Loader2, Play } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, ViewTransition } from 'react';
+import { SPRING } from '@/components/motion/transitions';
+import { posterTransitionName } from '@/components/transitions/names';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n';
@@ -31,14 +34,20 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
       <div className="flex gap-4 sm:gap-6">
         <div className="relative aspect-2/3 w-28 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary sm:w-36 lg:w-44">
           {item.posterUrl ? (
-            <Image
-              src={posterSrc}
-              alt={posterAlt}
-              fill
-              priority
-              sizes="(min-width: 1024px) 11rem, (min-width: 640px) 9rem, 7rem"
-              className="object-cover"
-            />
+            <ViewTransition
+              name={posterTransitionName(item.providerId, item.ref)}
+              share="morph"
+              default="none"
+            >
+              <Image
+                src={posterSrc}
+                alt={posterAlt}
+                fill
+                priority
+                sizes="(min-width: 1024px) 11rem, (min-width: 640px) 9rem, 7rem"
+                className="object-cover"
+              />
+            </ViewTransition>
           ) : (
             <div
               className="absolute inset-0 grid place-items-center text-muted-foreground"
@@ -61,11 +70,11 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
           </h1>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
+            <Badge variant="glass">
               {item.kind === 'series' ? t('kind.series') : t('kind.movie')}
             </Badge>
             {item.rating ? (
-              <Badge variant="outline" className="text-primary">
+              <Badge variant="glass" className="text-primary">
                 ★ {item.rating}
               </Badge>
             ) : null}
@@ -86,7 +95,7 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
         <Button
           onClick={onPlay}
           disabled={!canPlay || loadingSources}
-          className="h-12 w-full gap-2.5 rounded-xl px-6 font-semibold sm:w-auto"
+          className="h-12 w-full gap-2.5 rounded-xl px-6 font-semibold transition-transform duration-150 active:scale-[0.98] sm:w-auto"
           aria-busy={loadingSources}
         >
           {loadingSources ? (
@@ -101,13 +110,27 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
             </>
           )}
         </Button>
+        {/* Save toggle — check pops in/out on tap (interaction), no entrance. */}
         <Button
-          variant="outline"
+          variant="glass"
           onClick={() => library.toggle(item)}
           aria-pressed={saved}
-          className="h-11 justify-center rounded-lg sm:justify-start"
+          className="h-11 justify-center rounded-lg transition-all duration-200 active:scale-[0.97] sm:justify-start"
         >
-          {saved ? <Check className="text-primary" aria-hidden="true" /> : null}
+          <AnimatePresence mode="wait" initial={false}>
+            {saved ? (
+              <motion.span
+                key="saved"
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={SPRING}
+                className="flex items-center"
+              >
+                <Check className="text-primary" aria-hidden="true" />
+              </motion.span>
+            ) : null}
+          </AnimatePresence>
           {saved ? t('title.saved') : t('title.save')}
         </Button>
       </div>

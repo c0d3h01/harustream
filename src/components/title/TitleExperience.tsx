@@ -19,14 +19,16 @@ function TitleExperience({ item, related = [] }: TitleExperienceProps) {
   const hasPlayableItem = item.groups.some((group) => group.items.length > 0);
 
   const handlePlay = useCallback(() => {
+    // Hierarchical deeper (title → watch): slide forward.
     router.push(
       localeHref(locale, `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}`),
+      { transitionTypes: ['nav-forward'] },
     );
   }, [router, locale, item.providerId, item.ref]);
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="rounded-3xl border border-border/60 bg-card/40 p-5 shadow-2xl shadow-background/20 sm:p-8 lg:p-10">
+      <div className="glass-card rounded-3xl p-5 sm:p-8 lg:p-10">
         <TitleHeader
           item={item}
           canPlay={hasPlayableItem}

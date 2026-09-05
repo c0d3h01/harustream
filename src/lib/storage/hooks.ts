@@ -13,6 +13,7 @@ import {
   type StoredSettings,
   settingsSchema,
   storageKey,
+  type TmdbContext,
   VALID_THEMES,
   writeStorage,
 } from './schema';
@@ -80,8 +81,8 @@ export function useLibrary(providerId = '') {
   );
   const items = stored.items;
   const toggle = useCallback(
-    (item: Media | SearchResult) => {
-      const libraryItem: SearchResult = {
+    (item: (Media | SearchResult) & Partial<TmdbContext>) => {
+      const libraryItem: SearchResult & TmdbContext = {
         id: item.id,
         providerId: item.providerId,
         providerName: 'providerName' in item ? item.providerName : item.providerId,
@@ -89,6 +90,10 @@ export function useLibrary(providerId = '') {
         displayTitle: item.displayTitle,
         posterUrl: item.posterUrl,
         ref: item.ref,
+        ...(item.tmdbKind ? { tmdbKind: item.tmdbKind } : {}),
+        ...(item.tmdbId ? { tmdbId: item.tmdbId } : {}),
+        ...(item.tmdbTitle ? { tmdbTitle: item.tmdbTitle } : {}),
+        ...(item.tmdbPoster ? { tmdbPoster: item.tmdbPoster } : {}),
       };
       const next = items.some((entry) => entry.ref === item.ref)
         ? items.filter((entry) => entry.ref !== item.ref)

@@ -17,6 +17,17 @@ export const settingsSchema = z.object({
   theme: z.enum(VALID_THEMES),
 });
 
+/** Optional TMDB context so TMDB-sourced saves keep their artwork and can
+ *  link back to TMDB detail even when the playback provider changes. */
+export const tmdbContextSchema = z.object({
+  tmdbKind: z.enum(['movie', 'tv']).optional(),
+  tmdbId: z.number().int().positive().optional(),
+  tmdbTitle: z.string().optional(),
+  tmdbPoster: z.string().optional(),
+});
+
+export type TmdbContext = z.infer<typeof tmdbContextSchema>;
+
 export const libraryItemSchema = z.object({
   id: z.string(),
   providerId: z.string(),
@@ -25,6 +36,10 @@ export const libraryItemSchema = z.object({
   displayTitle: z.string(),
   posterUrl: z.string().optional(),
   ref: z.string(),
+  tmdbKind: z.enum(['movie', 'tv']).optional(),
+  tmdbId: z.number().int().positive().optional(),
+  tmdbTitle: z.string().optional(),
+  tmdbPoster: z.string().optional(),
 });
 
 export const librarySchema = z.object({
@@ -41,6 +56,10 @@ export const progressEntrySchema = z.object({
   type: z.string().optional(),
   episodeTitle: z.string().optional(),
   provider: z.string().optional(),
+  tmdbKind: z.enum(['movie', 'tv']).optional(),
+  tmdbId: z.number().int().positive().optional(),
+  tmdbTitle: z.string().optional(),
+  tmdbPoster: z.string().optional(),
 });
 
 export const progressSchema = z.object({
@@ -55,7 +74,8 @@ export type StoredProgress = z.infer<typeof progressSchema>;
 export type LibraryMedia = Pick<
   SearchResult,
   'id' | 'providerId' | 'providerName' | 'title' | 'posterUrl' | 'ref'
->;
+> &
+  TmdbContext;
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   version: STORAGE_VERSION,

@@ -57,7 +57,7 @@ function SourceListInner({ loading, error, sources, onPlay }: SourceListProps) {
               variant="secondary"
               size="sm"
               onClick={onPlay}
-              className="h-10 shrink-0 gap-1.5 px-3.5 text-xs font-semibold"
+              className="h-10 shrink-0 gap-1.5 px-3.5 text-xs font-semibold transition-transform duration-150 active:scale-95"
             >
               <Play className="fill-current" aria-hidden="true" />
               {t('title.play')}

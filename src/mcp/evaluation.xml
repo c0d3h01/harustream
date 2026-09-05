@@ -37,6 +37,6 @@
    </qa_pair>
    <qa_pair>
       <question>One search tool groups matches by file and reports a total that counts distinct files containing the pattern. Run the case-sensitive pattern "getRegisteredToolCount" with the default settings and read the total field from its json output. Respond with the total only.</question>
-      <answer>2</answer>
+      <answer>3</answer>
    </qa_pair>
 </evaluation>

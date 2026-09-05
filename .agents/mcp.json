@@ -1,9 +1,5 @@
 {
   "servers": {
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/"
-    },
     "haru-mcp": {
       "type": "local",
       "command": ["pnpm", "exec", "tsx", "src/mcp/index.ts"]

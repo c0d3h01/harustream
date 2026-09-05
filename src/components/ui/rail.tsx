@@ -20,11 +20,11 @@ export const RailScroller = forwardRef<HTMLDivElement, { children: ReactNode }>(
           // first/last card would be visibly faded even when unscrolled.
           // The matching negative margin keeps cards aligned with headings.
           '-mx-4 px-4 contain-paint',
-          // Intrinsic size matches the poster 2:3 card at sm:160px ≈ 240px
+          // Intrinsic size matches the fixed 140×210 poster card
           // so off-screen rails reserve the right height and the scrollbar
           // doesn't jump.
           '[content-visibility:auto]',
-          '[contain-intrinsic-size:auto_240px]',
+          '[contain-intrinsic-size:auto_210px]',
         )}
       >
         {children}

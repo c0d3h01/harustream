@@ -1,13 +1,31 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo, ViewTransition } from 'react';
 import { MediaCard } from '@/components/ui/MediaCard';
 import { RailScroller } from '@/components/ui/rail';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import type { SearchResult } from '@/types';
 
 function RelatedTitlesInner({ items }: { items: SearchResult[] }) {
-  if (items.length === 0) return null;
+  // Dedupe defensively: related is flattened across rails, so the same title
+  // can repeat. Only the first occurrence gets the shared morph — duplicate
+  // mounted `name`s error the transition.
+  const unique = useMemo(() => {
+    const seen = new Set<string>();
+    return items
+      .slice(0, 8)
+      .map((related) => {
+        const key = `${related.providerId}:${related.ref}`;
+        const firstSeen = !seen.has(key);
+        seen.add(key);
+        return { related, firstSeen };
+      })
+      .filter(
+        ({ related }, index, arr) => arr.findIndex((e) => e.related.id === related.id) === index,
+      );
+  }, [items]);
+
+  if (unique.length === 0) return null;
 
   return (
     <section className="mt-14 border-t border-border/60 pt-10" aria-labelledby="related-title">
@@ -23,10 +41,12 @@ function RelatedTitlesInner({ items }: { items: SearchResult[] }) {
         className="mb-5"
       />
       <RailScroller>
-        {items.slice(0, 8).map((related) => (
-          <div key={related.id} className="w-[148px] shrink-0 snap-start sm:w-[178px]">
-            <MediaCard item={related} />
-          </div>
+        {unique.map(({ related, firstSeen }) => (
+          <ViewTransition key={related.id}>
+            <div className="w-[140px] shrink-0 snap-start">
+              <MediaCard item={related} sharePoster={firstSeen} />
+            </div>
+          </ViewTransition>
         ))}
       </RailScroller>
     </section>
@@ -37,5 +57,6 @@ export default memo(RelatedTitlesInner);
 
 export { RelatedTitlesInner as RelatedTitles };
 
-/* The rail intentionally stays content-first: poster, title, provider and type are
-   enough to make the next choice without repeating the title-page controls. */
+/* The rail intentionally stays content-first: the poster-bleed card with its
+   overlay (play + title) is enough to make the next choice without repeating
+   the title-page controls. */

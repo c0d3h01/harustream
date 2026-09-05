@@ -41,10 +41,8 @@ export function sources(
 // The player addresses a specific quality by sourceId. Provider CDNs rotate
 // signed URLs on every scrape — vega's token even lives in the URL path — so
 // the exact source an id refers to can be gone by the time the proxy
-// re-resolves. Instead of 404ing, fall back to the best remaining progressive
-// stream. DASH manifests are deliberately skipped: the app hands those to the
-// browser unproxied, and a player configured for mp4/mkv/hls cannot consume
-// manifest bytes streamed through the proxy.
+// re-resolves. Instead of 404ing, fall back to the best remaining stream
+// (all formats proxy through /api/proxy, so any fallback is playable).
 export function selectStreamSource(
   sources: StreamSource[],
   requestedId?: string,
@@ -52,8 +50,6 @@ export function selectStreamSource(
   if (requestedId) {
     const exact = sources.find((source) => source.id === requestedId);
     if (exact) return exact;
-    const progressive = sources.find((source) => source.format !== 'mpd');
-    if (progressive) return progressive;
   }
   return sources[0];
 }

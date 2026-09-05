@@ -36,3 +36,20 @@ export const providerRefQuery = z.object({
 export const sourcesQuery = providerRefQuery.extend({
   kind: z.string().trim().min(1).default('movie'),
 });
+
+export const previewQuery = z.object({
+  kind: z.enum(['movie', 'tv']),
+  tmdbId: z.coerce.number().int().positive(),
+});
+
+export const resolveQuery = z.object({
+  kind: z.enum(['movie', 'tv']),
+  tmdbId: z.coerce.number().int().positive(),
+  title: z.string().trim().min(1).max(200),
+  originalTitle: z.string().trim().min(1).max(200).optional(),
+  year: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/)
+    .optional(),
+});

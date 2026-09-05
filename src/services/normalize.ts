@@ -172,9 +172,8 @@ export function toStreamSource(raw: RawStream, providerId: string): StreamSource
 export function orderSources(sources: StreamSource[]): StreamSource[] {
   const rank = (format: StreamFormat): number => (format === 'hls' ? 0 : format === 'mpd' ? 1 : 2);
   return [...sources].sort((left, right) => {
-    // Adaptive formats lead: their manifests are embed-friendly (no referer
-    // checks, open CORS) so they play directly from the viewer's connection,
-    // while raw progressive files often need server-side header injection.
+    // Adaptive formats lead: one manifest covers all renditions, so first
+    // paint and failover stay on a single proxied URL.
     if (rank(left.format) !== rank(right.format)) return rank(left.format) - rank(right.format);
     return (
       (Number(right.quality?.replace('p', '')) || 0) - (Number(left.quality?.replace('p', '')) || 0)

@@ -39,7 +39,7 @@ export function HeaderSearch() {
           placeholder={t('header.searchPlaceholder')}
           autoComplete="off"
           enterKeyHint="search"
-          className="h-11 w-full rounded-full border border-border/70 bg-card/70 pr-4 pl-10 text-sm outline-none backdrop-blur transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:hidden"
+          className="glass-input h-11 w-full rounded-full pr-4 pl-10 text-sm outline-none transition-all duration-200 placeholder:text-muted-foreground hover:border-[var(--glass-border-strong)] focus:border-primary focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:hidden"
         />
       </form>
     </search>

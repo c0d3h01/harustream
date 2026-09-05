@@ -101,11 +101,46 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.98 0 0);
 
-  /* Glass tokens — match the dock. */
+  /* ── Liquid Glass · SINGLE SOURCE OF TRUTH ─────────────────────
+     Tweak ONLY these vars to retune glass app-wide. Every .glass-*
+     utility + <GlassSurface /> reads from here, so one edit propagates
+     to header island, dock, cards, chips, inputs, sheets, player, etc.
+     Matches the reference pill: dark translucent + heavy blur + hairline
+     + top highlight + deep soft shadow + saturation lift for the
+     "liquid" refraction feel. */
+  --glass-tint: var(--card);
+  --glass-opacity: 40%;
+  --glass-opacity-strong: 62%;
+  --glass-opacity-subtle: 25%;
+  --glass-opacity-chip: 20%;
   --glass-blur: 40px;
+  --glass-blur-sm: 20px;
+  /* Fixed-chrome blur (header island + dock). This surface re-rasterizes on
+     EVERY scroll frame because page content slides under it — keep it low.
+     One knob: raise for richer frost, lower if scroll janks. */
+  --glass-blur-chrome: 24px;
+  --glass-blur-lg: 56px;
+  --glass-saturation: 165%;
   --glass-border: oklch(1 0 0 / 10%);
+  --glass-border-strong: oklch(1 0 0 / 14%);
+  --glass-border-subtle: oklch(1 0 0 / 7%);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-highlight-strong:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
   --glass-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+  --glass-shadow-lg: 0 24px 64px -16px rgba(0, 0, 0, 0.65), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+  --glass-sheen: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.09) 0%,
+    rgba(255, 255, 255, 0.02) 28%,
+    transparent 45%
+  );
+  /* ── Hero signature palette ────────────────────────────────── */
+  --hero-bg: oklch(0.1 0.05 260);
+  --hero-primary: oklch(0.96 0.03 340);
+  --hero-accent: oklch(0.42 0.3 45);
+  --hero-foreground: oklch(0.94 0.02 260);
+  --hero-muted: oklch(0.5 0.08 260);
 }
 
 @layer base {
@@ -123,7 +158,12 @@
   }
   html {
     background: var(--background);
-    scroll-behavior: smooth;
+    /* No `scroll-behavior: smooth` by design: the only programmatic scroll
+       (player episode list) passes `behavior: 'instant'` explicitly, and
+       global smooth scrolling fights Next.js route-transition scroll
+       restoration (missing-data-scroll-behavior warning). Instant-by-default
+       keeps transitions + ViewTransitions exact; opt into smooth per-call
+       where an animation is actually wanted. */
     @apply font-sans;
   }
   body {
@@ -170,6 +210,10 @@
   .animated-section[data-visible] {
     opacity: 1;
     transform: translateY(0) scale(1);
+    /* Release the compositor layer once revealed — holding will-change
+       forever keeps every section (and its glass descendants) in video
+       memory, which janks vertical scroll. */
+    will-change: auto;
   }
   /* Staggered children: each direct child delays by its index × 50ms. */
   .animated-section[data-stagger] > * {
@@ -183,6 +227,7 @@
   .animated-section[data-stagger][data-visible] > * {
     opacity: 1;
     transform: translateY(0) scale(1);
+    will-change: auto;
   }
 
   /* ---------------------------------------------------------------
@@ -229,21 +274,183 @@
 }
 
 @layer utilities {
-  /* Matches the dock: bg-card/40 + backdrop-blur-2xl + hairline + glow. */
+  /* ── Liquid Glass · two tiers, one token plane ───────────────────
+     LIVE (backdrop-filter): fixed chrome only — header island, dock,
+     floating panels, overlays, toasts, inputs. Bounded instance count,
+     out-of-flow, so per-frame backdrop cost stays flat on scroll.
+     STATIC (translucent fill, NO backdrop-filter): everything that
+     scrolls with the page — cards, chips, alerts, empty states. Static
+     fills never re-rasterize, so vertical scroll stays at 60fps.
+     Opt a scrolling surface into live blur ONLY via `.glass-live`. */
+
+  /* TrailerEmbed cover box — the YouTube API swaps the host div for an
+     iframe with fixed width/height attributes; force it to fill the
+     width-driven 16:9 geometry so the banner is perfectly covered. */
+  .trailer-frame > iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+  /* Card hover tooltip mount pop (`motion-safe:animate-*` in the
+     component, so reduced-motion users never see it). */
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
   .glass {
-    background: color-mix(in oklch, var(--card) 40%, transparent);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
+    background-image: var(--glass-sheen);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    isolation: isolate;
+  }
+  .glass-strong {
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-strong), transparent);
+    background-image: var(--glass-sheen);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    border: 1px solid var(--glass-border-strong);
+    box-shadow: var(--glass-highlight-strong), var(--glass-shadow-lg);
+    isolation: isolate;
+  }
+  /* Semantic live aliases — header island + bottom dock. Same engine. */
+  .glass-header,
+  .glass-dock {
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
+    background-image: var(--glass-sheen);
+    backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-saturation));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    isolation: isolate;
+  }
+  .glass-panel {
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-strong), transparent);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturation));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight-strong), var(--glass-shadow-lg);
+    isolation: isolate;
+  }
+  .glass-overlay {
+    background: color-mix(in oklch, black 62%, transparent);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(140%);
+    border: 1px solid var(--glass-border-subtle);
+    isolation: isolate;
+  }
+  .glass-input {
+    background: color-mix(in oklch, var(--glass-tint) 55%, transparent);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
+  }
+  /* ── Static tier: scrolling content. No backdrop-filter by design. ── */
+  .glass-card {
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
+    background-image: var(--glass-sheen);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight), var(--glass-shadow);
   }
   /* Lighter nested glass. */
   .glass-subtle {
-    background: color-mix(in oklch, var(--card) 25%, transparent);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid oklch(1 0 0 / 7%);
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-subtle), transparent);
+    border: 1px solid var(--glass-border-subtle);
     box-shadow: var(--glass-highlight);
+  }
+  .glass-clear {
+    background: color-mix(in oklch, var(--glass-tint) 12%, transparent);
+    border: 1px solid var(--glass-border-subtle);
+  }
+  .glass-chip {
+    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-chip), transparent);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
+  }
+  /* Escape hatch: live blur on a scrolling surface. Use sparingly (hero-
+     adjacent panels only) — each instance re-rasterizes every scroll frame. */
+  .glass-live {
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
+    isolation: isolate;
+  }
+  .glass-interactive {
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.25s ease,
+      background-color 0.2s ease;
+  }
+  .glass-interactive:hover {
+    border-color: var(--glass-border-strong);
+  }
+  /* Specular edge — chrome only (header/dock). Needs position:relative for
+     the ::before ring; never apply to scrolling cards (extra layer each). */
+  .glass-specular {
+    position: relative;
+    isolation: isolate;
+  }
+  .glass-specular::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.22),
+      rgba(255, 255, 255, 0.03) 30%,
+      transparent 55%,
+      rgba(255, 255, 255, 0.06)
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* Fallback: no backdrop-filter → live tier degrades to its static fill. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass,
+    .glass-strong,
+    .glass-header,
+    .glass-dock,
+    .glass-panel,
+    .glass-overlay,
+    .glass-input,
+    .glass-live {
+      background-image: none;
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass,
+    .glass-strong,
+    .glass-header,
+    .glass-dock,
+    .glass-card,
+    .glass-panel,
+    .glass-overlay,
+    .glass-input {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: var(--glass-tint);
+      background-image: none;
+    }
   }
   /* Safe-area aware padding for notches / gesture bars. The env() value
      is 0px on desktop so the fallback (1rem / 0.75rem) wins there. */

@@ -1,8 +1,10 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { SPRING } from '@/components/motion/transitions';
 import { useT } from '@/lib/i18n';
 
 export function SearchBox({ initialQuery }: { initialQuery: string }) {
@@ -68,18 +70,27 @@ export function SearchBox({ initialQuery }: { initialQuery: string }) {
           placeholder={t('search.searchPlaceholder')}
           autoComplete="off"
           enterKeyHint="search"
-          className="h-14 w-full rounded-2xl border border-border/70 bg-card/80 px-12 pr-12 text-base outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:hidden"
+          className="glass-input h-14 w-full rounded-2xl px-12 pr-12 text-base outline-none transition-all duration-200 placeholder:text-muted-foreground hover:border-[var(--glass-border-strong)] focus:border-primary focus:ring-2 focus:ring-primary/20 active:scale-[0.995] [&::-webkit-search-cancel-button]:hidden"
         />
-        {query && (
-          <button
-            type="button"
-            onClick={() => applyQuery('')}
-            aria-label={t('search.clearSearch')}
-            className="absolute top-1/2 right-3 grid size-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        )}
+        {/* Clear appears/disappears on typing — pop in/out, tap shrinks. */}
+        <AnimatePresence>
+          {query && (
+            <motion.button
+              key="clear"
+              type="button"
+              onClick={() => applyQuery('')}
+              aria-label={t('search.clearSearch')}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              whileTap={{ scale: 0.8 }}
+              transition={SPRING}
+              className="absolute top-1/2 right-3 grid size-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </form>
     </search>
   );
