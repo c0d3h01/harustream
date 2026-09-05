@@ -1,22 +1,21 @@
 'use client';
 
-import { type ElementType, type ReactNode, useEffect, useRef, useState } from 'react';
+import type { ElementType, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-// CSS-only scroll-triggered reveal. Uses IntersectionObserver to add a
-// `data-visible` attribute when the element enters the viewport, which
-// activates the CSS entrance animation defined in globals.css.
+// Render-animation free section. Previously this was a scroll-triggered
+// reveal (IntersectionObserver + `.animated-section` CSS). That entrance
+// motion is removed: pages render instantly. The component stays as a
+// passthrough so existing imports (`stagger`, `as`, extra props) keep
+// working — `stagger` is accepted but intentionally ignored.
 //
-// Replaces the identical GSAP `fromTo` + `ScrollTrigger` pattern that was
-// duplicated in Rails, ContinueWatching, and ProviderRail.
-//
-// When `stagger` is true, each direct child gets a `--stagger-index` custom
-// property so CSS can apply incremental delays.
+// Scroll reveals now come from `<ViewTransition>` Suspense reveals where
+// data arrival is the trigger, not scroll position.
 
 interface AnimatedSectionProps {
   /** The HTML element to render. Defaults to `'section'`. */
   as?: ElementType;
-  /** Whether to apply staggered delays to direct children. */
+  /** Accepted for backwards compat — ignored (no stagger animation). */
   stagger?: boolean;
   /** Additional className on the root element. */
   className?: string;
@@ -27,47 +26,13 @@ interface AnimatedSectionProps {
 
 export function AnimatedSection({
   as: Tag = 'section',
-  stagger = false,
+  stagger: _stagger = false,
   className,
   children,
   ...rest
 }: AnimatedSectionProps) {
-  const ref = useRef<HTMLElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    // Respect reduced-motion: skip the observer entirely so the element
-    // starts in its final state (no transform, no opacity change).
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
-      setVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.12 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <Tag
-      ref={ref}
-      data-visible={visible || undefined}
-      data-stagger={stagger || undefined}
-      className={cn('animated-section', className)}
-      {...rest}
-    >
+    <Tag className={cn(className)} {...rest}>
       {children}
     </Tag>
   );

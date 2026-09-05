@@ -32,7 +32,7 @@ export function SectionHeader({
     <div className={cn('mb-4 flex items-end justify-between gap-3', className)}>
       <div>
         {eyebrow ? (
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+          <p className="glass-chip inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
             <span className="size-1 rounded-full bg-primary" aria-hidden="true" />
             {eyebrow}
           </p>
