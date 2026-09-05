@@ -1,83 +1,30 @@
 {
   "framework": "nextjs",
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    },
-    "src/app/api/health/route.ts": {
-      "runtime": "nodejs20.x"
-    },
-    "src/app/api/providers/route.ts": {
-      "runtime": "nodejs20.x"
-    },
-    "src/api/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/:path*",
-      "dest": "src/app/api/:path*",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    },
-    {
-      "src": "/((?!_next|[^/]+\\.[^/]+\\..*|[\\$].*|_next/static|favicon.ico).*)",
-      "dest": "/app/$1",
-      "methods": ["GET"]
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/app/$1",
-      "methods": ["GET"]
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "origin-when-cross-origin"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "origin-when-cross-origin" }
       ]
     },
     {
       "source": "/_next/static/:path*",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
       "source": "/images/:path*",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=86400"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=86400" }
       ]
     },
     {
       "source": "/media/:path*",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, stale-while-revalidate=60"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" }
       ]
     }
   ]
