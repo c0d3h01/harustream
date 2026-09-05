@@ -1,5 +1,6 @@
 'use client';
 
+import { ViewTransition } from 'react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MediaCard } from '@/components/ui/MediaCard';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -22,13 +23,19 @@ export function SearchResults({ query, results }: { query: string; results: Sear
         className="mb-5"
       />
       {results.length ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-[repeat(auto-fit,140px)] gap-3 sm:gap-4">
+          {/* List identity: bare outer VT glides on filter/reorder updates.
+              Inner poster morph lives inside MediaCard (nested pair). */}
           {results.map((item, index) => (
-            <MediaCard key={item.id} item={item} priority={index < 4} />
+            <ViewTransition key={item.id}>
+              <MediaCard item={item} priority={index < 4} sharePoster />
+            </ViewTransition>
           ))}
         </div>
       ) : (
-        <EmptyState heading={t('search.noResults')} hint={t('search.noResultsHint')} />
+        <ViewTransition enter="fade-in" exit="fade-out" default="none">
+          <EmptyState heading={t('search.noResults')} hint={t('search.noResultsHint')} />
+        </ViewTransition>
       )}
     </section>
   );
