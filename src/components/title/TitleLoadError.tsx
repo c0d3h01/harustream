@@ -17,8 +17,17 @@ export function TitleLoadError() {
           {t('title.loadFailedBody')}
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button onClick={() => router.refresh()}>{t('errors.tryAgain')}</Button>
-          <Button variant="outline" onClick={() => router.push(localeHref(locale, '/'))}>
+          <Button
+            onClick={() => router.refresh()}
+            className="transition-transform duration-150 active:scale-[0.98]"
+          >
+            {t('errors.tryAgain')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(localeHref(locale, '/'), { transitionTypes: ['nav-back'] })}
+            className="transition-transform duration-150 active:scale-[0.98]"
+          >
             {t('errors.backToBrowse')}
           </Button>
         </div>

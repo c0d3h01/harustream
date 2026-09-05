@@ -49,7 +49,7 @@ function EpisodeGridInner({ loading, error, episodes, selectedId, onSelect }: Ep
             role="option"
             aria-selected={entry.id === selectedId}
             onClick={() => onSelect(entry)}
-            className={`h-10 rounded-lg px-2.5 text-xs font-medium ${
+            className={`h-10 rounded-lg px-2.5 text-xs font-medium transition-all duration-150 active:scale-95 ${
               entry.id === selectedId ? 'border-primary bg-primary/10 text-primary' : ''
             }`}
           >
