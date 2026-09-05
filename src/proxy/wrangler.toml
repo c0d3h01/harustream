@@ -1,6 +1,0 @@
-name = "harustream-proxy"
-main = "src/index.js"
-compatibility_date = "2025-07-16"
-
-# Deploy: cd src/proxy && npx wrangler deploy
-# Then set NEXT_PUBLIC_STREAM_PROXY_URL=https://proxy.<your-subdomain>.workers.dev

@@ -82,8 +82,7 @@ export async function GET(request: Request) {
         targetUrl: source.url,
         headers,
         label: { provider, sourceId: source.id },
-        // Progress streams need byte-range semantics (seeking, resume); the
-        // worker forwards this too, so the built-in proxy must mirror it.
+        // Progressive streams need byte-range semantics (seeking, resume).
         range: request.headers.get('range'),
       });
     } catch (error) {
