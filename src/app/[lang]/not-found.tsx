@@ -17,7 +17,10 @@ export default function NotFound() {
           {t('errors.notFoundBody')}
         </p>
         <div className="mt-6">
-          <Button onClick={() => router.push(localeHref(locale, '/'))}>
+          <Button
+            onClick={() => router.push(localeHref(locale, '/'), { transitionTypes: ['nav-back'] })}
+            className="transition-transform duration-150 active:scale-[0.98]"
+          >
             {t('errors.backHome')}
           </Button>
         </div>
