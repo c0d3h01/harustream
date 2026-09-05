@@ -44,12 +44,17 @@ export function usePlaybackSession(
   const generationRef = useRef(0);
   const [sourcesNonce, setSourcesNonce] = useState(0);
 
+  const providerId = item.providerId;
+  const itemRef = item.ref;
+  const itemKind = item.kind;
+  const groups = item.groups;
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    if (item.kind === 'movie') {
-      const target = item.groups.flatMap((group) => group.items)[0];
+    if (itemKind === 'movie') {
+      const target = groups.flatMap((group) => group.items)[0];
       setEpisodes([]);
       setActiveEpisode(
         target ? { id: target.id, title: target.label, ref: target.ref } : undefined,
@@ -57,7 +62,7 @@ export function usePlaybackSession(
       setLoading(false);
       return () => controller.abort();
     }
-    const directGroup = item.groups.find((group) => group.kind === 'direct' && group.items.length);
+    const directGroup = groups.find((group) => group.kind === 'direct' && group.items.length);
     if (directGroup) {
       const directEpisodes = directGroup.items.map((entry) => ({
         id: entry.id,
@@ -71,14 +76,14 @@ export function usePlaybackSession(
       setLoading(false);
       return () => controller.abort();
     }
-    const episodeGroup = item.groups.find((group) => group.kind === 'episodes' && group.ref);
+    const episodeGroup = groups.find((group) => group.kind === 'episodes' && group.ref);
     if (!episodeGroup?.ref) {
       setEpisodes([]);
       setActiveEpisode(undefined);
       setLoading(false);
       return () => controller.abort();
     }
-    fetchEpisodes(item.providerId, episodeGroup.ref, controller.signal)
+    fetchEpisodes(providerId, episodeGroup.ref, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
         setEpisodes(result);
@@ -93,11 +98,12 @@ export function usePlaybackSession(
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [initialEpisodeRef, item]);
+  }, [initialEpisodeRef, providerId, itemKind, groups]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: retry() bumps sourcesNonce to force a re-fetch
   useEffect(() => {
     if (!activeEpisode?.ref) return;
+    const episodeRef = activeEpisode.ref;
     const controller = new AbortController();
     const generation = ++generationRef.current;
     setLoading(true);
@@ -105,10 +111,11 @@ export function usePlaybackSession(
     setSource(undefined);
     setAllSources([]);
     queueRef.current = undefined;
-    fetchSources(item.providerId, activeEpisode.ref, item.kind, controller.signal)
+    const scope = `${providerId}:${episodeRef}`;
+    fetchSources(providerId, episodeRef, itemKind, controller.signal)
       .then((result) => {
         if (controller.signal.aborted || generation !== generationRef.current) return;
-        const queue = new SourceQueue(orderSources(result));
+        const queue = new SourceQueue(orderSources(result), scope);
         queueRef.current = queue;
         setAllSources(queue.sources);
         setSource(queue.nextSource());
@@ -121,11 +128,21 @@ export function usePlaybackSession(
       .finally(() => {
         if (!controller.signal.aborted && generation === generationRef.current) setLoading(false);
       });
-    return () => {
-      controller.abort();
-      generationRef.current += 1;
-    };
-  }, [activeEpisode?.ref, item, sourcesNonce]);
+    // Abort alone invalidates the generation; no extra increment (the next
+    // effect run mints a fresh generation, avoiding double-step gaps).
+    return () => controller.abort();
+  }, [activeEpisode?.ref, providerId, itemKind, sourcesNonce]);
+
+  // Warm the source cache for the next episode so auto-advance starts fast.
+  useEffect(() => {
+    if (itemKind === 'movie' || !settings.autoAdvance || episodes.length < 2) return;
+    const index = activeEpisode ? episodes.findIndex((entry) => entry.id === activeEpisode.id) : -1;
+    const next = index >= 0 ? episodes[index + 1] : undefined;
+    if (!next?.ref) return;
+    const controller = new AbortController();
+    fetchSources(providerId, next.ref, itemKind, controller.signal).catch(() => {});
+    return () => controller.abort();
+  }, [activeEpisode?.id, episodes, itemKind, providerId, settings.autoAdvance]);
 
   const sourceFailed = useCallback(() => {
     const next = queueRef.current?.failCurrent();
@@ -144,14 +161,14 @@ export function usePlaybackSession(
 
   const ended = useCallback(() => {
     if (!activeEpisode) return;
-    progress.clear(item.ref, activeEpisode.ref);
+    progress.clear(itemRef, activeEpisode.ref);
     const index = episodes.findIndex((entry) => entry.id === activeEpisode.id);
     const next = settings.autoAdvance ? episodes[index + 1] : undefined;
     if (next) {
       setActiveEpisode(next);
       onEpisodeChange?.(next);
     }
-  }, [activeEpisode, episodes, item.ref, onEpisodeChange, progress.clear, settings.autoAdvance]);
+  }, [activeEpisode, episodes, itemRef, onEpisodeChange, progress.clear, settings.autoAdvance]);
 
   const selectEpisode = useCallback(
     (episode: Episode) => {

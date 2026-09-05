@@ -233,7 +233,7 @@ function PlayerOverlay({
             <motion.button
               type="button"
               onClick={onClose}
-              className="rounded-xl p-2.5 backdrop-blur-md bg-black/60 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors shadow-lg"
+              className="glass-overlay glass-interactive rounded-xl p-2.5 text-white/80 hover:text-white transition-colors shadow-lg"
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: EASE }}
@@ -246,7 +246,7 @@ function PlayerOverlay({
           {/* Episode navigation */}
           {episodes.length > 1 && (
             <motion.div
-              className="flex items-center gap-1 rounded-xl bg-black/60 backdrop-blur-md px-1.5 py-1 border border-white/10 shadow-lg"
+              className="glass-overlay flex items-center gap-1 rounded-xl px-1.5 py-1 shadow-lg"
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: EASE }}
@@ -286,10 +286,10 @@ function PlayerOverlay({
               <button
                 type="button"
                 onClick={() => setOpenPanel(openPanel === 'episodes' ? null : 'episodes')}
-                className={`rounded-xl p-2.5 backdrop-blur-md border transition-colors ${
+                className={`glass-overlay rounded-xl p-2.5 transition-colors ${
                   openPanel === 'episodes'
-                    ? 'bg-white/20 border-white/20 text-white'
-                    : 'bg-black/60 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                    ? 'glass-strong text-white'
+                    : 'text-white/70 hover:text-white'
                 }`}
                 aria-label="Episode list"
                 aria-expanded={openPanel === 'episodes'}
@@ -301,10 +301,10 @@ function PlayerOverlay({
               <button
                 type="button"
                 onClick={() => setOpenPanel(openPanel === 'servers' ? null : 'servers')}
-                className={`rounded-xl p-2.5 backdrop-blur-md border transition-colors ${
+                className={`glass-overlay rounded-xl p-2.5 transition-colors ${
                   openPanel === 'servers'
-                    ? 'bg-white/20 border-white/20 text-white'
-                    : 'bg-black/60 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                    ? 'glass-strong text-white'
+                    : 'text-white/70 hover:text-white'
                 }`}
                 aria-label="Server list"
                 aria-expanded={openPanel === 'servers'}
@@ -368,13 +368,13 @@ function EpisodePanel({
 
   return (
     <motion.div
-      className="absolute inset-y-0 right-0 z-[70] w-[min(22rem,85vw)] flex flex-col bg-black/80 backdrop-blur-xl border-l border-white/10"
+      className="glass-panel absolute inset-y-0 right-0 z-[70] w-[min(22rem,85vw)] flex flex-col border-l-0 rounded-l-3xl"
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={SPRING_SOFT}
     >
-      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b border-white/10">
+      <div className="glass-chip flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b-0 rounded-none rounded-tl-3xl">
         <h2 className="text-sm font-semibold text-white tracking-wide">Episodes</h2>
         <button
           type="button"
@@ -435,13 +435,13 @@ function ServerPanel({
 }) {
   return (
     <motion.div
-      className="fixed inset-y-0 right-0 z-[70] w-[min(22rem,85vw)] flex flex-col bg-black/80 backdrop-blur-xl border-l border-white/10"
+      className="glass-panel fixed inset-y-0 right-0 z-[70] w-[min(22rem,85vw)] flex flex-col border-l-0 rounded-l-3xl"
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={SPRING_SOFT}
     >
-      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b border-[var(--glass-border)]">
         <h2 className="text-sm font-semibold text-white tracking-wide">Servers</h2>
         <button
           type="button"
