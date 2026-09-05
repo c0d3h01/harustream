@@ -93,6 +93,7 @@ export function TrailerEmbed({
   veilClassName = 'pointer-events-none absolute inset-0 bg-black/20',
 }: TrailerEmbedProps) {
   const [visible, setVisible] = useState(false);
+  const [ready, setReady] = useState(false);
   const mountRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -113,6 +114,7 @@ export function TrailerEmbed({
     if (!visible) {
       playerRef.current?.destroy();
       playerRef.current = null;
+      setReady(false);
       return;
     }
     const host = hostRef.current;
@@ -137,6 +139,7 @@ export function TrailerEmbed({
           },
           events: {
             onReady: (event) => {
+              setReady(true);
               event.target.mute();
               event.target.playVideo();
             },
@@ -179,7 +182,7 @@ export function TrailerEmbed({
         <>
           {/* Cover box owns the geometry — the API swaps `hostRef` for an
               iframe, so sizing lives here + `.trailer-frame > iframe` CSS. */}
-          <div className={`${frameClassName} trailer-frame`}>
+          <div className={`${frameClassName} trailer-frame transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}>
             <div ref={hostRef} aria-hidden="true" className="size-full" />
           </div>
           <div aria-hidden="true" className={veilClassName} />

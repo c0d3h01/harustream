@@ -22,7 +22,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 function HomeRailsSkeleton() {
-  return <div className="mt-8 h-64 animate-pulse rounded-2xl bg-secondary" aria-hidden="true" />;
+  return <div className="glass-subtle mt-8 h-64 rounded-[1.5rem]" aria-hidden="true" />;
 }
 
 async function HomeRails({ lang }: { lang: string }) {

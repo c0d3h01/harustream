@@ -61,7 +61,7 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
 
   return (
     <section
-      className="hero-root relative -mx-4 min-h-[540px] overflow-hidden sm:-mx-6 lg:-mx-10 lg:min-h-[620px]"
+      className="hero-root relative -mx-4 min-h-[600px] overflow-hidden rounded-b-[2rem] border border-white/10 sm:-mx-6 sm:min-h-[640px] sm:rounded-b-[2.5rem] lg:-mx-10 lg:min-h-[700px]"
       aria-roledescription="carousel"
       aria-labelledby={headingId}
       onPointerEnter={() => setPaused(true)}
@@ -163,7 +163,7 @@ function HeroSlideView({
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_38%,transparent_20%,var(--background)_100%),linear-gradient(90deg,var(--background)_8%,color-mix(in_oklch,var(--background)_72%,transparent)_46%,transparent_100%)]" />
       </div>
 
-      <div className="hero-inner relative mx-auto flex min-h-[540px] max-w-[1440px] items-end px-4 pb-16 sm:px-10 sm:pb-20 lg:min-h-[620px]">
+      <div className="hero-inner relative mx-auto flex min-h-[600px] max-w-[1440px] items-end px-5 pb-20 sm:min-h-[640px] sm:px-10 sm:pb-24 lg:min-h-[700px] lg:px-14">
         <div className="max-w-2xl">
           <HeroEyebrow />
           {detail?.logoPath ? (
@@ -183,7 +183,7 @@ function HeroSlideView({
             className={
               detail?.logoPath
                 ? 'sr-only'
-                : 'mt-2 text-[2.6rem] font-bold leading-[0.98] tracking-[-0.05em] text-balance sm:text-6xl lg:text-[5.25rem]'
+                : 'mt-3 max-w-3xl text-[2.75rem] font-bold leading-[0.94] tracking-[-0.06em] text-balance sm:text-7xl lg:text-[5.75rem]'
             }
           >
             {card.title}

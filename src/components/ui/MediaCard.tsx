@@ -228,7 +228,7 @@ function MediaCardInner({
           alt={posterAlt}
           fill
           priority={priority}
-          sizes="180px"
+          sizes="(min-width: 1024px) 184px, (min-width: 640px) 168px, 148px"
           className="object-cover transition duration-500 hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
         />
   );
@@ -239,7 +239,7 @@ function MediaCardInner({
           info lives in the centered overlay (hover/focus on desktop,
           always visible on touch). ---------- */}
 <div
-          className="relative aspect-3/4 overflow-hidden bg-secondary"
+          className="relative aspect-[2/3] overflow-hidden rounded-[1.15rem] bg-secondary shadow-[0_14px_36px_-18px_rgba(0,0,0,0.9)] ring-1 ring-white/10 transition-transform duration-300 group-hover:-translate-y-1 group-hover:ring-white/20 motion-reduce:transition-none"
         onPointerEnter={startTooltip}
         onPointerLeave={scheduleClose}
       >
@@ -258,7 +258,7 @@ function MediaCardInner({
         )}
 
         {/* info overlay — reference-level transparency */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-gradient-to-t from-black/70 via-black/25 to-transparent p-3 text-center opacity-0 transition-opacity duration-300 group-focus-visible:opacity-100 group-active:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+        <div className="absolute inset-0 flex flex-col items-center justify-end gap-2 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-3 pb-4 text-center opacity-0 transition-opacity duration-300 group-focus-visible:opacity-100 group-active:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           <span
             className="grid size-12 scale-90 place-items-center rounded-full bg-white text-black shadow-xl transition-transform duration-300 group-hover:scale-100"
             aria-hidden="true"

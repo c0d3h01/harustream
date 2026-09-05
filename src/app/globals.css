@@ -63,7 +63,7 @@
 /* Liquid glass — single dark translucent theme matching the dock. */
 :root {
   color-scheme: dark;
-  --radius: 0.75rem;
+  --radius: 1rem;
 
   --background: oklch(0.12 0 0);
   --foreground: oklch(0.98 0 0);
@@ -109,7 +109,7 @@
      + top highlight + deep soft shadow + saturation lift for the
      "liquid" refraction feel. */
   --glass-tint: var(--card);
-  --glass-opacity: 40%;
+  --glass-opacity: 46%;
   --glass-opacity-strong: 62%;
   --glass-opacity-subtle: 25%;
   --glass-opacity-chip: 20%;
@@ -121,7 +121,7 @@
   --glass-blur-chrome: 24px;
   --glass-blur-lg: 56px;
   --glass-saturation: 165%;
-  --glass-border: oklch(1 0 0 / 10%);
+  --glass-border: oklch(1 0 0 / 14%);
   --glass-border-strong: oklch(1 0 0 / 14%);
   --glass-border-subtle: oklch(1 0 0 / 7%);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
