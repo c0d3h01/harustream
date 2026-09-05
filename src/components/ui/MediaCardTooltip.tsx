@@ -122,8 +122,11 @@ export function CardTooltip({
       const height = el.offsetHeight;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      let left = anchor.left + anchor.width / 2 - PANEL_WIDTH / 2;
-      left = Math.max(VIEWPORT_MARGIN, Math.min(left, vw - PANEL_WIDTH - VIEWPORT_MARGIN));
+      const panelWidth = Math.min(PANEL_WIDTH, vw - VIEWPORT_MARGIN * 2);
+      const cardCenter = anchor.left + anchor.width / 2;
+      const minCenter = VIEWPORT_MARGIN + panelWidth / 2;
+      const maxCenter = vw - VIEWPORT_MARGIN - panelWidth / 2;
+      const left = Math.max(minCenter, Math.min(cardCenter, maxCenter)) - panelWidth / 2;
       const belowTop = anchor.bottom + PANEL_GAP;
       const aboveTop = anchor.top - height - PANEL_GAP;
       let top = belowTop;
