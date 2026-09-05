@@ -69,22 +69,22 @@ describe('/api/proxy (resolve-and-stream mode)', () => {
     expect(new Headers(init?.headers).get('Range')).toBe('bytes=0-1048575');
   });
 
-  it('streams a fresh progressive fallback instead of 404 when the sourceId went stale', async () => {
+  it('streams the best remaining source instead of 404 when the sourceId went stale', async () => {
     const fetchMock = vi.fn().mockResolvedValue(upstream(200));
     vi.stubGlobal('fetch', fetchMock);
-    // The player requested test:mp4-1080, but a re-scrape rotated the signed
-    // URLs and that id no longer exists in the fresh list.
+    // The player requested test:stale, but a re-scrape rotated the signed
+    // URLs and that id no longer exists in the fresh list. All formats proxy,
+    // so the first remaining source is served.
     mockedSources.mockResolvedValue([
       streamSource('test:mpd', 'https://cdn.test/play.mpd?q=1', 'mpd'),
       streamSource('test:mp4-1080', 'https://cdn.test/a.mp4?s=2', 'mp4'),
     ]);
 
-    const response = await GET(new Request(proxyUrl(encodeURIComponent('test:mp4-1080'))));
+    const response = await GET(new Request(proxyUrl(encodeURIComponent('test:stale'))));
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    // The DASH manifest is skipped; the progressive a.mp4 is streamed.
-    expect(String(fetchMock.mock.calls[0][0])).toBe('https://cdn.test/a.mp4?s=2');
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://cdn.test/play.mpd?q=1');
   });
 
   it('returns NOT_FOUND only when no stream source is available at all', async () => {

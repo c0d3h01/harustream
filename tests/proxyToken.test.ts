@@ -52,6 +52,8 @@ describe('proxy target signing', () => {
     const url = 'https://cdn.test/v.mp4';
     const { sig, exp } = sign(url, headers);
     expect(exp).toBeGreaterThan(Date.now() / 1000);
+    // exp is unix seconds, not milliseconds.
+    expect(exp).toBeLessThan(Date.now());
 
     // Expired one tick past exp.
     const expiredMs = exp * 1000 + 1000;
