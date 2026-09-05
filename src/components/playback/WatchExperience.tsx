@@ -48,7 +48,7 @@ export function WatchExperience({
       >
         <div className="flex flex-col items-center gap-4">
           <div
-            className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"
+            className="size-10 animate-spin rounded-full border-2 border-white/20 border-t-white sm:size-12"
             aria-hidden="true"
           ></div>
           <span>{t('watch.findingSource')}</span>
@@ -69,7 +69,7 @@ export function WatchExperience({
             <button
               type="button"
               onClick={session.retry}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black touch-target transition-transform duration-150 hover:scale-[1.03] active:scale-95"
+              className="touch-target rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition-transform duration-150 hover:scale-[1.03] active:scale-95"
             >
               {t('watch.tryAgain')}
             </button>

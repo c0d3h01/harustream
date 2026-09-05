@@ -27,8 +27,8 @@ function TitleExperience({ item, related = [] }: TitleExperienceProps) {
   }, [router, locale, item.providerId, item.ref]);
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="glass-card rounded-3xl p-5 sm:p-8 lg:p-10">
+    <div className="mx-auto max-w-7xl pt-4 sm:pt-8">
+      <div className="glass-card rounded-[1.5rem] p-4 sm:rounded-[2rem] sm:p-8 lg:p-10">
         <TitleHeader
           item={item}
           canPlay={hasPlayableItem}

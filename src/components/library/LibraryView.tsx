@@ -24,8 +24,8 @@ export function LibraryView() {
     });
   }, [tmdbLibrary.items, library.items]);
   return (
-    <section className="pt-10 sm:pt-14">
-      <div className="flex flex-col justify-between gap-5 border-b border-border/60 pb-8 sm:flex-row sm:items-end">
+    <section className="pt-8 sm:pt-12 lg:pt-16">
+      <div className="glass-subtle flex flex-col justify-between gap-5 rounded-[1.5rem] border border-border/60 p-5 pb-6 sm:flex-row sm:items-end sm:p-7">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             {t('library.eyebrow')}

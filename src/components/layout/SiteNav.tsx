@@ -38,8 +38,8 @@ export function SiteNav() {
     >
       <ul
         className={cn(
-          'scrollbar-none glass-dock glass-specular flex max-w-[calc(100vw-1.5rem)] items-end overflow-x-auto rounded-[1.75rem]',
-          'gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2 lg:gap-2.5 lg:px-3 lg:py-2.5',
+          'scrollbar-none glass-dock glass-specular flex max-w-[calc(100vw-1rem)] items-end overflow-x-auto rounded-[1.35rem] sm:rounded-[1.75rem]',
+          'gap-1 px-1.5 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2 lg:gap-2.5 lg:px-3 lg:py-2.5',
         )}
       >
         {links.map(({ href, label, icon: Icon }) => {
