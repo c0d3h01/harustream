@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "RUN_MCP_INTEGRATION=1 vitest run tests/mcp.integration.test.ts",
     "test:providers": "RUN_LIVE=1 vitest run -c vitest.live.config.ts",
     "providers:update-urls": "tsx scripts/update-provider-urls.ts",
     "pretest:providers": "pnpm providers:update-urls",
