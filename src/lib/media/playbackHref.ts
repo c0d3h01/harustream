@@ -35,13 +35,8 @@ export function playerSrc(sourceUrl: string, format?: StreamSource['format']): P
 
 const SUPPORTED_HEADERS = ['referer', 'origin', 'userAgent', 'cookie'] as const;
 
-// Optional Cloudflare Worker fronting media streams in production
-// (src/proxy/). Unset — e.g. local dev — everything falls back to the
-// built-in /api/proxy. Static member access keeps Next's build-time env
-// inlining working for the browser bundle.
-function workerBase(override?: string): string {
-  return (override ?? process.env.NEXT_PUBLIC_STREAM_PROXY_URL ?? '').trim().replace(/\/+$/, '');
-}
+// Playback hrefs are server-minted resolve-and-stream URLs only
+// (/api/proxy?provider=&ref=&sourceId=). No Worker, no direct upstream URLs.
 
 export function headerParams(headers?: Record<string, string>): URLSearchParams {
   const params = new URLSearchParams();
@@ -70,8 +65,8 @@ export function playbackHeaderMap(headers?: Record<string, string>): PlaybackSrc
   return map;
 }
 
-// Subtitle tracks: small text files (often needing srt/ttml conversion), so
-// they always use the built-in /api/proxy regardless of the worker.
+// Subtitle tracks: small text files (often needing srt/ttml conversion),
+// always served through the built-in /api/proxy.
 export function playbackUrl(
   url: string,
   headers?: Record<string, string>,
@@ -85,23 +80,10 @@ export function playbackUrl(
   return `/api/proxy?${params.toString()}`;
 }
 
-// Main media src. DASH manifests are embed-friendly by design (no referer
-// checks, open CORS, week-long signatures) so they play directly from the
-// viewer's connection with no proxy at all. Everything else streams through
-// the Cloudflare worker when configured, else through /api/proxy's
-// resolve-and-stream mode which keeps signed URLs off the client entirely.
-export function mediaPlaybackUrl(
-  source: StreamSource,
-  context: PlaybackContext,
-  workerUrl?: string,
-): string {
-  if (source.format === 'mpd') return source.url;
-  const base = workerBase(workerUrl);
-  if (base) {
-    const params = new URLSearchParams({ url: source.url });
-    for (const [name, value] of headerParams(source.headers)) params.set(name, value);
-    return `${base}/?${params.toString()}`;
-  }
+// Main media src. Everything (including DASH) streams through /api/proxy's
+// resolve-and-stream mode, which keeps provider-signed URLs off the client
+// and resolves IP-bound crypto per request server-side.
+export function mediaPlaybackUrl(source: StreamSource, context: PlaybackContext): string {
   return streamPlaybackUrl(source, context);
 }
 

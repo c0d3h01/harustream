@@ -1,4 +1,4 @@
-// HMAC-signed targets for /api/proxy and the Cloudflare Worker.
+// HMAC-signed targets for /api/proxy.
 //
 // Mode 2 of the proxy ("passthrough an arbitrary upstream URL") is otherwise
 // an open relay anyone can use to fetch third-party content anonymously,
@@ -6,7 +6,7 @@
 // upstream URL plus its header set under STREAM_PROXY_SECRET with an expiry,
 // so only URLs this app minted are fetchable through us.
 //
-// Contract (shared verbatim with src/proxy/src/token.js): payload =
+// Contract: payload =
 //   "proxy-v1\n<url>\n<exp>\n<referer>\n<origin>\n<userAgent>\n<cookie>"
 // sig = hex(HMAC-SHA256(secret, payload)), exp = unix seconds.
 
@@ -16,7 +16,7 @@ import type { ProxyHeaderParam } from './streamProxy';
 
 export type ProxyTokenHeaders = Partial<Record<ProxyHeaderParam, string>>;
 
-const DEFAULT_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const DEFAULT_TOKEN_TTL_MS = 60 * 60 * 1000;
 const TOKEN_VERSION = 'proxy-v1';
 
 export function proxyTokensEnabled(): boolean {
@@ -66,7 +66,7 @@ export function signProxyTarget(
 ): { sig: string; exp: number } | null {
   const secret = proxyTokenSecret();
   if (!secret) return null;
-  const exp = Math.ceil(now + tokenTtlMs());
+  const exp = Math.ceil((now + tokenTtlMs()) / 1000);
   return { sig: hmac(canonicalPayload(url, headers, exp), secret), exp };
 }
 
