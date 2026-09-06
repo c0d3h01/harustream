@@ -89,5 +89,3 @@ export function parseRaw<T>(
   }
   return parsed.data;
 }
-
-export type RawProviderModule = ProviderModule;

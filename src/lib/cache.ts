@@ -70,5 +70,3 @@ export class TtlCache<T> {
     this.entries.clear();
   }
 }
-
-export const appCache = new TtlCache<unknown>();

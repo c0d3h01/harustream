@@ -1,4 +1,4 @@
-import { appCache, TtlCache } from '@/lib/cache';
+import { TtlCache } from '@/lib/cache';
 import { ProviderError } from '@/lib/errors';
 import { createProviderContext } from '@/providers/_shared';
 import { getProvider, listProviders } from '@/providers/registry';
@@ -64,5 +64,3 @@ export async function search(
     signal,
   );
 }
-
-export { appCache };
