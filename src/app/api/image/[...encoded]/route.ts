@@ -1,6 +1,6 @@
 import { requestIdOf } from '@/lib/api/respond';
 import { scopeLogger } from '@/lib/log';
-import { isInternalHost } from '@/lib/media/streamProxy';
+import { isInternalHost } from '@/lib/net/ssrf';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

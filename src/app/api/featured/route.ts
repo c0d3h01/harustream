@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiErrorResponse, requestIdOf } from '@/lib/api/respond';
-import { featured } from '@/services/featured';
+import { featured } from '@/services/catalog';
 
 export const dynamic = 'force-dynamic';
 

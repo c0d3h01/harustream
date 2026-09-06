@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
-import { WatchExperience } from '@/components/playback/WatchExperience';
-import { WatchLoadError } from '@/components/playback/WatchLoadError';
+import { WatchExperience } from '@/components/player/WatchExperience';
+import { WatchLoadError } from '@/components/player/WatchLoadError';
 import { DirectionalTransition } from '@/components/transitions/DirectionalTransition';
 import { asAppError } from '@/lib/errors';
 import { decodeRef } from '@/lib/refs';

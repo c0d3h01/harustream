@@ -46,8 +46,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  --safe-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  --safe-top: max(0.75rem, env(safe-area-inset-top));
+
   /* Geist — self-hosted via the geist package in [lang]/layout.tsx (exposed
      as --font-geist-sans / --font-geist-mono). GeistSans is the app-wide
      grotesk; GeistMono is reserved for accents (eyebrows, labels, meta). */
@@ -103,7 +102,7 @@
 
   /* ── Liquid Glass · SINGLE SOURCE OF TRUTH ─────────────────────
      Tweak ONLY these vars to retune glass app-wide. Every .glass-*
-     utility + <GlassSurface /> reads from here, so one edit propagates
+     utility reads from here, so one edit propagates
      to header island, dock, cards, chips, inputs, sheets, player, etc.
      Matches the reference pill: dark translucent + heavy blur + hairline
      + top highlight + deep soft shadow + saturation lift for the
@@ -195,42 +194,6 @@
   }
 
   /* ---------------------------------------------------------------
-     AnimatedSection — scroll-triggered reveal
-     The component sets `data-visible` via IntersectionObserver; the
-     CSS handles the animation so we get 0 JS during the transition.
-     ---------------------------------------------------------------- */
-  .animated-section {
-    opacity: 0;
-    transform: translateY(28px) scale(0.98);
-    transition:
-      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: opacity, transform;
-  }
-  .animated-section[data-visible] {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    /* Release the compositor layer once revealed — holding will-change
-       forever keeps every section (and its glass descendants) in video
-       memory, which janks vertical scroll. */
-    will-change: auto;
-  }
-  /* Staggered children: each direct child delays by its index × 50ms. */
-  .animated-section[data-stagger] > * {
-    opacity: 0;
-    transform: translateY(24px) scale(0.98);
-    transition:
-      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-    transition-delay: calc(var(--stagger-index, 0) * 50ms + 150ms);
-  }
-  .animated-section[data-stagger][data-visible] > * {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    will-change: auto;
-  }
-
-  /* ---------------------------------------------------------------
      Hero scroll-linked parallax (Chrome/Edge only; graceful no-op
      in Safari/Firefox — content renders without the scroll effect).
      ---------------------------------------------------------------- */
@@ -258,14 +221,7 @@
     }
   }
 
-  /* Disable all custom motion for reduced-motion users. */
   @media (prefers-reduced-motion: reduce) {
-    .animated-section,
-    .animated-section[data-stagger] > * {
-      opacity: 1;
-      transform: none;
-      transition: none;
-    }
     .hero-root .hero-inner,
     .hero-root .hero-backdrop {
       animation: none;
@@ -281,7 +237,7 @@
      STATIC (translucent fill, NO backdrop-filter): everything that
      scrolls with the page — cards, chips, alerts, empty states. Static
      fills never re-rasterize, so vertical scroll stays at 60fps.
-     Opt a scrolling surface into live blur ONLY via `.glass-live`. */
+     Keep scrolling surfaces in the static tier. */
 
   /* TrailerEmbed cover box — the YouTube API swaps the host div for an
      iframe with fixed width/height attributes; force it to fill the
@@ -369,21 +325,10 @@
     border: 1px solid var(--glass-border-subtle);
     box-shadow: var(--glass-highlight);
   }
-  .glass-clear {
-    background: color-mix(in oklch, var(--glass-tint) 12%, transparent);
-    border: 1px solid var(--glass-border-subtle);
-  }
   .glass-chip {
     background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-chip), transparent);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight);
-  }
-  /* Escape hatch: live blur on a scrolling surface. Use sparingly (hero-
-     adjacent panels only) — each instance re-rasterizes every scroll frame. */
-  .glass-live {
-    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
-    isolation: isolate;
   }
   .glass-interactive {
     transition:
@@ -432,8 +377,7 @@
     .glass-dock,
     .glass-panel,
     .glass-overlay,
-    .glass-input,
-    .glass-live {
+    .glass-input {
       background-image: none;
     }
   }
@@ -451,14 +395,6 @@
       background: var(--glass-tint);
       background-image: none;
     }
-  }
-  /* Safe-area aware padding for notches / gesture bars. The env() value
-     is 0px on desktop so the fallback (1rem / 0.75rem) wins there. */
-  .pt-safe {
-    padding-top: var(--safe-top);
-  }
-  .pb-safe {
-    padding-bottom: var(--safe-bottom);
   }
   /* Hide scrollbar inside horizontal rail scrollers. */
   .scrollbar-none {
@@ -638,43 +574,7 @@
   .contain-paint {
     contain: layout paint;
   }
-  /* Skeleton shimmer sweep. Layer a moving primary-tinted highlight over
-     a static block; the ::after is what moves, so reduced-motion users get
-     a plain static block instead of a pulsing/sweeping surface. */
-  .shimmer {
-    position: relative;
-    overflow: hidden;
-  }
-  .shimmer::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    transform: translateX(-100%);
-    background: linear-gradient(
-      100deg,
-      transparent 20%,
-      color-mix(in oklch, var(--primary) 9%, transparent) 50%,
-      transparent 80%
-    );
-    animation: shimmer-sweep 1.8s ease-in-out infinite;
-  }
-  @keyframes shimmer-sweep {
-    100% {
-      transform: translateX(100%);
-    }
-  }
-  /* Ken Burns settle for cinematic backdrop entrances. */
-  .animate-kenburns {
-    animation: ken-burns 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  @keyframes ken-burns {
-    from {
-      transform: scale(1.1) translate3d(-0.5%, -0.5%, 0);
-    }
-    to {
-      transform: scale(1) translate3d(0, 0, 0);
-    }
-  }
+
   /* Slow ambient drift for decorative glow orbs. */
   .animate-orb {
     animation: orb-drift 11s ease-in-out infinite;
@@ -688,25 +588,7 @@
       transform: translate3d(0, -16px, 0) scale(1.07);
     }
   }
-  /* Soft gradient shimmer for eyebrow/eyebrow-accent text. */
-  .text-shimmer {
-    background: linear-gradient(
-      90deg,
-      var(--primary),
-      color-mix(in oklch, var(--primary) 55%, white) 50%,
-      var(--primary)
-    );
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: text-shimmer-pan 5s linear infinite;
-  }
-  @keyframes text-shimmer-pan {
-    to {
-      background-position: 200% 0;
-    }
-  }
+
   /* Fade the far edges of a horizontal scroller so content "dips out". */
   .mask-fade-x {
     -webkit-mask-image: linear-gradient(
@@ -724,20 +606,9 @@
       transparent
     );
   }
-  /* One-stop reduced-motion kill switch for the custom keyframe utilities
-     above (motion components are already flattened by MotionConfig). */
   @media (prefers-reduced-motion: reduce) {
-    .shimmer::after,
-    .animate-kenburns,
-    .animate-orb,
-    .text-shimmer {
+    .animate-orb {
       animation: none;
-    }
-    .shimmer::after {
-      transform: none;
-    }
-    .text-shimmer {
-      color: var(--primary);
     }
   }
 }
