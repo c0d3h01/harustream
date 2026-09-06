@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { preconnect } from 'react-dom';
 import { UnderDevelopmentToast } from '@/components/layout/UnderDevelopmentToast';
-import { MotionProvider } from '@/components/motion/MotionProvider';
+import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui/toast';
 import {
   hasLocale,
@@ -114,7 +114,7 @@ export default async function RootLayout({
     >
       <body className="antialiased">
         <LocaleProvider locale={lang} preference={preference}>
-          <MotionProvider>{children}</MotionProvider>
+          <MotionConfig reducedMotion="user">{children}</MotionConfig>
           <Toaster />
           <UnderDevelopmentToast />
         </LocaleProvider>

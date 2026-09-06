@@ -32,24 +32,3 @@ export const RailScroller = forwardRef<HTMLDivElement, { children: ReactNode }>(
     );
   },
 );
-
-export function RailArrow({
-  onClick,
-  ariaLabel,
-  children,
-}: {
-  onClick: () => void;
-  ariaLabel: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className="touch-target grid place-items-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:bg-secondary"
-    >
-      {children}
-    </button>
-  );
-}
