@@ -8,6 +8,7 @@ import { posterTransitionName } from '@/components/transitions/names';
 import { localeHref, useLocale, useT } from '@/lib/i18n';
 import { imageUrl } from '@/lib/media/images';
 import { encodeRef } from '@/lib/refs';
+import { cn } from '@/lib/utils';
 import {
   type CardAnchor,
   CardTooltip,
@@ -347,10 +348,10 @@ function MediaCardInner({
 
   const card = (
     <div
-      className={[
+      className={cn(
         'group block min-w-0 cursor-pointer overflow-hidden rounded-[0.8rem] text-left transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_12px_40px_-8px_oklch(0.82_0.12_230/18%)] active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-[1rem]',
         className,
-      ].join(' ')}
+      )}
     >
       {inner}
     </div>

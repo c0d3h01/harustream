@@ -11,6 +11,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useT } from '@/lib/i18n';
 import { imageUrl } from '@/lib/media/images';
 import { useLibrary } from '@/lib/storage';
+import { cn } from '@/lib/utils';
 import type { TmdbCard, TmdbDetail as TmdbDetailData, TmdbTrailer } from '@/tmdb/catalog';
 import { tmdbImageUrl, youtubeEmbedUrl, youtubeThumbnail } from '@/tmdb/images';
 import { TmdbMediaCard } from './TmdbMediaCard';
@@ -244,10 +245,10 @@ export function TmdbDetail({ detail, collectionParts = [] }: TmdbDetailProps) {
             {detail.overview ? (
               <div className="mt-4 max-w-2xl">
                 <p
-                  className={[
+                  className={cn(
                     'text-[15px] leading-relaxed text-foreground/80',
-                    expanded ? '' : 'line-clamp-3',
-                  ].join(' ')}
+                    !expanded && 'line-clamp-3',
+                  )}
                 >
                   {detail.overview}
                 </p>

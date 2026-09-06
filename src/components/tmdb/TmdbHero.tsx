@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { localeHref, useLocale, useT } from '@/lib/i18n';
 import { imageUrl } from '@/lib/media/images';
 import { useLibrary } from '@/lib/storage';
+import { cn } from '@/lib/utils';
 import type { TmdbCard, TmdbDetail } from '@/tmdb/catalog';
 import { tmdbImageUrl } from '@/tmdb/images';
 import { AmbientBackdrop } from './AmbientBackdrop';
@@ -95,10 +96,10 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
               >
                 <span
                   aria-hidden="true"
-                  className={[
+                  className={cn(
                     'block h-1.5 rounded-full transition-all duration-300',
                     selected ? 'w-6 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70',
-                  ].join(' ')}
+                  )}
                 />
               </button>
             );
@@ -124,10 +125,10 @@ function HeroSlideView({
   const backdropSrc = card.backdropPath ? tmdbImageUrl(card.backdropPath, 'w1280') : undefined;
   return (
     <div
-      className={[
+      className={cn(
         'absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none',
         active ? 'z-[1] opacity-100' : 'pointer-events-none z-0 opacity-0',
-      ].join(' ')}
+      )}
       aria-hidden={!active}
       inert={!active}
     >

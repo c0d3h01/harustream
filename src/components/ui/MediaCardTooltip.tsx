@@ -7,6 +7,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '@/lib/i18n';
 import { imageUrl } from '@/lib/media/images';
+import { cn } from '@/lib/utils';
 import { tmdbImageUrl } from '@/tmdb/images';
 
 // ---------------------------------------------------------------------------
@@ -156,11 +157,11 @@ export function CardTooltip({
       aria-label={details?.title ?? title}
       onPointerEnter={onEnter}
       onPointerLeave={onLeave}
-      className={[
+      className={cn(
         'glass-strong fixed z-60 w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-2xl shadow-2xl will-change-[left,top,opacity]',
         'transition-opacity duration-100 motion-safe:animate-[tooltip-in_120ms_ease-out]',
         pos.ready ? 'opacity-100' : 'opacity-0',
-      ].join(' ')}
+      )}
       style={{ left: pos.left, top: pos.top }}
     >
       {/* artwork */}
