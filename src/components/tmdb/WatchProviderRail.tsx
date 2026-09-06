@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { AnimatedSection } from '@/components/ui/AnimatedSection';
+
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { localeHref, useLocale, useT } from '@/lib/i18n';
 import { imageUrl } from '@/lib/media/images';
@@ -21,18 +21,14 @@ export function WatchProviderRail({ kind, providers }: WatchProviderRailProps) {
   const { locale } = useLocale();
   if (providers.length === 0) return null;
   return (
-    <AnimatedSection
-      stagger
-      className="provider-root mt-12"
-      aria-labelledby="watch-providers-heading"
-    >
+    <section className="provider-root mt-12" aria-labelledby="watch-providers-heading">
       <SectionHeader
         eyebrow={t('tmdb.providersEyebrow')}
         heading={t('tmdb.providersHeading')}
         headingId="watch-providers-heading"
         className="mb-4"
       />
-      <div className="flex snap-x gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="scrollbar-none flex snap-x gap-3 overflow-x-auto pb-2">
         {providers.map((provider) => (
           <Link
             key={provider.id}
@@ -53,6 +49,6 @@ export function WatchProviderRail({ kind, providers }: WatchProviderRailProps) {
           </Link>
         ))}
       </div>
-    </AnimatedSection>
+    </section>
   );
 }

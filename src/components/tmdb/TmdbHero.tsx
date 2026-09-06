@@ -12,7 +12,7 @@ import type { TmdbCard, TmdbDetail } from '@/tmdb/catalog';
 import { tmdbImageUrl } from '@/tmdb/images';
 import { AmbientBackdrop } from './AmbientBackdrop';
 import { tmdbPath } from './TmdbMediaCard';
-import { TmdbPlayButton } from './TmdbPlayButton';
+import { TmdbSourcePicker } from './TmdbSourcePicker';
 
 export interface HeroSlide {
   card: TmdbCard;
@@ -198,13 +198,17 @@ function HeroSlideView({
           )}
 
           <div className="hero-ctas mt-7 flex flex-wrap items-center gap-3">
-            <TmdbPlayButton
+            <TmdbSourcePicker
               kind={card.kind}
               tmdbId={card.tmdbId}
               title={card.title}
               originalTitle={card.originalTitle}
               year={card.year}
-              variant="hero"
+              fallbackPosterUrl={
+                card.posterPath ? tmdbImageUrl(card.posterPath, 'w342') : undefined
+              }
+              presentation="popover"
+              triggerVariant="hero"
             />
             <HeroSaveButton card={card} />
             <HeroMoreInfo card={card} />

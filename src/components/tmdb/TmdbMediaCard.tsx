@@ -5,7 +5,7 @@ import { MediaCard } from '@/components/ui/MediaCard';
 import { localeHref, useLocale } from '@/lib/i18n';
 import type { TmdbCard, TmdbKind } from '@/tmdb/catalog';
 import { tmdbImageUrl } from '@/tmdb/images';
-import { TmdbPlayButton } from './TmdbPlayButton';
+import { TmdbSourcePicker } from './TmdbSourcePicker';
 
 /** TMDB detail path for a card (`/movie/123`, `/tv/456`). */
 export function tmdbPath(kind: TmdbKind, tmdbId: number): string {
@@ -42,12 +42,14 @@ function TmdbMediaCardInner({ card, priority = false, sharePoster = false }: Tmd
       priority={priority}
       sharePoster={sharePoster}
       playButton={
-        <TmdbPlayButton
+        <TmdbSourcePicker
           kind={card.kind}
           tmdbId={card.tmdbId}
           title={card.title}
           originalTitle={card.originalTitle}
           year={card.year}
+          fallbackPosterUrl={tmdbImageUrl(card.posterPath, 'w342')}
+          presentation="popover"
           className="h-10 rounded-full px-4 text-sm"
         />
       }

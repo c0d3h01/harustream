@@ -182,7 +182,9 @@ export function TrailerEmbed({
         <>
           {/* Cover box owns the geometry — the API swaps `hostRef` for an
               iframe, so sizing lives here + `.trailer-frame > iframe` CSS. */}
-          <div className={`${frameClassName} trailer-frame transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}>
+          <div
+            className={`${frameClassName} trailer-frame transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
+          >
             <div ref={hostRef} aria-hidden="true" className="size-full" />
           </div>
           <div aria-hidden="true" className={veilClassName} />

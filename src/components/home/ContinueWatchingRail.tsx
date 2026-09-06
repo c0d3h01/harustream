@@ -1,7 +1,7 @@
 'use client';
 
 import { startTransition, useEffect, useRef, useState, ViewTransition } from 'react';
-import { AnimatedSection } from '@/components/ui/AnimatedSection';
+
 import { Button } from '@/components/ui/button';
 import type { MediaCardItem } from '@/components/ui/MediaCard';
 import { MediaCard } from '@/components/ui/MediaCard';
@@ -57,7 +57,7 @@ export function ContinueWatchingRail() {
   if (!items.length) return null;
 
   return (
-    <AnimatedSection stagger className="cw-root mt-8" aria-labelledby="continue-watching-heading">
+    <section className="cw-root mt-8" aria-labelledby="continue-watching-heading">
       <SectionHeader
         eyebrow={t('home.continueWatching')}
         heading={t('library.heading')}
@@ -101,7 +101,7 @@ export function ContinueWatchingRail() {
 
           return (
             <ViewTransition key={`${provider}:${item.ref}:${item.episodeRef}`}>
-              <div className="cw-card w-[140px] shrink-0 snap-start">
+              <div className="cw-card w-35 shrink-0 snap-start">
                 <MediaCard
                   item={cardItem}
                   href={href}
@@ -123,9 +123,6 @@ export function ContinueWatchingRail() {
           );
         })}
       </RailScroller>
-    </AnimatedSection>
+    </section>
   );
 }
-
-// Keep the old name as an alias for backwards compatibility.
-export { ContinueWatchingRail as ContinueWatching };

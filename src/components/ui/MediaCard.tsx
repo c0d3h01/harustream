@@ -207,7 +207,7 @@ function MediaCardInner({
           setTipLoading(true);
           const controller = new AbortController();
           tipFetch.current = controller;
-          void fetchPreviewDetails(item.trailerRef, controller.signal).then((details) => {
+          void fetchPreviewDetails(item.trailerRef).then((details) => {
             if (controller.signal.aborted) return;
             tipFetch.current = null;
             setTipDetails(details);
@@ -240,14 +240,14 @@ function MediaCardInner({
   // Only rendered when `sharePoster` is on (see prop docs for why).
   const posterName = posterTransitionName(item.providerId, item.ref);
   const posterImage = (
-<Image
-          src={posterSrc}
-          alt={posterAlt}
-          fill
-          priority={priority}
-          sizes="(min-width: 1024px) 202px, (min-width: 640px) 176px, 138px"
-          className="object-cover transition duration-500 hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-        />
+    <Image
+      src={posterSrc}
+      alt={posterAlt}
+      fill
+      priority={priority}
+      sizes="(min-width: 1024px) 202px, (min-width: 640px) 176px, 138px"
+      className="object-cover transition duration-500 hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+    />
   );
 
   const inner = (
@@ -255,8 +255,8 @@ function MediaCardInner({
       {/* ---------- poster-bleed card: artwork fills the whole surface,
           info lives in the centered overlay (hover/focus on desktop,
           always visible on touch). ---------- */}
-<div
-          className="relative aspect-[2/3] overflow-hidden rounded-[0.8rem] bg-secondary shadow-[0_18px_40px_-20px_rgba(0,0,0,0.95)] ring-1 ring-white/10 transition-transform duration-300 group-hover:-translate-y-1 group-hover:ring-white/20 motion-reduce:transition-none sm:rounded-[1rem]"
+      <div
+        className="relative aspect-2/3 overflow-hidden rounded-[0.8rem] bg-secondary shadow-[0_18px_40px_-20px_rgba(0,0,0,0.95)] ring-1 ring-white/10 transition-transform duration-300 group-hover:-translate-y-1 group-hover:ring-white/20 motion-reduce:transition-none sm:rounded-[1rem]"
         onPointerEnter={startTooltip}
         onPointerLeave={scheduleClose}
       >
@@ -275,7 +275,7 @@ function MediaCardInner({
         )}
 
         {/* info overlay — reference-level transparency */}
-        <div className="absolute inset-0 flex flex-col items-center justify-end gap-2 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-3 pb-4 text-center opacity-0 transition-opacity duration-300 group-focus-visible:opacity-100 group-active:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+        <div className="absolute inset-0 flex flex-col items-center justify-end gap-2 bg-linear-to-t from-black/90 via-black/30 to-transparent p-3 pb-4 text-center opacity-0 transition-opacity duration-300 group-focus-visible:opacity-100 group-active:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           <span
             className="grid size-12 scale-90 place-items-center rounded-full bg-white text-black shadow-xl transition-transform duration-300 group-hover:scale-100"
             aria-hidden="true"
@@ -321,7 +321,7 @@ function MediaCardInner({
               e.stopPropagation();
               onRemove();
             }}
-            className="glass-chip absolute top-1.5 right-1.5 z-10 grid size-9 cursor-pointer place-items-center rounded-full text-foreground transition-all duration-150 before:absolute before:-inset-[5px] before:content-[''] hover:text-destructive active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="glass-chip absolute top-1.5 right-1.5 z-10 grid size-9 cursor-pointer place-items-center rounded-full text-foreground transition-all duration-150 before:absolute before:-inset-1.25 before:content-[''] hover:text-destructive active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Remove from continue watching"
           >
             <X className="size-3.5" aria-hidden="true" />
@@ -348,7 +348,7 @@ function MediaCardInner({
   const card = (
     <div
       className={[
-        'group block min-w-0 cursor-pointer overflow-hidden rounded-[0.8rem] text-left transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_12px_40px_-8px_oklch(0.82_0.12_230_/_18%)] active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-[1rem]',
+        'group block min-w-0 cursor-pointer overflow-hidden rounded-[0.8rem] text-left transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_12px_40px_-8px_oklch(0.82_0.12_230/18%)] active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-[1rem]',
         className,
       ].join(' ')}
     >

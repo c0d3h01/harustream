@@ -14,8 +14,7 @@ import { useLibrary } from '@/lib/storage';
 import type { TmdbCard, TmdbDetail as TmdbDetailData, TmdbTrailer } from '@/tmdb/catalog';
 import { tmdbImageUrl, youtubeEmbedUrl, youtubeThumbnail } from '@/tmdb/images';
 import { TmdbMediaCard } from './TmdbMediaCard';
-import { TmdbPicker } from './TmdbPicker';
-import { TmdbPlayButton } from './TmdbPlayButton';
+import { TmdbSourcePicker } from './TmdbSourcePicker';
 import { TrailerEmbed } from './TrailerEmbed';
 
 interface TmdbDetailProps {
@@ -179,13 +178,17 @@ export function TmdbDetail({ detail, collectionParts = [] }: TmdbDetailProps) {
             ) : null}
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <TmdbPlayButton
+              <TmdbSourcePicker
                 kind={kind}
                 tmdbId={tmdbId}
                 title={detail.title}
                 originalTitle={detail.originalTitle}
                 year={detail.year}
-                variant="hero"
+                fallbackPosterUrl={
+                  detail.posterPath ? tmdbImageUrl(detail.posterPath, 'w342') : undefined
+                }
+                presentation="popover"
+                triggerVariant="hero"
               />
               <button
                 type="button"
@@ -305,13 +308,17 @@ export function TmdbDetail({ detail, collectionParts = [] }: TmdbDetailProps) {
 
       {/* ---------- sources ---------- */}
       <section aria-labelledby="tmdb-sources" className="mt-10">
-        <SectionHeader heading={t('tmdb.chooseSource')} headingId="tmdb-sources" className="mb-4" />
-        <TmdbPicker
+        <SectionHeader heading={t('tmdb.availableOn')} headingId="tmdb-sources" className="mb-4" />
+        <TmdbSourcePicker
           kind={kind}
           tmdbId={tmdbId}
           title={detail.title}
           originalTitle={detail.originalTitle}
           year={detail.year}
+          fallbackPosterUrl={
+            detail.posterPath ? tmdbImageUrl(detail.posterPath, 'w342') : undefined
+          }
+          presentation="inline"
         />
       </section>
 

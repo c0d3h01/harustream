@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, ViewTransition } from 'react';
-import { AnimatedSection } from '@/components/ui/AnimatedSection';
+
 import { RailScroller } from '@/components/ui/rail';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useT } from '@/lib/i18n';
@@ -28,7 +28,7 @@ export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
         const headingId = `${baseId}-tmdb-${sectionIndex}`;
         if (section.items.length === 0) return null;
         return (
-          <AnimatedSection key={section.key} stagger aria-labelledby={headingId}>
+          <section key={section.key} aria-labelledby={headingId}>
             <SectionHeader
               eyebrow={section.eyebrow}
               heading={section.heading}
@@ -46,7 +46,7 @@ export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
                 seen.add(dedupeKey);
                 return (
                   <ViewTransition key={dedupeKey}>
-                    <div data-rail-card className="w-[138px] shrink-0 snap-start sm:w-[176px] lg:w-[202px]">
+                    <div data-rail-card className="w-34.5 shrink-0 snap-start sm:w-44 lg:w-50.5">
                       <TmdbMediaCard
                         card={item}
                         priority={sectionIndex === 0 && index < 4}
@@ -57,7 +57,7 @@ export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
                 );
               })}
             </RailScroller>
-          </AnimatedSection>
+          </section>
         );
       })}
     </div>

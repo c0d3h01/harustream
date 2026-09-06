@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useId, useMemo, ViewTransition } from 'react';
-import { AnimatedSection } from '@/components/ui/AnimatedSection';
+
 import { MediaCard } from '@/components/ui/MediaCard';
 import { RailScroller } from '@/components/ui/rail';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -25,7 +25,7 @@ function FeaturedRailsInner({ rails }: FeaturedRailsProps) {
     return rails.map((rail, railIndex) => {
       const headingId = `${baseId}-rail-${railIndex}`;
       return (
-        <AnimatedSection key={headingId} stagger aria-labelledby={headingId}>
+        <section key={headingId} aria-labelledby={headingId}>
           <SectionHeader
             eyebrow={t('home.railEyebrow')}
             heading={rail.title}
@@ -43,7 +43,7 @@ function FeaturedRailsInner({ rails }: FeaturedRailsProps) {
               seen.add(dedupeKey);
               return (
                 <ViewTransition key={item.id}>
-                  <div data-rail-card className="w-[180px] shrink-0 snap-start">
+                  <div data-rail-card className="w-45 shrink-0 snap-start">
                     <MediaCard
                       item={item}
                       priority={index < 4}
@@ -55,7 +55,7 @@ function FeaturedRailsInner({ rails }: FeaturedRailsProps) {
               );
             })}
           </RailScroller>
-        </AnimatedSection>
+        </section>
       );
     });
   }, [rails, baseId, t]);
@@ -64,7 +64,3 @@ function FeaturedRailsInner({ rails }: FeaturedRailsProps) {
 }
 
 export const FeaturedRails = memo(FeaturedRailsInner);
-
-// Keep the old name as an alias so existing imports don't break immediately.
-// TODO: remove after all consumers are updated.
-export { FeaturedRails as Rails };

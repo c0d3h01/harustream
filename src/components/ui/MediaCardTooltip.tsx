@@ -33,10 +33,7 @@ export interface PreviewRef {
 const detailsCache = new Map<string, PreviewDetails | null>();
 const detailsInflight = new Map<string, Promise<PreviewDetails | null>>();
 
-export function fetchPreviewDetails(
-  ref: PreviewRef,
-  signal: AbortSignal,
-): Promise<PreviewDetails | null> {
+export function fetchPreviewDetails(ref: PreviewRef): Promise<PreviewDetails | null> {
   const cacheKey = `${ref.kind}:${ref.tmdbId}`;
   const cached = detailsCache.get(cacheKey);
   if (cached !== undefined) return Promise.resolve(cached);
@@ -44,12 +41,10 @@ export function fetchPreviewDetails(
   if (inflight) return inflight;
   const task = (async () => {
     try {
-      const res = await fetch(`/api/tmdb/preview?kind=${ref.kind}&tmdbId=${ref.tmdbId}`, {
-        signal,
-      });
+      const res = await fetch(`/api/tmdb/preview?kind=${ref.kind}&tmdbId=${ref.tmdbId}`);
       if (!res.ok) return null;
       const data = (await res.json()) as PreviewDetails;
-      // Cache only real answers — aborts/offline stay uncached.
+      // Cache only real answers — transient failures stay uncached.
       detailsCache.set(cacheKey, data);
       return data;
     } catch {
@@ -86,7 +81,7 @@ interface CardTooltipProps {
   /** Fetched mini-details (null while loading, or always for provider cards). */
   details: PreviewDetails | null;
   loadingDetails: boolean;
-  /** Play action for TMDB cards (TmdbPlayButton from the caller). */
+  /** Play action for TMDB cards (TmdbSourcePicker from the caller). */
   playButton?: ReactNode;
   onEnter: () => void;
   onLeave: () => void;
@@ -162,7 +157,7 @@ export function CardTooltip({
       onPointerEnter={onEnter}
       onPointerLeave={onLeave}
       className={[
-        'glass-strong fixed z-[60] w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-2xl shadow-2xl will-change-[left,top,opacity]',
+        'glass-strong fixed z-60 w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-2xl shadow-2xl will-change-[left,top,opacity]',
         'transition-opacity duration-100 motion-safe:animate-[tooltip-in_120ms_ease-out]',
         pos.ready ? 'opacity-100' : 'opacity-0',
       ].join(' ')}
@@ -181,7 +176,7 @@ export function CardTooltip({
             className="object-cover object-top"
           />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent" />
       </div>
 
       <div className="p-4">
