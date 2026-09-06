@@ -1,95 +1,113 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { StreamSource } from '@/types';
+import { GET } from '@/app/api/proxy/[...stream]/route';
+import { canonicalPath, chunkIdFor, proxyPath } from '@/lib/streaming/cacheKeys';
+import { mintProxyToken } from '@/lib/streaming/token';
 
-vi.mock('@/services/sources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/services/sources')>();
-  return { ...actual, sources: vi.fn() };
-});
+const VARIANT = { mediaId: 'media1', providerId: 'providerA', variantId: 'variant1' };
 
-import { GET } from '@/app/api/proxy/route';
-import { clearProxyIdentityCache } from '@/lib/media/streamProxy';
-import { sources } from '@/services/sources';
+async function mintedUrl(
+  kind: 'manifest' | 'binary' | 'subtitle',
+  upstreamUrl: string,
+  ttlMs = 60_000,
+): Promise<string> {
+  const chunkId = await chunkIdFor(upstreamUrl);
+  const path = canonicalPath(VARIANT.mediaId, VARIANT.providerId, VARIANT.variantId, kind, chunkId);
+  const { token, exp } = await mintProxyToken({ url: upstreamUrl }, ttlMs, path);
+  return `http://app.test${proxyPath(VARIANT, kind, chunkId)}?exp=${exp}&token=${encodeURIComponent(token)}`;
+}
 
-const mockedSources = vi.mocked(sources);
+function callRoute(url: string, init?: RequestInit) {
+  const request = new Request(url, init);
+  const stream = new URL(url).pathname.replace(/^\/api\/proxy\//, '').split('/');
+  return GET(request, { params: Promise.resolve({ stream }) });
+}
 
-const streamSource = (id: string, url: string, format: StreamSource['format']): StreamSource => ({
-  id,
-  providerId: 'test',
-  label: id,
-  url,
-  format,
-  quality: '1080',
-  subtitles: [],
-});
-
-const proxyUrl = (sourceId?: string): string => {
-  const params = new URLSearchParams({ provider: 'test', ref: 'R', kind: 'movie' });
-  if (sourceId) params.set('sourceId', sourceId);
-  return `http://app.test/api/proxy?${params.toString()}`;
-};
-
-const upstream = (status: number) =>
-  new Response('media-bytes', {
-    status,
-    headers: {
-      'content-type': status === 206 ? 'video/mp4' : 'video/mp4',
-      ...(status === 206
-        ? {
-            'content-range': 'bytes 0-1024/461874767',
-            'content-length': '1025',
-            'accept-ranges': 'bytes',
-          }
-        : { 'content-length': '11' }),
-    },
-  });
+const upstreamResponse = (status: number, body = 'media-bytes', headers: Record<string, string> = {}) =>
+  new Response(body, { status, headers: { 'content-type': 'video/mp4', ...headers } });
 
 afterEach(() => {
-  clearProxyIdentityCache();
-  mockedSources.mockReset();
   vi.unstubAllGlobals();
 });
 
-describe('/api/proxy (resolve-and-stream mode)', () => {
-  it('forwards the video element Range header to the upstream fetch', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(upstream(206));
+describe('GET /api/proxy/[...stream]', () => {
+  it('rejects a malformed path before any crypto or network work', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    mockedSources.mockResolvedValue([
-      streamSource('test:mp4', 'https://cdn.test/video.mp4?sig=1', 'mp4'),
-    ]);
+    const response = await callRoute('http://app.test/api/proxy/only-one-segment');
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
-    const response = await GET(
-      new Request(proxyUrl(encodeURIComponent('test:mp4')), {
-        headers: { Range: 'bytes=0-1048575' },
+  it('rejects an expired token via the cheap cleartext check, before decrypting', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const url = await mintedUrl('binary', 'https://cdn.test/video.mp4', -60_000);
+    const response = await callRoute(url);
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tampered token', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const url = await mintedUrl('binary', 'https://cdn.test/video.mp4');
+    const tampered = url.replace(/token=([^&]+)/, (_match, token: string) => `token=${token.slice(0, -4)}zzzz`);
+    const response = await callRoute(tampered);
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token minted for a different variant path (path binding)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const url = await mintedUrl('binary', 'https://cdn.test/video.mp4');
+    const wrongMedia = url.replace('/media1/', '/media2/');
+    const response = await callRoute(wrongMedia);
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('streams a binary chunk through with Range passthrough and long immutable caching', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      upstreamResponse(206, 'chunk-bytes', {
+        'content-range': 'bytes 0-99/1000',
+        'content-length': '100',
+        'accept-ranges': 'bytes',
       }),
     );
+    vi.stubGlobal('fetch', fetchMock);
+    const url = await mintedUrl('binary', 'https://cdn.test/segment-1.ts');
+    const response = await callRoute(url, { headers: { Range: 'bytes=0-99' } });
 
     expect(response.status).toBe(206);
-    expect(response.headers.get('content-range')).toBe('bytes 0-1024/461874767');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=21600, immutable');
+    expect(response.headers.get('content-range')).toBe('bytes 0-99/1000');
     const [, init] = fetchMock.mock.calls[0];
-    expect(new Headers(init?.headers).get('Range')).toBe('bytes=0-1048575');
+    expect(new Headers(init?.headers).get('Range')).toBe('bytes=0-99');
   });
 
-  it('streams the best remaining source instead of 404 when the sourceId went stale', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(upstream(200));
+  it('rewrites a manifest and marks it privately cacheable', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        upstreamResponse(200, '#EXTM3U\nsegment-1.ts', { 'content-type': 'application/vnd.apple.mpegurl' }),
+      );
     vi.stubGlobal('fetch', fetchMock);
-    // The player requested test:stale, but a re-scrape rotated the signed
-    // URLs and that id no longer exists in the fresh list. All formats proxy,
-    // so the first remaining source is served.
-    mockedSources.mockResolvedValue([
-      streamSource('test:mpd', 'https://cdn.test/play.mpd?q=1', 'mpd'),
-      streamSource('test:mp4-1080', 'https://cdn.test/a.mp4?s=2', 'mp4'),
-    ]);
-
-    const response = await GET(new Request(proxyUrl(encodeURIComponent('test:stale'))));
+    const url = await mintedUrl('manifest', 'https://cdn.test/index.m3u8');
+    const response = await callRoute(url);
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toBe('https://cdn.test/play.mpd?q=1');
+    expect(response.headers.get('cache-control')).toBe('private, max-age=4');
+    const body = await response.text();
+    expect(body).toContain('/api/proxy/media1/providerA/variant1/binary/');
   });
 
-  it('returns NOT_FOUND only when no stream source is available at all', async () => {
-    mockedSources.mockResolvedValue([]);
-    const response = await GET(new Request(proxyUrl(encodeURIComponent('test:gone'))));
-    expect(response.status).toBe(404);
+  it('surfaces the upstream status when both header identity variants are rejected', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(upstreamResponse(403));
+    vi.stubGlobal('fetch', fetchMock);
+    const url = await mintedUrl('binary', 'https://cdn.test/video.mp4');
+    const response = await callRoute(url);
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

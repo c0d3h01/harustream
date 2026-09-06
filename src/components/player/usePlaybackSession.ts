@@ -1,31 +1,34 @@
 'use client';
 
+// Orchestrates episode + variant resolution for one watch session. There is
+// no automatic source queue here — the previous implementation's
+// `SourceQueue` kept a module-level, cross-user "failed sources" map and
+// silently advanced to the next provider/quality on error. Both are gone:
+// `failedVariantIds` is component-instance state (one playback session,
+// never shared), and it only ever informs the SourceSelector's UI — nothing
+// reads it to pick a variant automatically. Switching is always the user
+// clicking a row in the SourceSelector.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { episodes as fetchEpisodes, sources as fetchSources } from '@/lib/api/client';
 import { useProgress, useSettings } from '@/lib/storage';
-import { orderSources } from '@/services/normalize';
-import type { Episode, Media, StreamSource } from '@/types';
-import { clearFailedSources, SourceQueue } from './queue';
+import type { Episode, Media, StreamVariant } from '@/types';
+import type { PlayerErrorInfo } from './types';
 
-type PlaybackSession = {
+export interface PlaybackSession {
   activeEpisode: Episode | undefined;
-  source: StreamSource | undefined;
-  /** Full episode list for the current media. */
+  variant: StreamVariant | undefined;
   episodes: Episode[];
-  /** All resolved sources for the active episode. */
-  allSources: readonly StreamSource[];
+  allVariants: readonly StreamVariant[];
+  failedVariantIds: ReadonlySet<string>;
   loading: boolean;
   error: string | null;
   progress: ReturnType<typeof useProgress>;
-  sourceFailed: () => void;
+  variantFailed: (variantId: string, error: PlayerErrorInfo) => void;
   ended: () => void;
-  /** Clear source-failure memory and re-resolve for the current episode. */
   retry: () => void;
-  /** Jump to a specific episode. */
   selectEpisode: (episode: Episode) => void;
-  /** Switch to a specific source (server). */
-  selectSource: (sourceId: string) => void;
-};
+  selectVariant: (variantId: string) => void;
+}
 
 export function usePlaybackSession(
   item: Media,
@@ -36,13 +39,13 @@ export function usePlaybackSession(
   const { settings } = useSettings();
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [activeEpisode, setActiveEpisode] = useState<Episode>();
-  const [source, setSource] = useState<StreamSource>();
-  const [allSources, setAllSources] = useState<readonly StreamSource[]>([]);
+  const [allVariants, setAllVariants] = useState<readonly StreamVariant[]>([]);
+  const [activeVariantId, setActiveVariantId] = useState<string>();
+  const [failedVariantIds, setFailedVariantIds] = useState<ReadonlySet<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const queueRef = useRef<SourceQueue | undefined>(undefined);
   const generationRef = useRef(0);
-  const [sourcesNonce, setSourcesNonce] = useState(0);
+  const [variantsNonce, setVariantsNonce] = useState(0);
 
   const providerId = item.providerId;
   const itemRef = item.ref;
@@ -100,7 +103,7 @@ export function usePlaybackSession(
     return () => controller.abort();
   }, [initialEpisodeRef, providerId, itemKind, groups]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retry() bumps sourcesNonce to force a re-fetch
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retry() bumps variantsNonce to force a re-fetch
   useEffect(() => {
     if (!activeEpisode?.ref) return;
     const episodeRef = activeEpisode.ref;
@@ -108,17 +111,14 @@ export function usePlaybackSession(
     const generation = ++generationRef.current;
     setLoading(true);
     setError(null);
-    setSource(undefined);
-    setAllSources([]);
-    queueRef.current = undefined;
-    const scope = `${providerId}:${episodeRef}`;
+    setAllVariants([]);
+    setActiveVariantId(undefined);
+    setFailedVariantIds(new Set());
     fetchSources(providerId, episodeRef, itemKind, controller.signal)
       .then((result) => {
         if (controller.signal.aborted || generation !== generationRef.current) return;
-        const queue = new SourceQueue(orderSources(result), scope);
-        queueRef.current = queue;
-        setAllSources(queue.sources);
-        setSource(queue.nextSource());
+        setAllVariants(result);
+        setActiveVariantId(result[0]?.variantId);
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted && generation === generationRef.current) {
@@ -128,12 +128,10 @@ export function usePlaybackSession(
       .finally(() => {
         if (!controller.signal.aborted && generation === generationRef.current) setLoading(false);
       });
-    // Abort alone invalidates the generation; no extra increment (the next
-    // effect run mints a fresh generation, avoiding double-step gaps).
     return () => controller.abort();
-  }, [activeEpisode?.ref, providerId, itemKind, sourcesNonce]);
+  }, [activeEpisode?.ref, providerId, itemKind, variantsNonce]);
 
-  // Warm the source cache for the next episode so auto-advance starts fast.
+  // Warm the variant cache for the next episode so auto-advance starts fast.
   useEffect(() => {
     if (itemKind === 'movie' || !settings.autoAdvance || episodes.length < 2) return;
     const index = activeEpisode ? episodes.findIndex((entry) => entry.id === activeEpisode.id) : -1;
@@ -142,21 +140,23 @@ export function usePlaybackSession(
     const controller = new AbortController();
     fetchSources(providerId, next.ref, itemKind, controller.signal).catch(() => {});
     return () => controller.abort();
-  }, [activeEpisode?.id, episodes, itemKind, providerId, settings.autoAdvance]);
+  }, [activeEpisode, episodes, itemKind, providerId, settings.autoAdvance]);
 
-  const sourceFailed = useCallback(() => {
-    const next = queueRef.current?.failCurrent();
-    setSource(next);
-    if (!next) setError('Every available source failed. Try another episode or try again later.');
+  const variantFailed = useCallback((variantId: string, _error: PlayerErrorInfo) => {
+    setFailedVariantIds((prev) => {
+      if (prev.has(variantId)) return prev;
+      const next = new Set(prev);
+      next.add(variantId);
+      return next;
+    });
   }, []);
 
   const retry = useCallback(() => {
-    clearFailedSources();
     setError(null);
-    setSource(undefined);
-    setAllSources([]);
-    queueRef.current = undefined;
-    setSourcesNonce((nonce) => nonce + 1);
+    setFailedVariantIds(new Set());
+    setAllVariants([]);
+    setActiveVariantId(undefined);
+    setVariantsNonce((nonce) => nonce + 1);
   }, []);
 
   const ended = useCallback(() => {
@@ -178,23 +178,21 @@ export function usePlaybackSession(
     [onEpisodeChange],
   );
 
-  const selectSource = useCallback((sourceId: string) => {
-    const selected = queueRef.current?.select(sourceId);
-    if (selected) setSource(selected);
-  }, []);
+  const selectVariant = useCallback((variantId: string) => setActiveVariantId(variantId), []);
 
   return {
     activeEpisode,
-    source,
+    variant: allVariants.find((entry) => entry.variantId === activeVariantId),
     episodes,
-    allSources,
+    allVariants,
+    failedVariantIds,
     loading,
     error,
     progress,
-    sourceFailed,
+    variantFailed,
     ended,
     retry,
     selectEpisode,
-    selectSource,
+    selectVariant,
   };
 }
