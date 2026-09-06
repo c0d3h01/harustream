@@ -1,10 +1,22 @@
 import { asAppError, ProviderTimeoutError } from '@/lib/errors';
+import { scopeLogger } from '@/lib/log';
 import type { ProviderModule } from '@/providers/_shared';
+
+const logger = scopeLogger('providers');
 
 const setting = (name: string, fallback: number) => {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
+
+export function providerTimeoutSignal(): AbortSignal {
+  return AbortSignal.timeout(setting('PROVIDER_TIMEOUT_MS', 10_000));
+}
+
+export function providerRequestSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = providerTimeoutSignal();
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 export async function runFanout<T>(
   providers: ProviderModule[],
@@ -38,6 +50,7 @@ export async function runFanout<T>(
       const providerIndex = cursor;
       cursor += 1;
       const controller = new AbortController();
+      const startedAt = Date.now();
       let providerTimedOut = false;
       const onAbort = () => controller.abort();
       deadline.signal.addEventListener('abort', onAbort, { once: true });
@@ -48,17 +61,28 @@ export async function runFanout<T>(
       try {
         const value = await operation(provider, controller.signal);
         results[providerIndex] = { provider, value };
+        logger.debug(
+          { provider: provider.id, ms: Date.now() - startedAt },
+          'Provider request completed',
+        );
       } catch (error) {
         const appError = asAppError(error, {
           providerTimeout: providerTimedOut || (deadlineExpired && !callerAborted),
         });
-        results[providerIndex] = {
-          provider,
-          error:
-            providerTimedOut || (deadlineExpired && !callerAborted)
-              ? new ProviderTimeoutError(provider.id, providerTimeoutMs)
-              : appError,
-        };
+        const providerError =
+          providerTimedOut || (deadlineExpired && !callerAborted)
+            ? new ProviderTimeoutError(provider.id, providerTimeoutMs)
+            : appError;
+        results[providerIndex] = { provider, error: providerError };
+        logger.warn(
+          {
+            err: providerError,
+            provider: provider.id,
+            ms: Date.now() - startedAt,
+            timedOut: providerTimedOut || deadlineExpired,
+          },
+          'Provider request failed',
+        );
       } finally {
         clearTimeout(timer);
         deadline.signal.removeEventListener('abort', onAbort);

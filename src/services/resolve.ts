@@ -15,18 +15,34 @@ export interface ResolveCandidate {
   providerName: string;
   ref: string;
   label: string;
+  /** Provider's own scraped poster/thumbnail, when it returned one — the
+   *  primary visual disambiguator in the source picker: a mismatched
+   *  thumbnail is visible before the user ever presses play. */
+  posterUrl?: string;
   score: number;
 }
 
 export interface ResolveResult {
-  /** Top hit when it clears the auto-play threshold, else null (show picker). */
+  /** Top-ranked candidate, for the "Best match" badge only — never consumed
+   *  for navigation. This app is an aggregator: TMDB supplies browsing
+   *  metadata, but which channel actually carries a title is always the
+   *  user's call, since fuzzy title matching can't be certain (remakes,
+   *  dubs, wrong season). */
   best: ResolveCandidate | null;
-  /** Up to 6 hits, best first, for the picker. */
+  /** One candidate per provider that cleared `RESOLVE_MIN_SCORE`, best
+   *  first — "which channels carry this", not "the highest-scoring rows
+   *  regardless of channel". A provider with several near-duplicate hits
+   *  no longer crowds every other provider out of the list. */
   candidates: ResolveCandidate[];
 }
 
-/** Minimum score for silent auto-play. Tuned in tests (see resolve.test.ts). */
+/** Score threshold for the "Best match" badge. Tuned in tests (see
+ *  resolve.test.ts). No longer gates navigation — see `ResolveResult.best`. */
 export const RESOLVE_AUTO_THRESHOLD = 0.62;
+/** Sanity floor below which a provider's best hit is noise, not a genuine
+ *  candidate — filters total mismatches without second-guessing anything
+ *  close to a real match. */
+export const RESOLVE_MIN_SCORE = 0.35;
 
 function tokens(value: string): string[] {
   return value
@@ -96,15 +112,26 @@ export function scoreCandidate(input: ResolveInput, hit: SearchResult): number {
 }
 
 export function resolveCandidates(input: ResolveInput, hits: SearchResult[]): ResolveResult {
-  const scored: ResolveCandidate[] = hits.map((hit) => ({
-    providerId: hit.providerId,
-    providerName: hit.providerName,
-    ref: hit.ref,
-    label: hit.displayTitle,
-    score: scoreCandidate(input, hit),
-  }));
-  scored.sort((left, right) => right.score - left.score);
-  const candidates = scored.slice(0, 6);
+  // One candidate per provider: keep only each provider's best-scoring hit
+  // so a provider with several near-duplicate listings can't crowd every
+  // other provider out of the result.
+  const bestPerProvider = new Map<string, ResolveCandidate>();
+  for (const hit of hits) {
+    const score = scoreCandidate(input, hit);
+    const existing = bestPerProvider.get(hit.providerId);
+    if (existing && existing.score >= score) continue;
+    bestPerProvider.set(hit.providerId, {
+      providerId: hit.providerId,
+      providerName: hit.providerName,
+      ref: hit.ref,
+      label: hit.displayTitle,
+      posterUrl: hit.posterUrl,
+      score,
+    });
+  }
+  const candidates = Array.from(bestPerProvider.values())
+    .filter((candidate) => candidate.score >= RESOLVE_MIN_SCORE)
+    .sort((left, right) => right.score - left.score);
   const top = candidates[0];
   return { best: top && top.score >= RESOLVE_AUTO_THRESHOLD ? top : null, candidates };
 }

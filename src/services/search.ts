@@ -4,7 +4,7 @@ import { createProviderContext } from '@/providers/_shared';
 import { getProvider, listProviders } from '@/providers/registry';
 import type { SearchResult } from '@/types';
 import { parseRaw, rawPostSchema } from '@/validations/provider';
-import { runFanout } from './fanout';
+import { providerTimeoutSignal, runFanout } from './fanout';
 import { toSearchResult } from './normalize';
 
 const cache = new TtlCache<SearchResult[]>();
@@ -34,29 +34,35 @@ export async function search(
 ): Promise<SearchResult[]> {
   if (!query.trim()) throw new ProviderError('Search query is required');
   if (providerId) {
-    return cache.getOrSet(`search:${providerId}:${query}:${page}`, 30_000, () =>
-      searchProvider(providerId, query, page, signal),
-    );
-  }
-  return cache.getOrSet(`search:*:${query}:${page}`, 30_000, async () => {
-    const results = await runFanout(
-      listProviders(),
-      (provider, providerSignal) => searchProvider(provider.id, query, page, providerSignal),
+    return cache.getOrSet(
+      `search:${providerId}:${query}:${page}`,
+      30_000,
+      () => searchProvider(providerId, query, page, providerTimeoutSignal()),
       signal,
     );
-    const merged: SearchResult[] = [];
-    const seen = new Set<string>();
-    for (const result of results) {
-      for (const item of result.value ?? []) {
-        const key = `${item.title.toLowerCase()}:${item.providerId}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          merged.push(item);
+  }
+  return cache.getOrSet(
+    `search:*:${query}:${page}`,
+    30_000,
+    async () => {
+      const results = await runFanout(listProviders(), (provider, providerSignal) =>
+        searchProvider(provider.id, query, page, providerSignal),
+      );
+      const merged: SearchResult[] = [];
+      const seen = new Set<string>();
+      for (const result of results) {
+        for (const item of result.value ?? []) {
+          const key = `${item.title.toLowerCase()}:${item.providerId}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+          }
         }
       }
-    }
-    return merged;
-  });
+      return merged;
+    },
+    signal,
+  );
 }
 
 export { appCache };

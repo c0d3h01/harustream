@@ -62,32 +62,12 @@ export interface Episode {
   skip?: SkipInterval[];
 }
 
-export interface Subtitle {
-  id: string;
-  label: string;
-  language: string;
-  url: string;
-  format: 'vtt' | 'srt' | 'ttml';
-  /** Server-minted (and signed, when tokens are enabled) proxy href. */
-  href?: string;
-}
-
-export interface StreamSource {
-  id: string;
-  providerId: string;
-  label: string;
-  url: string;
-  format: StreamFormat;
-  quality?: string;
-  headers?: Record<string, string>;
-  subtitles: Subtitle[];
-  skip?: SkipInterval[];
-  /**
-   * Server-minted playback href — the resolve-and-stream /api/proxy path.
-   * The browser must not build its own.
-   */
-  playbackHref?: string;
-}
+// StreamVariant/SubtitleTrack live in lib/streaming/types.ts (they're the
+// streaming subsystem's domain model, keyed by the explicit
+// (mediaId, providerId, variantId) triple) and are re-exported here so
+// existing call sites can keep importing playback types from '@/types'
+// alongside Media/Episode/SearchResult.
+export type { StreamVariant, SubtitleTrack } from '@/lib/streaming/types';
 
 export interface Catalog {
   title: string;

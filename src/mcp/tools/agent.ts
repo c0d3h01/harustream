@@ -115,7 +115,7 @@ Args:
 
     // Serial on purpose — parallel vitest+tsc+biome spikes CPU/RAM.
     const results: { item: string; passed: boolean; output: string }[] = [];
-    for (const item of DEFAULT_CHECKLIST) {
+    for (const item of reviewItems) {
       const run =
         standard[item] ?? (async () => ({ passed: true, output: 'Manual verification required' }));
       results.push({ item, ...(await run()) });

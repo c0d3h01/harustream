@@ -1,3 +1,4 @@
+import type { SubtitleFormat } from '@/lib/streaming/types';
 import type { RawEpisodeLink, RawInfo, RawPost, RawStream } from '@/providers/_shared';
 import type {
   Episode,
@@ -6,8 +7,6 @@ import type {
   MediaGroupItem,
   SearchResult,
   StreamFormat,
-  StreamSource,
-  Subtitle,
 } from '@/types';
 
 function stableId(value: string): string {
@@ -19,23 +18,8 @@ function stableId(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function idFor(providerId: string, ref: string): string {
+export function idFor(providerId: string, ref: string): string {
   return `${providerId}:${stableId(`${providerId}:${ref}`)}`;
-}
-
-// Provider CDNs re-sign stream URLs on every resolution (fresh `sign`/`t`
-// query params), so a source's identity must come from the stable resource
-// location — its URL path — rather than the full signed link. The player
-// addresses sources by id across server invocations (/api/proxy), and
-// failover marks stay attached to the resource instead of one signature.
-function streamIdFor(providerId: string, link: string): string {
-  let path = link.split('?', 1)[0];
-  try {
-    path = new URL(link).pathname;
-  } catch {
-    // Relative or malformed link: keep the query-stripped form.
-  }
-  return idFor(providerId, path);
 }
 
 const DISPLAY_NOISE =
@@ -142,41 +126,98 @@ function formatOf(type: string, url: string): StreamFormat {
   return 'other';
 }
 
-function subtitleFormat(type: Subtitle['format'] | string): Subtitle['format'] {
+function subtitleFormat(type: SubtitleFormat | string): SubtitleFormat {
   if (type.includes('ttml')) return 'ttml';
   if (type.includes('subrip') || type.includes('srt')) return 'srt';
   return 'vtt';
 }
 
-export function toStreamSource(raw: RawStream, providerId: string): StreamSource {
-  const subtitles = (raw.subtitles ?? []).map((subtitle) => ({
+/** A subtitle track before its proxy href is minted (Node-only step, done
+ *  in services/sources.ts where the signing secret lives). */
+export interface RawSubtitleTrack {
+  id: string;
+  label: string;
+  language: string;
+  format: SubtitleFormat;
+  upstreamUrl: string;
+}
+
+/** A stream variant before its proxy href is minted. Carries the raw
+ *  upstream URL server-side only — normalize.ts never builds a client-
+ *  facing href, that's `services/sources.ts`'s job once it has the token
+ *  secret available. */
+export interface RawVariant {
+  mediaId: string;
+  providerId: string;
+  variantId: string;
+  format: StreamFormat;
+  quality?: string;
+  label: string;
+  headers?: Record<string, string>;
+  skip?: RawStream['skip'];
+  upstreamUrl: string;
+  subtitles: RawSubtitleTrack[];
+}
+
+// Provider CDNs don't just re-sign the query string on every resolution —
+// several (vega's hubcloud/filepress, anikoto's vidtube/megaplay) mint a
+// fresh session token INSIDE the URL path itself. There is no query/path
+// split that survives that across providers, so URL-based identity is
+// fundamentally unsound: `variantId` must come from what the provider
+// declares about a stream (format + quality + server label), not from its
+// URL. This is naturally stable across re-scrapes as long as the
+// provider's own server list is unchanged; `orderVariants` disambiguates
+// same-label duplicates within one list via their stable sort position. It
+// does not need a providerId prefix — `providerId` is carried as its own
+// field on `RawVariant`/`StreamVariant`.
+function variantIdFor(format: StreamFormat, quality: string | undefined, server: string): string {
+  return stableId(`${format}:${quality ?? ''}:${server.trim().toLowerCase()}`);
+}
+
+export function toRawVariant(raw: RawStream, providerId: string, mediaId: string): RawVariant {
+  const subtitles: RawSubtitleTrack[] = (raw.subtitles ?? []).map((subtitle) => ({
     id: idFor(providerId, subtitle.uri),
     label: subtitle.title,
     language: subtitle.language,
-    url: subtitle.uri,
     format: subtitleFormat(subtitle.type),
+    upstreamUrl: subtitle.uri,
   }));
+  const format = formatOf(raw.type, raw.link);
   return {
-    id: streamIdFor(providerId, raw.link),
+    mediaId,
     providerId,
+    variantId: variantIdFor(format, raw.quality, raw.server),
     label: raw.server,
-    url: raw.link,
-    format: formatOf(raw.type, raw.link),
+    format,
     quality: raw.quality,
     headers: raw.headers,
     subtitles,
     skip: raw.skip,
+    upstreamUrl: raw.link,
   };
 }
 
-export function orderSources(sources: StreamSource[]): StreamSource[] {
+export function orderVariants(variants: RawVariant[]): RawVariant[] {
   const rank = (format: StreamFormat): number => (format === 'hls' ? 0 : format === 'mpd' ? 1 : 2);
-  return [...sources].sort((left, right) => {
+  const sorted = [...variants].sort((left, right) => {
     // Adaptive formats lead: one manifest covers all renditions, so first
     // paint and failover stay on a single proxied URL.
     if (rank(left.format) !== rank(right.format)) return rank(left.format) - rank(right.format);
     return (
       (Number(right.quality?.replace('p', '')) || 0) - (Number(left.quality?.replace('p', '')) || 0)
     );
+  });
+  // variantIds collide when a provider lists two options under the same
+  // label/quality/format (e.g. Torrentio's shared 'Torrentio' server name).
+  // Disambiguate by this stable sort position — deterministic because Array
+  // sort is stable and the provider's own emission order doesn't change
+  // between resolutions of the same content.
+  const seen = new Map<string, number>();
+  return sorted.map((variant) => {
+    const occurrence = seen.get(variant.variantId) ?? 0;
+    seen.set(variant.variantId, occurrence + 1);
+    return occurrence === 0
+      ? variant
+      : { ...variant, variantId: `${variant.variantId}:${occurrence}` };
   });
 }

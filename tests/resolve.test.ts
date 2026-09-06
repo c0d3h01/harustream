@@ -46,22 +46,48 @@ describe('scoreCandidate', () => {
 });
 
 describe('resolveCandidates', () => {
-  it('returns the best hit above threshold and caps the picker list', () => {
+  it('keeps one candidate per provider — a provider with a poor hit never crowds out another provider', () => {
     const hits = [
-      hit({ title: 'Oppenheimer' }),
-      hit({ title: 'Dune (2021)' }),
-      hit({ title: 'Dune (1984)' }),
+      hit({ title: 'Dune (2021)', providerId: 'providerA', providerName: 'Provider A' }),
+      hit({ title: 'Dune (1984)', providerId: 'providerB', providerName: 'Provider B' }),
+      // Unrelated to the query and below the sanity floor — filtered out
+      // entirely rather than surfacing as a fake "channel" for this title.
+      hit({ title: 'Oppenheimer', providerId: 'providerC', providerName: 'Provider C' }),
     ];
     const result = resolveCandidates(input, hits);
     expect(result.best?.label).toBe('Dune (2021)');
-    expect(result.candidates).toHaveLength(3);
+    expect(result.best?.providerId).toBe('providerA');
+    expect(result.candidates.map((candidate) => candidate.providerId)).toEqual([
+      'providerA',
+      'providerB',
+    ]);
     expect(result.candidates[0].score).toBeGreaterThanOrEqual(result.candidates[1].score);
   });
 
-  it('returns null best but keeps candidates when nothing clears the bar', () => {
-    const result = resolveCandidates(input, [hit({ title: 'Oppenheimer' })]);
+  it('keeps only a provider’s single best-scoring hit', () => {
+    const hits = [
+      hit({ title: 'Oppenheimer', providerId: 'providerA' }),
+      hit({ title: 'Dune (2021)', providerId: 'providerA' }),
+    ];
+    const result = resolveCandidates(input, hits);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].label).toBe('Dune (2021)');
+  });
+
+  it('returns null best but keeps a candidate that clears the sanity floor without clearing the auto-play threshold', () => {
+    // A single-token query ('Dune') is bimodal against token-set scoring:
+    // either a hit contains the token (score high) or it doesn't (score
+    // near zero). A multi-word query lets a partial match land in between.
+    const partialInput = { kind: 'movie' as const, tmdbId: 2, title: 'Dune Part Two', year: '2024' };
+    const result = resolveCandidates(partialInput, [hit({ title: 'Dune' })]);
     expect(result.best).toBeNull();
     expect(result.candidates).toHaveLength(1);
+  });
+
+  it('filters out a hit that never clears the sanity floor', () => {
+    const result = resolveCandidates(input, [hit({ title: 'Oppenheimer' })]);
+    expect(result.best).toBeNull();
+    expect(result.candidates).toHaveLength(0);
   });
 
   it('returns empty results with no hits', () => {

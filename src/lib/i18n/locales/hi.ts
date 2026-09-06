@@ -104,6 +104,8 @@ export const hi: Dictionary = {
   'tmdb.findingStream': 'चलने योग्य स्रोत खोजा जा रहा है…',
   'tmdb.noStream': 'यह शीर्षक अभी किसी प्रोवाइडर के पास नहीं है',
   'tmdb.chooseSource': 'स्रोत चुनें',
+  'tmdb.availableOn': 'यहां उपलब्ध',
+  'tmdb.bestMatch': 'सर्वश्रेष्ठ मिलान',
   'tmdb.findStream': 'स्रोत खोजें',
   'tmdb.back': 'पीछे',
 
@@ -126,6 +128,7 @@ export const hi: Dictionary = {
   'player.subtitlesPicker': 'सबटाइटल',
   'player.episodePicker': 'एपिसोड',
   'player.subtitlesOff': 'सबटाइटल बंद',
+  'player.stalledHint': 'अब ब् अटका हुआ है? स्रोत बदलें',
 
   'settings.eyebrow': 'प्राथमिकताएँ',
   'settings.heading': 'सेटिंग्स',

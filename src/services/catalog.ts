@@ -2,7 +2,7 @@ import { createProviderContext } from '@/providers/_shared';
 import { getProvider } from '@/providers/registry';
 import type { Catalog, SearchResult } from '@/types';
 import { parseRaw, rawPostSchema } from '@/validations/provider';
-import { runFanout } from './fanout';
+import { providerRequestSignal, runFanout } from './fanout';
 import { toSearchResult } from './normalize';
 
 export async function catalog(
@@ -15,7 +15,7 @@ export async function catalog(
   const posts = await provider.getPosts({
     filter,
     page,
-    signal,
+    signal: providerRequestSignal(signal),
     ctx: createProviderContext(provider.id),
   });
   return parseRaw(rawPostSchema.array(), posts, {

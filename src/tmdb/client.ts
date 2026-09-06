@@ -42,29 +42,34 @@ export async function tmdbFetch<S extends z.ZodTypeAny>(
   const query = new URLSearchParams({ ...params, api_key: key });
   const url = `${API_BASE}${path}?${query.toString()}`;
   const ttlMs = options.ttlMs ?? 600_000;
-  return (await cache.getOrSet(cacheKey(path, params), ttlMs, async () => {
-    let response: Response;
-    try {
-      response = await fetch(url, { signal: options.signal ?? AbortSignal.timeout(timeoutMs()) });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new AppError('UPSTREAM', `TMDB request timed out: ${path}`, { cause: error });
+  return (await cache.getOrSet(
+    cacheKey(path, params),
+    ttlMs,
+    async () => {
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs()) });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new AppError('UPSTREAM', `TMDB request timed out: ${path}`, { cause: error });
+        }
+        throw new AppError('UPSTREAM', `TMDB request failed: ${path}`, { cause: error });
       }
-      throw new AppError('UPSTREAM', `TMDB request failed: ${path}`, { cause: error });
-    }
-    if (response.status === 401) {
-      throw new AppError('CONFIG', 'TMDB_API_KEY is invalid');
-    }
-    if (response.status === 404) {
-      throw new AppError('NOT_FOUND', `TMDB resource not found: ${path}`);
-    }
-    if (response.status === 429) {
-      throw new AppError('UPSTREAM', 'TMDB rate limit exceeded');
-    }
-    if (!response.ok) {
-      throw new AppError('UPSTREAM', `TMDB request failed (${response.status}): ${path}`);
-    }
-    const json: unknown = await response.json();
-    return parseRaw(schema as z.ZodType<Data>, json, { provider: 'tmdb', op: path });
-  })) as Data;
+      if (response.status === 401) {
+        throw new AppError('CONFIG', 'TMDB_API_KEY is invalid');
+      }
+      if (response.status === 404) {
+        throw new AppError('NOT_FOUND', `TMDB resource not found: ${path}`);
+      }
+      if (response.status === 429) {
+        throw new AppError('UPSTREAM', 'TMDB rate limit exceeded');
+      }
+      if (!response.ok) {
+        throw new AppError('UPSTREAM', `TMDB request failed (${response.status}): ${path}`);
+      }
+      const json: unknown = await response.json();
+      return parseRaw(schema as z.ZodType<Data>, json, { provider: 'tmdb', op: path });
+    },
+    options.signal,
+  )) as Data;
 }

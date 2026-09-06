@@ -107,6 +107,8 @@ export const fr: Dictionary = {
   'tmdb.findingStream': 'Recherche d’une source lisible…',
   'tmdb.noStream': 'Aucun fournisseur ne propose ce titre pour le moment',
   'tmdb.chooseSource': 'Choisir une source',
+  'tmdb.availableOn': 'Disponible sur',
+  'tmdb.bestMatch': 'Meilleure correspondance',
   'tmdb.findStream': 'Trouver une source',
   'tmdb.back': 'Retour',
 
@@ -129,6 +131,7 @@ export const fr: Dictionary = {
   'player.subtitlesPicker': 'Sous-titres',
   'player.episodePicker': 'Épisode',
   'player.subtitlesOff': 'Sous-titres désactivés',
+  'player.stalledHint': 'Toujours bloqué ? Changer de source',
 
   'settings.eyebrow': 'Préférences',
   'settings.heading': 'Réglages',

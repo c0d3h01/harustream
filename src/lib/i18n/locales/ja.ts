@@ -105,6 +105,8 @@ export const ja: Dictionary = {
   'tmdb.findingStream': '再生可能なソースを検索中…',
   'tmdb.noStream': 'この作品を扱うプロバイダはまだありません',
   'tmdb.chooseSource': 'ソースを選択',
+  'tmdb.availableOn': '配信元',
+  'tmdb.bestMatch': '最適候補',
   'tmdb.findStream': 'ソースを探す',
   'tmdb.back': '戻る',
 
@@ -127,6 +129,7 @@ export const ja: Dictionary = {
   'player.subtitlesPicker': '字幕',
   'player.episodePicker': 'エピソード',
   'player.subtitlesOff': '字幕オフ',
+  'player.stalledHint': 'まだ詳まっていますか？ ソースを切り換え',
 
   'settings.eyebrow': '環境設定',
   'settings.heading': '設定',

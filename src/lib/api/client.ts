@@ -1,4 +1,4 @@
-import type { Episode, SearchResult, StreamSource } from '@/types';
+import type { Episode, SearchResult, StreamVariant } from '@/types';
 
 export class ApiError extends Error {
   readonly code?: string;
@@ -64,8 +64,8 @@ export function sources(
   ref: string,
   kind: string,
   signal?: AbortSignal,
-): Promise<StreamSource[]> {
-  return request<StreamSource[]>(`/api/sources${params({ provider, ref, kind })}`, signal);
+): Promise<StreamVariant[]> {
+  return request<StreamVariant[]>(`/api/sources${params({ provider, ref, kind })}`, signal);
 }
 
 export { request };

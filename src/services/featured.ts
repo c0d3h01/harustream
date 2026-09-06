@@ -1,1 +1,0 @@
-export { featured } from './catalog';

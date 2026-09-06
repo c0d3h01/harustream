@@ -116,6 +116,8 @@ export const en = {
   'tmdb.findingStream': 'Finding a playable stream…',
   'tmdb.noStream': 'No provider has this title yet',
   'tmdb.chooseSource': 'Choose a source',
+  'tmdb.availableOn': 'Available on',
+  'tmdb.bestMatch': 'Best match',
   'tmdb.findStream': 'Find stream',
   'tmdb.back': 'Back',
 
@@ -140,6 +142,7 @@ export const en = {
   'player.subtitlesPicker': 'Subtitles',
   'player.episodePicker': 'Episode',
   'player.subtitlesOff': 'Subtitles off',
+  'player.stalledHint': 'Still stuck? Switch source',
 
   // Settings
   'settings.eyebrow': 'Preferences',
