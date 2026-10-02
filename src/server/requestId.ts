@@ -1,6 +1,10 @@
 import type { MiddlewareHandler } from 'hono';
 
-export const requestId: MiddlewareHandler = async (c, next) => {
-  c.header('x-request-id', c.req.header('x-request-id') || crypto.randomUUID());
+export type Variables = { requestId: string };
+
+export const requestId: MiddlewareHandler<{ Variables: Variables }> = async (c, next) => {
+  const id = c.req.header('x-request-id') || crypto.randomUUID();
+  c.set('requestId', id);
+  c.header('x-request-id', id);
   await next();
 };

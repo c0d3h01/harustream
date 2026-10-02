@@ -64,6 +64,15 @@ describe('GET /api/sources', () => {
     expect(body.code).toBe('NOT_FOUND');
     expect(vi.mocked(sources)).not.toHaveBeenCalled();
   });
+
+  it('does not leak upstream detail when a service throws a raw Error', async () => {
+    vi.mocked(sources).mockRejectedValue(new Error('ECONNRESET 10.0.0.5:443 secret-host'));
+    const res = await app.request('/api/sources?provider=movieBoxWeb&ref=x');
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.error).not.toContain('secret-host');
+    expect(body.code).toBe('UPSTREAM');
+  });
 });
 
 describe('GET /api/media', () => {
