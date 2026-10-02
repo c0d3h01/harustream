@@ -3,6 +3,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { errorResponseBody, httpStatusForError } from '@/lib/errors';
 import { requestId, type Variables } from './requestId';
 import { health } from './routers/health';
+import { imageRouter } from './routers/image';
 import { mediaRouter } from './routers/media';
 
 // Next hands Hono the full request URL, so the base path must include /api.
@@ -16,4 +17,5 @@ app.onError((error, c) => {
 app.notFound((c) => c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404));
 
 app.route('/', health);
+app.route('/', imageRouter);
 app.route('/', mediaRouter);
