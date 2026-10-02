@@ -14,6 +14,7 @@ export async function runFanout<T>(
   const callerController = new AbortController();
   const onCallerAbort = () => callerController.abort();
   signal?.addEventListener('abort', onCallerAbort, { once: true });
+  if (signal?.aborted) callerController.abort();
 
   const run = async (provider: ProviderModule): Promise<T> => {
     const controller = new AbortController();
@@ -25,6 +26,7 @@ export async function runFanout<T>(
     }, timeoutMs);
     const onAbort = () => controller.abort();
     callerController.signal.addEventListener('abort', onAbort, { once: true });
+    if (callerController.signal.aborted) controller.abort();
     try {
       return await operation(provider, controller.signal);
     } catch (error) {

@@ -111,6 +111,58 @@ describe('fan-out resilience', () => {
     );
   });
 
+  it('aborts every provider when the caller signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const observed: boolean[] = [];
+    const result = await runFanout(
+      [provider('a', async () => 'a'), provider('b', async () => 'b')],
+      async (entry, signal) => {
+        observed.push(signal.aborted);
+        if (signal.aborted) {
+          throw Object.assign(new Error('client disconnected'), { name: 'AbortError' });
+        }
+        return firstTitle(entry, signal);
+      },
+      controller.signal,
+    );
+
+    assert.deepStrictEqual(observed, [true, true]);
+    for (const item of result) {
+      assert.strictEqual(item.value, undefined);
+      assert.ok(item.error !== undefined);
+    }
+  });
+
+  it('starts every provider before any of them resolves', async () => {
+    const started: string[] = [];
+    let release!: () => void;
+    const allStarted = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const providers = Array.from({ length: 7 }, (_, i) =>
+      provider(`p${i}`, async () => {
+        started.push(`p${i}`);
+        if (started.length === 7) release();
+        await allStarted;
+        return `p${i}`;
+      }),
+    );
+
+    const resultPromise = runFanout(providers, async (entry, signal) => firstTitle(entry, signal));
+    await Promise.race([
+      allStarted,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('not parallel')), 250)),
+    ]);
+    const result = await resultPromise;
+
+    assert.strictEqual(started.length, 7);
+    assert.deepStrictEqual(
+      result.map((item) => item.value),
+      ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+    );
+  });
+
   it('does not classify a caller abort as a provider timeout', async () => {
     const controller = new AbortController();
     const resultPromise = runFanout(
