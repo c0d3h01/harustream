@@ -29,7 +29,7 @@ tmdbRouter.get('/tmdb/collection/:id', async (c) => {
 });
 
 tmdbRouter.get('/tmdb/search', async (c) => {
-  const parsed = z.object({ q: z.string().min(1) }).safeParse(c.req.query());
+  const parsed = z.object({ q: z.string().trim().min(1) }).safeParse(c.req.query());
   if (!parsed.success) throw new AppError('BAD_REQUEST', 'Invalid search query');
   return c.json(await search(parsed.data.q));
 });

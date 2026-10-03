@@ -77,8 +77,11 @@ export async function tmdbFetch<S extends z.ZodTypeAny>(
   const query = new URLSearchParams({ ...params, api_key: key });
   const url = `${API_BASE}${path}?${query.toString()}`;
   const ttlMs = options.ttlMs ?? 600_000;
+  const cacheKeyParams = new URLSearchParams(params);
+  cacheKeyParams.sort();
+  const cacheKey = `tmdb:${path}?${cacheKeyParams.toString()}`;
   return (await cache.getOrSet(
-    `tmdb:${path}?${new URLSearchParams(params).sort()}`,
+    cacheKey,
     ttlMs,
     async () => {
       try {

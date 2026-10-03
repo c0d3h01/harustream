@@ -64,6 +64,11 @@ describe('GET /api/tmdb/search', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects a whitespace-only search query with 400', async () => {
+    const res = await app.request('/api/tmdb/search?q=%20');
+    expect(res.status).toBe(400);
+  });
+
   it('rejects a missing query with 400', async () => {
     const res = await app.request('/api/tmdb/search');
     expect(res.status).toBe(400);
