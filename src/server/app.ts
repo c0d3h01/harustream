@@ -6,6 +6,7 @@ import { health } from './routers/health';
 import { imageRouter } from './routers/image';
 import { mediaRouter } from './routers/media';
 import { streamRouter } from './routers/stream';
+import { tmdbRouter } from './routers/tmdb';
 
 // Next hands Hono the full request URL, so the base path must include /api.
 export const app = new Hono<{ Variables: Variables }>().basePath('/api').use(requestId);
@@ -21,3 +22,4 @@ app.route('/', health);
 app.route('/', imageRouter);
 app.route('/', mediaRouter);
 app.route('/', streamRouter);
+app.route('/', tmdbRouter);
