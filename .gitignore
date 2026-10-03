@@ -1,29 +1,33 @@
 # Common ignores
 node_modules
 .next/
+.open-next/
 .turbo/
 .DS_Store
 .claude/
 *.tsbuildinfo
-.wrangler
 
 # Environment variables
 .env
 .env*.local
 *.env.prod
 .envrc
-.vercel
 .vscode
 .pnpm-store/
+!.env.example
 
 # Nix
 result
 result-*
 .direnv/
 
-# temporarily
-design/
+# Deployment
+.vercel/
 
-# Agent skills
+# Agent scratch
+design/
+.omo
+.impeccable/
+docs/superpowers/
 .agents/skills/
-.env*
+opencode.json
