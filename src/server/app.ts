@@ -5,6 +5,7 @@ import { requestId, type Variables } from './requestId';
 import { health } from './routers/health';
 import { imageRouter } from './routers/image';
 import { mediaRouter } from './routers/media';
+import { resolveRouter } from './routers/resolve';
 import { streamRouter } from './routers/stream';
 import { tmdbRouter } from './routers/tmdb';
 
@@ -23,3 +24,4 @@ app.route('/', imageRouter);
 app.route('/', mediaRouter);
 app.route('/', streamRouter);
 app.route('/', tmdbRouter);
+app.route('/', resolveRouter);
