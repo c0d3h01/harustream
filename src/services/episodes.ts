@@ -1,10 +1,7 @@
-import { TtlCache } from '@/lib/cache';
 import type { Episode, Media } from '@/types/media';
 import { rawEpisodeSchema } from '@/validations/provider';
 import { toEpisode } from './normalize';
-import { callProvider } from './provider';
-
-const cache = new TtlCache<Episode[]>();
+import { cached, callProvider } from './provider';
 
 /**
  * The playable list for a title, resolved on the server so the watch page ships
@@ -26,15 +23,19 @@ export function episodesFor(item: Media, signal?: AbortSignal): Promise<Episode[
   const group = item.groups.find((entry) => entry.kind === 'episodes' && entry.ref);
   if (!group?.ref) return Promise.resolve([]);
 
-  return callProvider({
-    providerId: item.providerId,
-    op: 'episodes',
-    schema: rawEpisodeSchema.array(),
-    invoke: (provider, providerSignal) =>
-      provider.getEpisodes?.({ url: group.ref as string, signal: providerSignal }) ??
-      Promise.resolve([]),
-    map: (parsed) => parsed.map((episode) => toEpisode(episode, item.providerId)),
-    cache: { store: cache, key: `episodes:${item.providerId}:${group.ref}`, ttlMs: 60_000 },
+  return cached(
+    `episodes:${item.providerId}:${group.ref}`,
+    60_000,
+    () =>
+      callProvider({
+        providerId: item.providerId,
+        op: 'episodes',
+        schema: rawEpisodeSchema.array(),
+        invoke: (provider, providerSignal) =>
+          provider.getEpisodes?.({ url: group.ref as string, signal: providerSignal }) ??
+          Promise.resolve([]),
+        map: (parsed) => parsed.map((episode) => toEpisode(episode, item.providerId)),
+      }),
     signal,
-  });
+  );
 }

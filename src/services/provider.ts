@@ -1,35 +1,43 @@
 import type { z } from 'zod';
-import type { TtlCache } from '@/lib/cache';
+import { TtlCache } from '@/lib/cache';
 import { envInt } from '@/lib/env';
 import type { ProviderModule } from '@/providers/_shared';
 import { getProvider } from '@/providers/registry';
 import { parseRaw } from '@/validations/provider';
 
-interface ProviderCall<Parsed, Out> {
+// Single cache for all services. Callers share it through cached() below;
+// per-file TtlCache declarations are gone, so one keyspace + one Map.
+const sharedCache = new TtlCache<unknown>();
+
+export function providerTimeoutMs(): number {
+  return envInt('PROVIDER_TIMEOUT_MS', 10_000);
+}
+
+// Single timeout mechanism: AbortSignal.timeout, combined with the caller's
+// signal when one is present. Both callProvider and runFanout use this.
+export function timeoutSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(providerTimeoutMs());
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+export function cached<T>(
+  key: string,
+  ttlMs: number,
+  factory: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  return sharedCache.getOrSet(key, ttlMs, factory, signal) as Promise<T>;
+}
+
+export async function callProvider<Parsed, Out>(call: {
   providerId: string;
   op: string;
   schema: z.ZodType<Parsed>;
   invoke: (provider: ProviderModule, signal: AbortSignal) => Promise<unknown>;
   map: (parsed: Parsed, provider: ProviderModule) => Out;
-  cache?: { store: TtlCache<Out>; key: string; ttlMs: number };
   signal?: AbortSignal;
-}
-
-async function runCall<Parsed, Out>(call: ProviderCall<Parsed, Out>): Promise<Out> {
+}): Promise<Out> {
   const provider = getProvider(call.providerId);
-  const timeout = AbortSignal.timeout(envInt('PROVIDER_TIMEOUT_MS', 10_000));
-  const signal = call.signal ? AbortSignal.any([call.signal, timeout]) : timeout;
-  const raw = await call.invoke(provider, signal);
+  const raw = await call.invoke(provider, timeoutSignal(call.signal));
   return call.map(parseRaw(call.schema, raw, { provider: provider.id, op: call.op }), provider);
-}
-
-export function callProvider<Parsed, Out>(call: ProviderCall<Parsed, Out>): Promise<Out> {
-  const { cache, signal } = call;
-  if (!cache) return runCall(call);
-  return cache.store.getOrSet(
-    cache.key,
-    cache.ttlMs,
-    () => runCall({ ...call, signal: undefined }),
-    signal,
-  );
 }

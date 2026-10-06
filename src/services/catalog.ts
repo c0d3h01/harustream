@@ -1,13 +1,9 @@
-import { TtlCache } from '@/lib/cache';
-import { scopeLogger } from '@/lib/log';
 import { listProviders } from '@/providers/registry';
 import type { SearchResult } from '@/types/media';
 import { rawPostSchema } from '@/validations/provider';
 import { runFanout } from './fanout';
 import { mapPosts } from './normalize';
-import { callProvider } from './provider';
-
-const _logger = scopeLogger('catalog');
+import { cached, callProvider } from './provider';
 
 export interface CatalogRail {
   key: string;
@@ -19,8 +15,6 @@ interface FeaturedResult {
   rails: CatalogRail[];
 }
 
-const cache = new TtlCache<FeaturedResult>();
-
 /**
  * Aggregate a "featured" rail set from all registered providers by searching
  * for a broad trending query. The result is cached for 5 minutes.
@@ -28,7 +22,7 @@ const cache = new TtlCache<FeaturedResult>();
  * Providers that lack `getSearchPosts` are silently skipped.
  */
 export async function featured(signal?: AbortSignal): Promise<FeaturedResult> {
-  return cache.getOrSet(
+  return cached(
     'catalog:featured',
     300_000,
     async () => {

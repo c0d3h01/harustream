@@ -1,11 +1,8 @@
-import { TtlCache } from '@/lib/cache';
 import { streamHref } from '@/lib/streaming/streamUrl';
 import type { StreamVariant } from '@/lib/streaming/types';
 import { rawStreamSchema } from '@/validations/provider';
 import { orderVariants, type RawVariant, toRawVariant } from './normalize';
-import { callProvider } from './provider';
-
-const cache = new TtlCache<RawVariant[]>();
+import { cached, callProvider } from './provider';
 
 function toVariant(raw: RawVariant): StreamVariant {
   return {
@@ -36,16 +33,20 @@ export async function sources(
   kind = 'movie',
   signal?: AbortSignal,
 ): Promise<StreamVariant[]> {
-  const raw = await callProvider({
-    providerId,
-    op: 'stream',
-    schema: rawStreamSchema.array(),
-    invoke: (provider, providerSignal) =>
-      provider.getStream({ link: ref, type: kind, signal: providerSignal }),
-    map: (parsed, provider) =>
-      orderVariants(parsed.map((stream) => toRawVariant(stream, provider.id))),
-    cache: { store: cache, key: `sources:${providerId}:${ref}:${kind}`, ttlMs: 120_000 },
+  const raw = await cached(
+    `sources:${providerId}:${ref}:${kind}`,
+    120_000,
+    () =>
+      callProvider({
+        providerId,
+        op: 'stream',
+        schema: rawStreamSchema.array(),
+        invoke: (provider, providerSignal) =>
+          provider.getStream({ link: ref, type: kind, signal: providerSignal }),
+        map: (parsed, provider) =>
+          orderVariants(parsed.map((stream) => toRawVariant(stream, provider.id))),
+      }),
     signal,
-  });
+  );
   return raw.map(toVariant);
 }

@@ -1,13 +1,10 @@
-import { TtlCache } from '@/lib/cache';
 import { ProviderError } from '@/lib/errors';
 import { listProviders } from '@/providers/registry';
 import type { SearchResult } from '@/types/media';
 import { rawPostSchema } from '@/validations/provider';
 import { runFanout } from './fanout';
 import { mapPosts } from './normalize';
-import { callProvider } from './provider';
-
-const cache = new TtlCache<SearchResult[]>();
+import { cached, callProvider } from './provider';
 
 export async function search(
   query: string,
@@ -17,7 +14,7 @@ export async function search(
 ): Promise<SearchResult[]> {
   if (!query.trim()) throw new ProviderError('Search query is required');
   if (providerId) {
-    return cache.getOrSet(
+    return cached(
       `search:${providerId}:${query}:${page}`,
       30_000,
       () =>
@@ -34,7 +31,7 @@ export async function search(
       signal,
     );
   }
-  return cache.getOrSet(
+  return cached(
     `search:*:${query}:${page}`,
     30_000,
     async () => {
