@@ -1,6 +1,12 @@
-import type { SkipInterval } from '@/types/media';
+import type { z } from 'zod';
+import type {
+  rawEpisodeSchema,
+  rawInfoSchema,
+  rawPostSchema,
+  rawStreamSchema,
+} from '@/validations/provider';
 
-export type { SkipInterval };
+export type { SkipInterval } from '@/types/media';
 
 export interface ProviderUrlsEntry {
   name: string;
@@ -15,56 +21,19 @@ export interface ProviderUrlsEntry {
 
 export type ProviderUrls = Record<string, ProviderUrlsEntry>;
 
-export interface RawPost {
-  title: string;
-  link: string;
-  image?: string;
-}
+export type RawPost = z.input<typeof rawPostSchema>;
 
-export type RawTextTrack = {
-  title: string;
-  language: string;
-  type: 'application/x-subrip' | 'application/ttml+xml' | 'text/vtt';
-  uri: string;
-};
+export type RawStream = z.input<typeof rawStreamSchema>;
 
-export interface RawStream {
-  server: string;
-  link: string;
-  type: string;
-  quality?: string;
-  subtitles?: RawTextTrack[];
-  skip?: SkipInterval[];
-}
+export type RawTextTrack = NonNullable<RawStream['subtitles']>[number];
 
-export interface RawInfo {
-  title: string;
-  image?: string;
-  poster?: string;
-  synopsis?: string;
-  imdbId?: string;
-  type: 'movie' | 'series' | string;
-  tags?: string[];
-  rating?: string;
-  linkList: RawLink[];
-}
+export type RawInfo = z.input<typeof rawInfoSchema>;
 
-export interface RawEpisodeLink {
-  title: string;
-  link: string;
-  skip?: SkipInterval[];
-}
+export type RawLink = RawInfo['linkList'][number];
 
-export interface RawLinkSource {
-  title: string;
-  link: string;
-}
+export type RawLinkSource = NonNullable<RawLink['directLinks']>[number];
 
-export interface RawLink {
-  title: string;
-  episodesLink?: string;
-  directLinks?: RawLinkSource[];
-}
+export type RawEpisodeLink = z.input<typeof rawEpisodeSchema>;
 
 export interface ProviderModule {
   readonly id: string;

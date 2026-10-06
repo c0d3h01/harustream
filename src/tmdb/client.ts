@@ -26,7 +26,8 @@ const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 const ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [400, 1200];
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const retryDelay = (attempt: number) =>
+  new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt] ?? 1200));
 
 async function requestTmdb(url: string, path: string): Promise<unknown> {
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
@@ -37,7 +38,7 @@ async function requestTmdb(url: string, path: string): Promise<unknown> {
       });
     } catch (error) {
       if (attempt < ATTEMPTS - 1) {
-        await sleep(RETRY_DELAYS_MS[attempt] ?? 1200);
+        await retryDelay(attempt);
         continue;
       }
       if (error instanceof Error && error.name === 'AbortError') {
@@ -46,7 +47,7 @@ async function requestTmdb(url: string, path: string): Promise<unknown> {
       throw new AppError('UPSTREAM', `TMDB request failed: ${path}`, { cause: error });
     }
     if (RETRYABLE.has(response.status) && attempt < ATTEMPTS - 1) {
-      await sleep(RETRY_DELAYS_MS[attempt] ?? 1200);
+      await retryDelay(attempt);
       continue;
     }
     if (!response.ok) {

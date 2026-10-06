@@ -1,9 +1,9 @@
 import type { z } from 'zod';
 import { TtlCache } from '@/lib/cache';
 import { envInt } from '@/lib/env';
+import { AppError } from '@/lib/errors';
 import type { ProviderModule } from '@/providers/_shared';
 import { getProvider } from '@/providers/registry';
-import { parseRaw } from '@/validations/provider';
 
 // Single cache for all services. Callers share it through cached() below;
 // per-file TtlCache declarations are gone, so one keyspace + one Map.
@@ -39,5 +39,12 @@ export async function callProvider<Parsed, Out>(call: {
 }): Promise<Out> {
   const provider = getProvider(call.providerId);
   const raw = await call.invoke(provider, timeoutSignal(call.signal));
-  return call.map(parseRaw(call.schema, raw, { provider: provider.id, op: call.op }), provider);
+  const parsed = call.schema.safeParse(raw);
+  if (!parsed.success) {
+    throw new AppError(
+      'INVALID_RESPONSE',
+      `${provider.id} ${call.op} returned invalid response: ${parsed.error.message}`,
+    );
+  }
+  return call.map(parsed.data, provider);
 }

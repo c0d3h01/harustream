@@ -62,6 +62,9 @@ export interface TmdbTrailer {
   name: string;
 }
 
+const DETAILS_TTL_MS = 3_600_000;
+const LIST_TTL_MS = 600_000;
+
 export async function getDetails(kind: TmdbKind, id: number): Promise<TmdbDetail> {
   const params = {
     language: 'en-US',
@@ -69,22 +72,36 @@ export async function getDetails(kind: TmdbKind, id: number): Promise<TmdbDetail
     include_image_language: 'en,null',
   };
   const schema = kind === 'movie' ? tmdbMovieDetailsSchema : tmdbTvDetailsSchema;
-  const data = await tmdbFetch(schema, `/${kind}/${id}`, params, { ttlMs: 3_600_000 });
+  const data = await tmdbFetch(schema, `/${kind}/${id}`, params, { ttlMs: DETAILS_TTL_MS });
   const director = data.credits?.crew.find(
     (member) => member.job === 'Director' && member.department === 'Directing',
   )?.name;
   const language = 'en-US';
+  const logos = data.images?.logos;
   const base = {
     tmdbId: data.id,
     overview: data.overview,
     posterPath: data.poster_path ?? undefined,
     backdropPath: data.backdrop_path ?? undefined,
-    logoPath: logoOf(data.images?.logos, language),
+    logoPath: logos?.length
+      ? (logos.find((l) => (l.iso_639_1 ?? '').toLowerCase() === language.slice(0, 2).toLowerCase())
+          ?.file_path ??
+        logos.find((l) => l.iso_639_1 === 'en')?.file_path ??
+        logos[0]?.file_path)
+      : undefined,
     language: data.original_language?.toUpperCase() || undefined,
     rating: data.vote_average,
     genres: (data.genres ?? []).map((g) => g.name),
-    cast: castOf(data.credits?.cast ?? []),
-    trailers: trailersOf(data.videos?.results),
+    cast: (data.credits?.cast ?? []).slice(0, 20).map((m) => ({
+      id: m.id,
+      name: m.name,
+      character: m.character,
+      profilePath: m.profile_path ?? undefined,
+    })),
+    trailers: (data.videos?.results ?? [])
+      .filter((v) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'))
+      .slice(0, 6)
+      .map((v) => ({ id: v.id, key: v.key, name: v.name })),
     companies: (data.production_companies ?? []).slice(0, 6).map((c) => ({
       name: c.name,
       logoPath: c.logo_path ?? undefined,
@@ -92,6 +109,12 @@ export async function getDetails(kind: TmdbKind, id: number): Promise<TmdbDetail
   };
   if (kind === 'movie') {
     const d = data as z.infer<typeof tmdbMovieDetailsSchema>;
+    let runtime: string | undefined;
+    if (d.runtime) {
+      const hours = Math.floor(d.runtime / 60);
+      const remainder = d.runtime % 60;
+      runtime = hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
+    }
     return {
       ...base,
       kind: 'movie',
@@ -99,7 +122,7 @@ export async function getDetails(kind: TmdbKind, id: number): Promise<TmdbDetail
       originalTitle: d.original_title,
       year: yearOf(d.release_date),
       dateLabel: d.release_date || undefined,
-      runtime: formatRuntime(d.runtime),
+      runtime,
       director,
       budget: d.budget || undefined,
       revenue: d.revenue || undefined,
@@ -146,15 +169,15 @@ export async function getRail(
   const params = (
     rail === 'trending' ? { language: 'en-US' as string } : { language: 'en-US', region: 'US' }
   ) as Record<string, string>;
-  const data = await tmdbFetch(schema, path, params, { ttlMs: 600_000 });
+  const data = await tmdbFetch(schema, path, params, { ttlMs: LIST_TTL_MS });
   return data.results.map((item) => tmdbCard(kind, item as Record<string, unknown>));
 }
 
 export async function search(query: string): Promise<TmdbCard[]> {
   const params = { language: 'en-US', query };
   const [movies, tvs] = await Promise.all([
-    tmdbFetch(tmdbMoviePagedSchema, '/search/movie', params, { ttlMs: 600_000 }),
-    tmdbFetch(tmdbTvPagedSchema, '/search/tv', params, { ttlMs: 600_000 }),
+    tmdbFetch(tmdbMoviePagedSchema, '/search/movie', params, { ttlMs: LIST_TTL_MS }),
+    tmdbFetch(tmdbTvPagedSchema, '/search/tv', params, { ttlMs: LIST_TTL_MS }),
   ]);
   return [
     ...movies.results.map((item) => tmdbCard('movie' as TmdbKind, item as Record<string, unknown>)),
@@ -167,7 +190,7 @@ export async function getCollection(id: number) {
     tmdbCollectionSchema,
     `/collection/${id}`,
     { language: 'en-US' },
-    { ttlMs: 3_600_000 },
+    { ttlMs: DETAILS_TTL_MS },
   );
   return (data.parts ?? []).map((item) => tmdbCard('movie', item as Record<string, unknown>));
 }
@@ -175,46 +198,6 @@ export async function getCollection(id: number) {
 function yearOf(date: string | undefined): string | undefined {
   const y = date?.slice(0, 4);
   return y && /^\d{4}$/.test(y) ? y : undefined;
-}
-
-function castOf(
-  members: { id: number; name: string; character: string; profile_path?: string | null }[],
-): TmdbCastMember[] {
-  return members.slice(0, 20).map((m) => ({
-    id: m.id,
-    name: m.name,
-    character: m.character,
-    profilePath: m.profile_path ?? undefined,
-  }));
-}
-
-function trailersOf(
-  videos: { id: string; key: string; site: string; type: string; name: string }[] | undefined,
-): TmdbTrailer[] {
-  return (videos ?? [])
-    .filter((v) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'))
-    .slice(0, 6)
-    .map((v) => ({ id: v.id, key: v.key, name: v.name }));
-}
-
-function logoOf(
-  logos: { file_path: string; iso_639_1?: string | null }[] | undefined,
-  language: string,
-): string | undefined {
-  if (!logos?.length) return undefined;
-  const prefix = language.slice(0, 2).toLowerCase();
-  return (
-    logos.find((l) => (l.iso_639_1 ?? '').toLowerCase() === prefix)?.file_path ??
-    logos.find((l) => l.iso_639_1 === 'en')?.file_path ??
-    logos[0]?.file_path
-  );
-}
-
-function formatRuntime(minutes?: number | null): string | undefined {
-  if (!minutes) return undefined;
-  const h = Math.floor(minutes / 60);
-  const r = minutes % 60;
-  return h > 0 ? `${h}h ${r}m` : `${r}m`;
 }
 
 function tmdbCard(kind: TmdbKind, item: Record<string, unknown>): TmdbCard {
