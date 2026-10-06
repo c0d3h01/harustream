@@ -1,7 +1,6 @@
-import type { EpisodeLink, Info, Link, ProviderContext } from '../_shared';
-import { providerBaseUrl, throwProviderError } from '../_shared';
-
-const BASE_URL = providerBaseUrl('anikoto');
+import * as cheerio from 'cheerio';
+import type { RawInfo, RawLink } from '../_shared';
+import { commonHeaders, providerBaseUrl, throwProviderError } from '../_shared';
 
 function rc4(key: string, input: string): string {
   const s = Array.from({ length: 256 }, (_, i) => i);
@@ -27,50 +26,66 @@ function rc4(key: string, input: string): string {
   return out;
 }
 
+function encodeBase64(str: string): string {
+  if (typeof btoa === 'function') {
+    try {
+      return btoa(str);
+    } catch {
+      // fallback
+    }
+  }
+  if (typeof Buffer !== 'undefined') {
+    try {
+      return Buffer.from(str, 'binary').toString('base64');
+    } catch {
+      // fallback
+    }
+  }
+  return '';
+}
+
 function encodeVrf(animeId: string): string {
   const encrypted = rc4('simple-hash', animeId);
-  return btoa(encrypted);
+  return encodeBase64(encrypted);
 }
 
 export const getMeta = async ({
   link,
   signal,
-  ctx,
 }: {
   link: string;
   signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<Info> => {
+}): Promise<RawInfo> => {
   try {
-    const { axios, cheerio } = ctx;
-
+    const baseUrl = providerBaseUrl('anikoto');
     let watchUrl = link;
     if (!watchUrl.startsWith('http')) {
-      watchUrl = `${BASE_URL}${watchUrl.startsWith('/') ? '' : '/'}${watchUrl}`;
+      watchUrl = new URL(watchUrl, baseUrl).toString();
     }
     if (!watchUrl.includes('/ep-')) {
       watchUrl = `${watchUrl.replace(/\/+$/, '')}/ep-1`;
     }
 
     const slug = watchUrl
-      .replace(BASE_URL, '')
+      .replace(baseUrl, '')
       .replace(/^\/watch\//, '')
       .split('/')[0];
 
-    const res = await axios.get(watchUrl, {
+    const res = await fetch(watchUrl, {
       headers: {
-        ...ctx.commonHeaders,
-        Referer: `${BASE_URL}/`,
+        ...commonHeaders,
+        Referer: `${baseUrl}/`,
       },
       signal,
     });
 
-    const $ = cheerio.load(res.data);
-    const title = $('h1.title').text().trim() || $('.binfo h1').text().trim() || slug;
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const title = $('h1.title').text().trim() || $('.binfo h1').text().trim() || slug;
     const synopsis =
       $('div.synopsis div.content').text().trim() || $('div.synopsis').text().trim() || '';
-
     const image =
       $('#w-info .poster img, .poster img').first().attr('src') ||
       $('img').first().attr('src') ||
@@ -78,7 +93,7 @@ export const getMeta = async ({
 
     const rating =
       $("[itemprop='ratingValue']").first().text().trim() ||
-      $(".meta div:contains('MAL'), #w-info div:contains('MAL')")
+      $('.meta div:contains("MAL"), #w-info div:contains("MAL")')
         .first()
         .text()
         .match(/MAL:\s*(\d+(?:\.\d+)?)/)?.[1] ||
@@ -102,57 +117,61 @@ export const getMeta = async ({
 
     const animeId = $('#watch-page, #watch-main, .watch-wrap, [data-id]').first().attr('data-id');
 
-    const linkList: Link[] = [];
+    const linkList: RawLink[] = [];
 
     if (animeId) {
       const vrf = encodeURIComponent(encodeVrf(animeId));
-      const epAjaxUrl = `${BASE_URL}/ajax/episode/list/${animeId}?vrf=${vrf}&style=default`;
+      const epAjaxUrl = `${baseUrl}/ajax/episode/list/${animeId}?vrf=${vrf}&style=default`;
 
-      const epRes = await axios.get(epAjaxUrl, {
+      const epRes = await fetch(epAjaxUrl, {
         headers: {
-          ...ctx.commonHeaders,
+          ...commonHeaders,
           'X-Requested-With': 'XMLHttpRequest',
           Referer: watchUrl,
         },
+        signal,
       });
 
-      if (epRes.data && epRes.data.status === 200 && epRes.data.result) {
-        const $ep = cheerio.load(epRes.data.result);
-        const epElements = $ep('ul.ep-range a, .ep-range a, .range a, a[data-ids]');
+      if (epRes.ok) {
+        const epData = await epRes.json();
+        if (epData.status === 200 && epData.result) {
+          const $ep = cheerio.load(epData.result);
+          const epElements = $ep('ul.ep-range a, .ep-range a, .range a, a[data-ids]');
 
-        const directLinks: EpisodeLink[] = [];
+          const directLinks: any[] = [];
 
-        epElements.each((_, el) => {
-          const num = $ep(el).attr('data-num') || '';
-          if (!num) return;
+          epElements.each((_, el) => {
+            const num = $ep(el).attr('data-num') || '';
+            if (!num) return;
 
-          const dataIds = $ep(el).attr('data-ids') || '';
-          const malId = $ep(el).attr('data-mal') || '';
-          const timestamp = $ep(el).attr('data-timestamp') || '';
-          const hasSub = $ep(el).attr('data-sub') === '1';
-          const hasDub = $ep(el).attr('data-dub') === '1';
-          const epTitle = $ep(el).attr('title') || `Episode ${num}`;
+            const dataIds = $ep(el).attr('data-ids') || '';
+            const malId = $ep(el).attr('data-mal') || '';
+            const timestamp = $ep(el).attr('data-timestamp') || '';
+            const hasSub = $ep(el).attr('data-sub') === '1';
+            const hasDub = $ep(el).attr('data-dub') === '1';
+            const epTitle = $ep(el).attr('title') || `Episode ${num}`;
 
-          directLinks.push({
-            title: epTitle,
-            link: JSON.stringify({
-              slug,
-              epNum: num,
-              dataIds,
-              malId,
-              timestamp,
-              hasSub,
-              hasDub,
+            directLinks.push({
               title: epTitle,
-            }),
+              link: JSON.stringify({
+                slug,
+                epNum: num,
+                dataIds,
+                malId,
+                timestamp,
+                hasSub,
+                hasDub,
+                title: epTitle,
+              }),
+            });
           });
-        });
 
-        if (directLinks.length > 0) {
-          linkList.push({
-            title: title,
-            directLinks,
-          });
+          if (directLinks.length > 0) {
+            linkList.push({
+              title: title,
+              directLinks,
+            });
+          }
         }
       }
     }
@@ -187,9 +206,8 @@ export const getMeta = async ({
       tags: tags.length > 0 ? tags : undefined,
       rating,
       linkList,
-      webUrl: watchUrl,
     };
   } catch (err) {
-    throwProviderError('Anikoto', 'metadata', err);
+    return throwProviderError('Anikoto', 'metadata', err);
   }
 };

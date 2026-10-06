@@ -1,30 +1,13 @@
 import { TtlCache } from '@/lib/cache';
 import { ProviderError } from '@/lib/errors';
-import { createProviderContext } from '@/providers/_shared';
-import { getProvider, listProviders } from '@/providers/registry';
-import type { SearchResult } from '@/types';
-import { parseRaw, rawPostSchema } from '@/validations/provider';
-import { providerTimeoutSignal, runFanout } from './fanout';
-import { toSearchResult } from './normalize';
+import { listProviders } from '@/providers/registry';
+import type { SearchResult } from '@/types/media';
+import { rawPostSchema } from '@/validations/provider';
+import { runFanout } from './fanout';
+import { mapPosts } from './normalize';
+import { callProvider } from './provider';
 
 const cache = new TtlCache<SearchResult[]>();
-
-async function searchProvider(
-  providerId: string,
-  query: string,
-  page: number,
-  signal?: AbortSignal,
-): Promise<SearchResult[]> {
-  const provider = getProvider(providerId);
-  const posts = await provider.getSearchPosts({
-    query,
-    page,
-    signal,
-    ctx: createProviderContext(provider.id),
-  });
-  const parsed = parseRaw(rawPostSchema.array(), posts, { provider: provider.id, op: 'search' });
-  return parsed.map((post) => toSearchResult(post, provider.id, provider.name));
-}
 
 export async function search(
   query: string,
@@ -37,7 +20,17 @@ export async function search(
     return cache.getOrSet(
       `search:${providerId}:${query}:${page}`,
       30_000,
-      () => searchProvider(providerId, query, page, providerTimeoutSignal()),
+      () =>
+        callProvider({
+          providerId,
+          op: 'search',
+          schema: rawPostSchema.array(),
+          invoke: (provider, providerSignal) =>
+            provider.getSearchPosts?.({ query, page, signal: providerSignal }) ??
+            Promise.resolve([]),
+          map: (parsed, provider) => mapPosts(parsed, provider.id, provider.name),
+          signal,
+        }),
       signal,
     );
   }
@@ -46,17 +39,19 @@ export async function search(
     30_000,
     async () => {
       const results = await runFanout(listProviders(), (provider, providerSignal) =>
-        searchProvider(provider.id, query, page, providerSignal),
+        callProvider({
+          providerId: provider.id,
+          op: 'search',
+          schema: rawPostSchema.array(),
+          invoke: (p, ps) => p.getSearchPosts?.({ query, page, signal: ps }) ?? Promise.resolve([]),
+          map: (parsed, p) => mapPosts(parsed, p.id, p.name),
+          signal: providerSignal,
+        }),
       );
       const merged: SearchResult[] = [];
-      const seen = new Set<string>();
       for (const result of results) {
         for (const item of result.value ?? []) {
-          const key = `${item.title.toLowerCase()}:${item.providerId}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            merged.push(item);
-          }
+          merged.push(item);
         }
       }
       return merged;

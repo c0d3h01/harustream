@@ -1,61 +1,65 @@
-import { createProviderContext } from '@/providers/_shared';
-import { getProvider } from '@/providers/registry';
-import type { Catalog, SearchResult } from '@/types';
-import { parseRaw, rawPostSchema } from '@/validations/provider';
-import { providerRequestSignal, runFanout } from './fanout';
-import { toSearchResult } from './normalize';
+import { TtlCache } from '@/lib/cache';
+import { scopeLogger } from '@/lib/log';
+import { listProviders } from '@/providers/registry';
+import type { SearchResult } from '@/types/media';
+import { rawPostSchema } from '@/validations/provider';
+import { runFanout } from './fanout';
+import { mapPosts } from './normalize';
+import { callProvider } from './provider';
 
-export async function catalog(
-  providerId: string,
-  filter: string,
-  page = 1,
-  signal?: AbortSignal,
-): Promise<SearchResult[]> {
-  const provider = getProvider(providerId);
-  const posts = await provider.getPosts({
-    filter,
-    page,
-    signal: providerRequestSignal(signal),
-    ctx: createProviderContext(provider.id),
-  });
-  return parseRaw(rawPostSchema.array(), posts, {
-    provider: provider.id,
-    op: 'catalog',
-  }).map((post) => toSearchResult(post, provider.id, provider.name));
+const _logger = scopeLogger('catalog');
+
+export interface CatalogRail {
+  key: string;
+  heading: string;
+  items: SearchResult[];
 }
 
-export function providerCatalog(providerId: string): Catalog[] {
-  const provider = getProvider(providerId);
-  return [...provider.catalog, ...provider.genres];
+interface FeaturedResult {
+  rails: CatalogRail[];
 }
 
-export async function featured(providerId?: string, signal?: AbortSignal) {
-  const providers = [getProvider(providerId ?? 'vega')];
-  const results = await runFanout(
-    providers,
-    async (provider, providerSignal) =>
-      Promise.all(
-        provider.catalog.slice(0, 4).map(async (entry) => ({
-          title: entry.title,
-          items: await catalog(provider.id, entry.filter, 1, providerSignal),
-        })),
-      ),
+const cache = new TtlCache<FeaturedResult>();
+
+/**
+ * Aggregate a "featured" rail set from all registered providers by searching
+ * for a broad trending query. The result is cached for 5 minutes.
+ *
+ * Providers that lack `getSearchPosts` are silently skipped.
+ */
+export async function featured(signal?: AbortSignal): Promise<FeaturedResult> {
+  return cache.getOrSet(
+    'catalog:featured',
+    300_000,
+    async () => {
+      const providers = listProviders().filter((p) => p.getSearchPosts);
+      if (providers.length === 0) return { rails: [] };
+
+      const results = await runFanout(providers, (provider, providerSignal) =>
+        callProvider({
+          providerId: provider.id,
+          op: 'search',
+          schema: rawPostSchema.array(),
+          invoke: (p, ps) =>
+            p.getSearchPosts?.({ query: '', page: 1, signal: ps }) ?? Promise.resolve([]),
+          map: (parsed, p) => mapPosts(parsed, p.id, p.name),
+          signal: providerSignal,
+        }),
+      );
+
+      const rails: CatalogRail[] = [];
+      for (const result of results) {
+        const items = result.value ?? [];
+        if (items.length > 0) {
+          rails.push({
+            key: result.provider.id,
+            heading: result.provider.name,
+            items: items.slice(0, 20),
+          });
+        }
+      }
+      return { rails };
+    },
     signal,
   );
-  const rails = results
-    .filter(
-      (
-        result,
-      ): result is typeof result & { value: Array<{ title: string; items: SearchResult[] }> } =>
-        Boolean(result.value?.length),
-    )
-    .flatMap((result) =>
-      result.value
-        .filter((entry) => entry.items.length > 0)
-        .map((entry) => ({
-          title: `${result.provider.name} · ${entry.title}`,
-          items: entry.items,
-        })),
-    );
-  return { rails };
 }

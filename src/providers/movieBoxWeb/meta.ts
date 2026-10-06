@@ -1,15 +1,8 @@
-import type { Info, Link, ProviderContext } from '../_shared';
+import * as cheerio from 'cheerio';
+import type { RawInfo, RawLink } from '../_shared';
 import { throwProviderError } from '../_shared';
-import {
-  absoluteUrl,
-  BASE_URL,
-  detailPath,
-  encodeLink,
-  type MovieBoxDub,
-  type MovieBoxResource,
-  type MovieBoxSubject,
-  parseNuxtDetail,
-} from './utils';
+import type { MovieBoxDub, MovieBoxResource, MovieBoxSubject } from './utils';
+import { BASE_URL, detailPath, parseNuxtDetail } from './utils';
 
 function buildPlaybackLink(
   subject: MovieBoxSubject,
@@ -20,7 +13,7 @@ function buildPlaybackLink(
   const movieResolution = movieSeason?.resolutions
     ?.filter((item) => (item.epNum || 0) >= 1)
     .sort((a, b) => (b.resolution || 0) - (a.resolution || 0))[0]?.resolution;
-  return encodeLink({
+  return JSON.stringify({
     subjectId: dub.subjectId || subject.subjectId || '',
     detailPath: dub.detailPath || subject.detailPath || '',
     language: dub.lanName || dub.lanCode || 'Original',
@@ -34,20 +27,18 @@ function buildPlaybackLink(
 export const getMeta = async ({
   link,
   signal,
-  ctx,
 }: {
   link: string;
   signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<Info> => {
+}): Promise<RawInfo> => {
   try {
-    const pageUrl = absoluteUrl(BASE_URL, `/moviesDetail/${detailPath(link)}`);
+    const pageUrl = new URL(`/moviesDetail/${detailPath(link)}`, `${BASE_URL}/`).toString();
     const response = await fetch(pageUrl, { signal });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText} | URL ${pageUrl}`);
     }
 
-    const detail = parseNuxtDetail(await response.text(), ctx.cheerio);
+    const detail = parseNuxtDetail(await response.text(), cheerio);
     if (!detail) throw new Error('MovieBox Web detail data was not found');
 
     const { subject, resource } = detail;
@@ -61,7 +52,7 @@ export const getMeta = async ({
             lanName: 'Original',
           },
         ];
-    const linkList: Link[] = (subject.hasResource === false ? [] : dubs)
+    const linkList: RawLink[] = (subject.hasResource === false ? [] : dubs)
       .filter((dub) => dub.subjectId && (dub.detailPath || subject.detailPath))
       .map((dub) => {
         const playbackLink = buildPlaybackLink(subject, dub, resource.seasons);
@@ -96,10 +87,8 @@ export const getMeta = async ({
       imdbId: '',
       type: isSeries ? 'series' : 'movie',
       tags,
-      cast: subject.stars?.map((star) => star.name || '').filter(Boolean),
       rating: subject.imdbRatingValue || '',
       linkList,
-      webUrl: pageUrl,
     };
   } catch (error) {
     throwProviderError('MovieBox Web', 'metadata', error);

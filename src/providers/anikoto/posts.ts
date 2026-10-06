@@ -1,97 +1,33 @@
-import type { Post, ProviderContext } from '../_shared';
-import { providerBaseUrl } from '../_shared';
-
-const BASE_URL = providerBaseUrl('anikoto');
-
-export const getPosts = async ({
-  filter,
-  page,
-  signal,
-  ctx,
-}: {
-  filter: string;
-  page: number;
-  signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<Post[]> => {
-  try {
-    const { axios, cheerio } = ctx;
-    const delimiter = filter.includes('?') ? '&' : '?';
-    const url = `${BASE_URL}${filter}${delimiter}page=${page}`;
-
-    const res = await axios.get(url, {
-      headers: {
-        ...ctx.commonHeaders,
-        Referer: `${BASE_URL}/`,
-      },
-      signal,
-    });
-
-    const $ = cheerio.load(res.data);
-    const posts: Post[] = [];
-
-    $('.ani.items .item, .items .item, div.item').each((_, el) => {
-      // Find the specific title in .info or img alt
-      const title =
-        $(el).find('.info a.name, .info a.d-title, a.name.d-title').first().text().trim() ||
-        $(el).find('.info a.name, a.name.d-title').first().attr('data-jp') ||
-        $(el).find('img').attr('alt') ||
-        '';
-
-      // Find the watch link
-      const linkEl = $(el)
-        .find(".info a.name, .info a.d-title, .poster a, a[href*='/watch/']")
-        .first();
-      let href = linkEl.attr('href') || '';
-      if (!href) return;
-
-      if (!href.startsWith('http')) {
-        href = `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`;
-      }
-
-      const image = $(el).find('img').attr('src') || '';
-
-      if (title && href) {
-        posts.push({
-          title,
-          link: href,
-          image,
-        });
-      }
-    });
-
-    return posts;
-  } catch (err) {
-    console.error('Anikoto getPosts error:', err);
-    return [];
-  }
-};
+import * as cheerio from 'cheerio';
+import type { RawPost } from '../_shared';
+import { commonHeaders, providerBaseUrl, throwProviderError } from '../_shared';
 
 export const getSearchPosts = async ({
   query,
   page,
   signal,
-  ctx,
 }: {
   query: string;
   page: number;
   signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<Post[]> => {
+}): Promise<RawPost[]> => {
   try {
-    const { axios, cheerio } = ctx;
-    const url = `${BASE_URL}/filter?keyword=${encodeURIComponent(query)}&page=${page}`;
+    const baseUrl = providerBaseUrl('anikoto');
+    const url = new URL(
+      `/filter?keyword=${encodeURIComponent(query.trim())}&page=${page}`,
+      baseUrl,
+    );
 
-    const res = await axios.get(url, {
-      headers: {
-        ...ctx.commonHeaders,
-        Referer: `${BASE_URL}/`,
-      },
+    const response = await fetch(url.toString(), {
+      headers: { ...commonHeaders, Referer: `${baseUrl}/` },
       signal,
     });
 
-    const $ = cheerio.load(res.data);
-    const posts: Post[] = [];
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const posts: RawPost[] = [];
 
     $('.ani.items .item, .items .item, div.item').each((_, el) => {
       const title =
@@ -101,13 +37,13 @@ export const getSearchPosts = async ({
         '';
 
       const linkEl = $(el)
-        .find(".info a.name, .info a.d-title, .poster a, a[href*='/watch/']")
+        .find('.info a.name, .info a.d-title, .poster a, a[href*="/watch/"]')
         .first();
       let href = linkEl.attr('href') || '';
       if (!href) return;
 
       if (!href.startsWith('http')) {
-        href = `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`;
+        href = new URL(href, baseUrl).toString();
       }
 
       const image = $(el).find('img').attr('src') || '';
@@ -123,7 +59,6 @@ export const getSearchPosts = async ({
 
     return posts;
   } catch (err) {
-    console.error('Anikoto getSearchPosts error:', err);
-    return [];
+    return throwProviderError('Anikoto', 'search', err);
   }
 };

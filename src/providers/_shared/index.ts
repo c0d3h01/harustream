@@ -1,25 +1,7 @@
-// ─── Shared Provider Exports ────────────────────────────────────────────────
-// Re-export everything a provider module needs from one place.
-//
-// Usage in provider code:
-//   import { providerBaseUrl, providerName, throwProviderError, ... } from '../_shared';
-//   import type { ProviderModule, ProviderContext, Stream, ... } from '../_shared';
-
-export { commonHeaders, createProviderContext, openWebView } from './context';
 export { throwProviderError } from './errors';
-// Types
+export { commonHeaders } from './headers';
 export type {
-  Catalog,
-  EpisodeLink,
-  Info,
-  Link,
-  OpenWebViewOptions,
-  OpenWebViewResult,
-  Post,
-  ProviderContext,
-  ProviderKvStore,
   ProviderModule,
-  ProviderSummaryKind,
   ProviderUrls,
   RawEpisodeLink,
   RawInfo,
@@ -28,10 +10,6 @@ export type {
   RawPost,
   RawStream,
   RawTextTrack,
-  SettingsField,
   SkipInterval,
-  Stream,
-  TextTracks,
 } from './types';
-// Runtime helpers
-export { isProviderRetired, providerBaseUrl, providerManifest, providerName } from './urls';
+export { providerBaseUrl, providerName } from './urls';

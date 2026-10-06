@@ -1,18 +1,16 @@
-import type { EpisodeLink, ProviderContext } from '../_shared';
+import type { RawEpisodeLink } from '../_shared';
 import { throwProviderError } from '../_shared';
-import { decodeLink, encodeLink } from './utils';
+import type { PlaybackLink } from './utils';
 
 export const getEpisodes = async ({
   url,
-  signal: _signal,
 }: {
   url: string;
   signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<EpisodeLink[]> => {
+}): Promise<RawEpisodeLink[]> => {
   try {
-    const playback = decodeLink(url);
-    const episodes: EpisodeLink[] = [];
+    const playback = JSON.parse(url) as unknown as PlaybackLink;
+    const episodes: RawEpisodeLink[] = [];
 
     for (const season of playback.seasons || []) {
       const seasonNumber = season.se || 1;
@@ -29,7 +27,7 @@ export const getEpisodes = async ({
           .sort((a, b) => (b.resolution || 0) - (a.resolution || 0))[0]?.resolution;
         episodes.push({
           title: `S${String(seasonNumber).padStart(2, '0')} E${String(episode).padStart(2, '0')}`,
-          link: encodeLink({
+          link: JSON.stringify({
             ...playback,
             seasons: undefined,
             season: seasonNumber,

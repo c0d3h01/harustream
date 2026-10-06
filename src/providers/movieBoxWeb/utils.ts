@@ -1,8 +1,23 @@
-import type { ProviderContext } from '../_shared';
+import type * as cheerioLib from 'cheerio';
+import { viewer } from '@/lib/viewer';
 import { providerBaseUrl } from '../_shared';
 
 // MovieBox Web rotates domains; update the URL in src/providers/urls.ts when the site moves.
 export const BASE_URL = providerBaseUrl('movieBoxWeb');
+
+/**
+ * JSON API headers. `x-client-info` carries the visitor's own timezone, the way
+ * the site sends it — omitted when we do not know it rather than guessed, since
+ * the provider uses it to decide what to serve.
+ */
+export async function requestHeaders(): Promise<Record<string, string>> {
+  const { timeZone } = await viewer();
+  return {
+    Accept: 'application/json',
+    'x-source': '',
+    ...(timeZone ? { 'x-client-info': JSON.stringify({ timezone: timeZone }) } : {}),
+  };
+}
 
 export type MovieBoxSubject = {
   subjectId?: string;
@@ -14,10 +29,8 @@ export type MovieBoxSubject = {
   cover?: { url?: string };
   countryName?: string;
   imdbRatingValue?: string;
-  subtitles?: string;
   hasResource?: boolean;
   detailPath?: string;
-  stars?: Array<{ name?: string }>;
   dubs?: MovieBoxDub[];
 };
 
@@ -53,14 +66,11 @@ export type PlaybackLink = {
   seasons?: MovieBoxResource['seasons'];
 };
 
-export function parseNuxtDetail(
-  html: string,
-  cheerio: ProviderContext['cheerio'],
-): MovieBoxDetail | null {
+export function parseNuxtDetail(html: string, cheerio: typeof cheerioLib): MovieBoxDetail | null {
   return findDetail(parseNuxtData(html, cheerio));
 }
 
-export function parseNuxtData(html: string, cheerio: ProviderContext['cheerio']): unknown {
+export function parseNuxtData(html: string, cheerio: typeof cheerioLib): unknown {
   const $ = cheerio.load(html);
   const serialized = $('#__NUXT_DATA__').text();
   if (!serialized) return null;
@@ -157,18 +167,6 @@ function findDetail(value: unknown): MovieBoxDetail | null {
   return null;
 }
 
-export function encodeLink(value: PlaybackLink): string {
-  return JSON.stringify(value);
-}
-
-export function decodeLink(value: string): PlaybackLink {
-  return JSON.parse(value) as PlaybackLink;
-}
-
 export function detailPath(link: string): string {
   return link.replace(/^https?:\/\/[^/]+/, '').replace(/^\/moviesDetail\//, '');
-}
-
-export function absoluteUrl(baseUrl: string, path: string): string {
-  return new URL(path, `${baseUrl}/`).toString();
 }

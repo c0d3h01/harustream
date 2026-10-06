@@ -1,6 +1,7 @@
-import type { ProviderContext, Stream, TextTracks } from '../_shared';
+import type { RawStream, RawTextTrack } from '../_shared';
 import { throwProviderError } from '../_shared';
-import { absoluteUrl, BASE_URL, decodeLink } from './utils';
+import type { PlaybackLink } from './utils';
+import { BASE_URL, requestHeaders } from './utils';
 
 type PlayStream = {
   format?: string;
@@ -16,19 +17,13 @@ type Caption = {
   url?: string;
 };
 
-const requestHeaders = {
-  Accept: 'application/json',
-  'x-client-info': JSON.stringify({ timezone: 'Asia/Colombo' }),
-  'x-source': '',
-};
-
-function getQuality(resolutions?: string): Stream['quality'] {
+function getQuality(resolutions?: string): RawStream['quality'] {
   const values = (resolutions || '')
     .split(',')
     .map(Number)
     .filter((value) => [360, 480, 720, 1080, 2160].includes(value));
   const quality = Math.max(...values);
-  return Number.isFinite(quality) ? (String(quality) as Stream['quality']) : undefined;
+  return Number.isFinite(quality) ? (String(quality) as RawStream['quality']) : undefined;
 }
 
 function getStreamType(format?: string, url?: string): string {
@@ -43,7 +38,7 @@ function getStreamType(format?: string, url?: string): string {
   return 'mp4';
 }
 
-function mapCaptions(captions: Caption[]): TextTracks {
+function mapCaptions(captions: Caption[]): RawTextTrack[] {
   return captions
     .filter((caption) => Boolean(caption.url))
     .map((caption) => ({
@@ -58,11 +53,11 @@ function mapCaptions(captions: Caption[]): TextTracks {
 
 async function getCaptions(
   baseUrl: string,
-  playback: ReturnType<typeof decodeLink>,
+  playback: PlaybackLink,
   stream: PlayStream,
   referer: string,
   signal?: AbortSignal,
-): Promise<TextTracks> {
+): Promise<RawTextTrack[]> {
   if (!stream.id || !stream.format) return [];
 
   const params = new URLSearchParams({
@@ -71,9 +66,9 @@ async function getCaptions(
     subjectId: playback.subjectId,
     detailPath: playback.detailPath,
   });
-  const url = absoluteUrl(baseUrl, `/wefeed-h5api-bff/subject/caption?${params}`);
+  const url = new URL(`/wefeed-h5api-bff/subject/caption?${params}`, `${baseUrl}/`).toString();
   const response = await fetch(url, {
-    headers: { ...requestHeaders, Referer: referer },
+    headers: { ...(await requestHeaders()), Referer: referer },
     signal,
   });
   if (!response.ok) {
@@ -90,10 +85,9 @@ export const getStream = async ({
 }: {
   link: string;
   signal?: AbortSignal;
-  ctx: ProviderContext;
-}): Promise<Stream[]> => {
+}): Promise<RawStream[]> => {
   try {
-    const playback = decodeLink(link);
+    const playback = JSON.parse(link) as unknown as PlaybackLink;
     const watchParams = new URLSearchParams({
       id: playback.subjectId,
       type: '/movie/detail',
@@ -101,7 +95,10 @@ export const getStream = async ({
       detailEp: playback.episode ? String(playback.episode) : '',
       lang: 'en',
     });
-    const referer = absoluteUrl(BASE_URL, `/movies/${playback.detailPath}?${watchParams}`);
+    const referer = new URL(
+      `/movies/${playback.detailPath}?${watchParams}`,
+      `${BASE_URL}/`,
+    ).toString();
     const playParams = new URLSearchParams({
       subjectId: playback.subjectId,
       detailPath: playback.detailPath,
@@ -111,9 +108,12 @@ export const getStream = async ({
       playParams.set('ep', String(playback.episode));
     }
 
-    const playUrl = absoluteUrl(BASE_URL, `/wefeed-h5api-bff/subject/play?${playParams}`);
+    const playUrl = new URL(
+      `/wefeed-h5api-bff/subject/play?${playParams}`,
+      `${BASE_URL}/`,
+    ).toString();
     const response = await fetch(playUrl, {
-      headers: { ...requestHeaders, Referer: referer },
+      headers: { ...(await requestHeaders()), Referer: referer },
       signal,
     });
     if (!response.ok) {
@@ -142,7 +142,6 @@ export const getStream = async ({
         type: getStreamType(source.format, source.url),
         quality: getQuality(source.resolutions),
         subtitles: await getCaptions(BASE_URL, playback, source, referer, signal),
-        headers: { Referer: BASE_URL, Origin: BASE_URL },
       })),
     );
   } catch (error) {
