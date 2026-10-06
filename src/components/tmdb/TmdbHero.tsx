@@ -5,15 +5,20 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { localeHref, useLocale, useT } from '@/lib/i18n';
-import { imageUrl } from '@/lib/media/images';
+import { encodeBase64Url } from '@/lib/base64url';
+import { tmdbPath } from '@/lib/routes';
 import { useLibrary } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import type { TmdbCard, TmdbDetail } from '@/tmdb/catalog';
 import { tmdbImageUrl } from '@/tmdb/images';
-import { AmbientBackdrop } from './AmbientBackdrop';
-import { tmdbPath } from './TmdbMediaCard';
+import { tmdbSaveItem } from './saveItem';
 import { TmdbSourcePicker } from './TmdbSourcePicker';
+
+function imgUrl(src: string | null | undefined): string {
+  if (!src) return '';
+  if (src.startsWith('/')) return src;
+  return `/api/image/${encodeBase64Url(src)}`;
+}
 
 export interface HeroSlide {
   card: TmdbCard;
@@ -29,18 +34,21 @@ interface TmdbHeroProps {
 
 const ROTATE_MS = 8000;
 
-/** Trending carousel — full-bleed slides with crossfade, dots, and a muted
- *  looping trailer on the active slide (paused off-screen, poster-only for
- *  reduced-motion, which also disables rotation). Page-wide ambient
- *  backdrop follows the active slide. */
 export function TmdbHero({ slides }: TmdbHeroProps) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+    const onChange = (event: MediaQueryListEvent) => setReduceMotion(event.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   const count = slides.length;
   const safeIndex = count === 0 ? 0 : Math.min(index, count - 1);
   const active = slides[safeIndex] as HeroSlide | undefined;
-  const reduceMotion =
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
     if (count < 2 || paused || reduceMotion) return;
@@ -56,7 +64,7 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
 
   return (
     <section
-      className="hero-root relative -mx-3 min-h-[640px] overflow-hidden border-b border-white/10 sm:-mx-8 sm:min-h-[680px] lg:-mx-12 lg:min-h-[760px]"
+      className="hero-root relative w-full overflow-hidden bg-background min-h-[92svh] sm:min-h-[94svh]"
       aria-roledescription="carousel"
       aria-labelledby={headingId}
       onPointerEnter={() => setPaused(true)}
@@ -65,10 +73,20 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
       onBlur={() => setPaused(false)}
     >
       {active.card.backdropPath ? (
-        <AmbientBackdrop
+        <div
           key={headingId}
-          src={tmdbImageUrl(active.card.backdropPath, 'w780') ?? active.card.backdropPath}
-        />
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+        >
+          <Image
+            src={imgUrl(tmdbImageUrl(active.card.backdropPath, 'w780') ?? active.card.backdropPath)}
+            alt=""
+            fill
+            sizes="100vw"
+            className="scale-125 object-cover opacity-40 blur-[90px] saturate-[1.3]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-transparent to-background" />
+        </div>
       ) : null}
 
       {slides.map((slide, i) => (
@@ -82,7 +100,7 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
       ))}
 
       {count > 1 && !reduceMotion ? (
-        <div className="absolute right-4 bottom-6 z-10 flex items-center gap-1 sm:right-10">
+        <div className="absolute right-5 bottom-8 z-10 flex items-center gap-1 sm:right-10 lg:right-16">
           {slides.map((slide, i) => {
             const selected = i === safeIndex;
             return (
@@ -92,13 +110,13 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
                 onClick={() => setIndex(i)}
                 aria-label={`Go to slide ${i + 1}: ${slide.card.title}`}
                 aria-current={selected}
-                className="grid size-8 cursor-pointer place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="grid size-8 cursor-pointer place-items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     'block h-1.5 rounded-full transition-all duration-300',
-                    selected ? 'w-6 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70',
+                    selected ? 'w-6 bg-primary' : 'w-1.5 bg-foreground/30 hover:bg-foreground/55',
                   )}
                 />
               </button>
@@ -125,41 +143,39 @@ function HeroSlideView({
   const backdropSrc = card.backdropPath ? tmdbImageUrl(card.backdropPath, 'w1280') : undefined;
   return (
     <div
+      data-active={active}
       className={cn(
-        'absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none',
-        active ? 'z-[1] opacity-100' : 'pointer-events-none z-0 opacity-0',
+        'hero-slide absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none',
+        active ? 'z-page opacity-100' : 'pointer-events-none z-0 opacity-0',
       )}
       aria-hidden={!active}
       inert={!active}
     >
-      <div className="hero-backdrop absolute inset-0">
-        <div className="hero-glow absolute left-[55%] top-[30%] -ml-40 size-[30rem] rounded-full bg-primary/18 blur-[120px]" />
+      <div className="hero-backdrop backdrop-fade-b absolute inset-0">
         {backdropSrc ? (
           <Image
-            src={imageUrl(backdropSrc)}
+            src={imgUrl(backdropSrc)}
             alt=""
             fill
             priority={eager}
             sizes="100vw"
-            className="object-cover object-center opacity-65"
+            className="object-cover object-center"
           />
         ) : null}
-
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--background)_5%,color-mix(in_oklch,var(--background)_78%,transparent)_42%,transparent_82%),linear-gradient(0deg,var(--background)_0%,transparent_48%,color-mix(in_oklch,var(--background)_42%,transparent)_100%)]" />
       </div>
 
-      <div className="hero-inner relative mx-auto flex min-h-[640px] max-w-[1480px] items-end px-5 pb-20 sm:min-h-[680px] sm:px-12 sm:pb-24 lg:min-h-[760px] lg:px-16">
-        <div className="max-w-2xl">
+      <div className="hero-inner relative mx-auto flex min-h-[92svh] w-full max-w-[1600px] items-end px-5 pb-24 sm:min-h-[94svh] sm:px-10 sm:pb-28 lg:px-16">
+        <div className="hero-content max-w-2xl [text-shadow:0_1px_12px_rgba(0,0,0,0.65)]">
           <HeroEyebrow />
           {detail?.logoPath ? (
             <div className="relative mt-2 h-24 w-64 sm:h-28 sm:w-80" aria-hidden="true">
               <Image
-                src={imageUrl(tmdbImageUrl(detail.logoPath, 'w500'))}
+                src={imgUrl(tmdbImageUrl(detail.logoPath, 'w500'))}
                 alt=""
                 fill
                 priority={eager}
                 sizes="(min-width: 640px) 20rem, 16rem"
-                className="object-contain object-left"
+                className="object-contain object-left brightness-0 invert"
               />
             </div>
           ) : null}
@@ -168,32 +184,32 @@ function HeroSlideView({
             className={
               detail?.logoPath
                 ? 'sr-only'
-                : 'mt-3 max-w-3xl text-[2.75rem] font-bold leading-[0.94] tracking-[-0.06em] text-balance sm:text-7xl lg:text-[5.75rem]'
+                : 'mt-3 max-w-3xl font-heading text-5xl leading-[0.95] tracking-[-0.01em] text-balance sm:text-7xl lg:text-8xl'
             }
           >
             {card.title}
           </h1>
 
-          <div className="hero-meta mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-foreground/90">
+          <div className="hero-meta mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-foreground/85">
             {card.rating > 0 ? (
               <span className="inline-flex items-center gap-1.5">
-                <Star className="size-4 fill-amber-400 text-amber-400" aria-hidden="true" />
+                <Star className="size-4 fill-primary text-primary" aria-hidden="true" />
                 {card.rating.toFixed(1)}/10
               </span>
             ) : null}
             {card.year ? (
               <span className="inline-flex items-center gap-1.5">
-                <Calendar className="size-4 text-foreground/60" aria-hidden="true" />
+                <Calendar className="size-4 text-muted-foreground" aria-hidden="true" />
                 {card.year}
               </span>
             ) : null}
             {detail && detail.genres.length > 0 ? (
-              <span className="text-foreground/80">{detail.genres.slice(0, 2).join(' · ')}</span>
+              <span className="text-muted-foreground">{detail.genres.slice(0, 2).join(', ')}</span>
             ) : null}
           </div>
 
           {(detail?.overview || card.overview) && (
-            <p className="hero-sub mt-4 line-clamp-3 max-w-[36rem] text-base leading-7 text-foreground/75 sm:text-lg">
+            <p className="hero-sub mt-4 line-clamp-3 max-w-[36rem] text-base leading-7 text-muted-foreground sm:text-lg">
               {detail?.overview || card.overview}
             </p>
           )}
@@ -209,7 +225,6 @@ function HeroSlideView({
                 card.posterPath ? tmdbImageUrl(card.posterPath, 'w342') : undefined
               }
               presentation="popover"
-              triggerVariant="hero"
             />
             <HeroSaveButton card={card} />
             <HeroMoreInfo card={card} />
@@ -220,35 +235,21 @@ function HeroSlideView({
   );
 }
 
-/** Circular library toggle beside Play. */
 function HeroSaveButton({ card }: { card: TmdbCard }) {
-  const t = useT();
   const library = useLibrary('tmdb');
   const ref = `${card.kind}:${card.tmdbId}`;
   const saved = library.has(ref);
   const saveItem = useMemo(
-    () => ({
-      id: `tmdb:${ref}`,
-      providerId: 'tmdb',
-      providerName: 'TMDB',
-      title: card.title,
-      displayTitle: card.title,
-      posterUrl: tmdbImageUrl(card.posterPath, 'w342'),
-      ref,
-      tmdbKind: card.kind,
-      tmdbId: card.tmdbId,
-      tmdbTitle: card.title,
-      tmdbPoster: tmdbImageUrl(card.posterPath, 'w342'),
-    }),
-    [card, ref],
+    () => tmdbSaveItem(card.kind, card.tmdbId, card.title, card.posterPath),
+    [card],
   );
   return (
     <button
       type="button"
       onClick={() => library.toggle(saveItem)}
       aria-pressed={saved}
-      aria-label={saved ? t('title.saved') : t('title.save')}
-      className="glass-chip glass-interactive grid size-11 cursor-pointer place-items-center rounded-full text-foreground transition-all duration-150 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={saved ? 'Saved' : 'Save'}
+      className="grid size-12 cursor-pointer place-items-center rounded-md border border-border bg-background/75 text-foreground backdrop-blur-sm transition-all duration-150 hover:bg-card hover:border-input active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {saved ? (
         <Check className="size-5" aria-hidden="true" />
@@ -260,26 +261,23 @@ function HeroSaveButton({ card }: { card: TmdbCard }) {
 }
 
 function HeroEyebrow() {
-  const t = useT();
   return (
-    <p className="hero-eyebrow glass-chip mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+    <p className="hero-eyebrow mb-5 inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.22em] text-muted-foreground uppercase">
       <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden="true" />
-      {t('tmdb.heroEyebrow')}
+      {'Trending this week'}
     </p>
   );
 }
 
 function HeroMoreInfo({ card }: { card: TmdbCard }) {
-  const t = useT();
-  const { locale } = useLocale();
   return (
     <Button
-      render={<Link href={localeHref(locale, tmdbPath(card.kind, card.tmdbId))} />}
-      nativeButton={false}
-      variant="ghost"
-      className="glass-chip glass-interactive h-auto gap-2.5 rounded-full px-5 py-2.5 text-[0.95rem] font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+      render={<Link href={tmdbPath(card.kind, card.tmdbId)} />}
+      transitionTypes={['nav-forward']}
+      variant="outline"
+      className="h-12 gap-2.5 rounded-lg bg-background/75 px-6 text-[0.95rem] font-semibold backdrop-blur-sm"
     >
-      {t('home.heroCtaMoreInfo')}
+      {'More info'}
     </Button>
   );
 }

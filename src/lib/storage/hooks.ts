@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Media, SearchResult } from '@/types';
+import type { Media, SearchResult } from '@/types/media';
 import {
   DEFAULT_LIBRARY,
   DEFAULT_PROGRESS,
@@ -14,14 +14,8 @@ import {
   settingsSchema,
   storageKey,
   type TmdbContext,
-  VALID_THEMES,
   writeStorage,
 } from './schema';
-
-export const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
-export const ALL_QUALITIES = ['360p', '480p', '720p', '1080p', '2160p'] as const;
-export const THEMES = VALID_THEMES;
-export type Theme = (typeof THEMES)[number];
 
 function useStoredValue<T>(
   key: string,
@@ -60,22 +54,13 @@ export function useSettings() {
     (patch: Partial<StoredSettings>) => setSettings({ ...settings, ...patch }),
     [settings, setSettings],
   );
-  const toggleExcludedQuality = useCallback(
-    (quality: string) =>
-      update({
-        excludedQualities: settings.excludedQualities.includes(quality)
-          ? settings.excludedQualities.filter((item) => item !== quality)
-          : [...settings.excludedQualities, quality],
-      }),
-    [settings.excludedQualities, update],
-  );
 
-  return { settings, update, toggleExcludedQuality };
+  return { settings, update };
 }
 
-export function useLibrary(providerId = '') {
+export function useLibrary(scope?: string) {
   const [stored, setStored] = useStoredValue(
-    storageKey('library', providerId),
+    storageKey('library', scope),
     librarySchema,
     DEFAULT_LIBRARY,
   );
@@ -95,35 +80,48 @@ export function useLibrary(providerId = '') {
         ...(item.tmdbTitle ? { tmdbTitle: item.tmdbTitle } : {}),
         ...(item.tmdbPoster ? { tmdbPoster: item.tmdbPoster } : {}),
       };
-      const next = items.some((entry) => entry.ref === item.ref)
-        ? items.filter((entry) => entry.ref !== item.ref)
+      const key = `${item.providerId}:${item.ref}`;
+      const next = items.some((entry) => `${entry.providerId}:${entry.ref}` === key)
+        ? items.filter((entry) => `${entry.providerId}:${entry.ref}` !== key)
         : [...items, libraryItem];
       setStored({ version: 1, items: next });
     },
     [items, setStored],
   );
-  const has = useCallback((ref: string) => items.some((item) => item.ref === ref), [items]);
+  const has = useCallback(
+    (a: string, b?: string) => {
+      const providerId = b ? a : scope;
+      const ref = b ? b : a;
+      return items.some((item) => item.providerId === providerId && item.ref === ref);
+    },
+    [items, scope],
+  );
   return { items, toggle, has };
 }
 
-export function useProgress(providerId = '') {
+function progressKey(providerId: string, ref: string, episodeRef: string): string {
+  return `${providerId}:${ref}::${episodeRef}`;
+}
+
+export function useProgress(scope?: string) {
   const [stored, setStored] = useStoredValue(
-    storageKey('progress', providerId),
+    storageKey('progress', scope),
     progressSchema,
     DEFAULT_PROGRESS,
   );
   const get = useCallback(
-    (ref: string, episodeRef = ''): StoredProgressEntry | undefined =>
-      stored.entries[`${ref}::${episodeRef}`],
+    (providerId: string, ref: string, episodeRef = ''): StoredProgressEntry | undefined =>
+      stored.entries[progressKey(providerId, ref, episodeRef)],
     [stored.entries],
   );
   const save = useCallback(
     (
+      providerId: string,
       ref: string,
       episodeRef: string,
       position: number,
       duration: number,
-      meta?: Omit<StoredProgressEntry, 'position' | 'duration' | 'updatedAt'>,
+      meta?: Omit<StoredProgressEntry, 'position' | 'duration' | 'updatedAt' | 'provider'>,
     ) => {
       if (
         !Number.isFinite(position) ||
@@ -133,20 +131,20 @@ export function useProgress(providerId = '') {
       ) {
         return;
       }
-      const key = `${ref}::${episodeRef}`;
+      const key = progressKey(providerId, ref, episodeRef);
       setStored((current) => ({
         version: 1,
         entries: {
           ...current.entries,
-          [key]: { ...meta, position, duration, updatedAt: Date.now() },
+          [key]: { ...meta, provider: providerId, position, duration, updatedAt: Date.now() },
         },
       }));
     },
     [setStored],
   );
   const clear = useCallback(
-    (ref: string, episodeRef: string) => {
-      const { [`${ref}::${episodeRef}`]: _removed, ...entries } = stored.entries;
+    (providerId: string, ref: string, episodeRef: string) => {
+      const { [progressKey(providerId, ref, episodeRef)]: _removed, ...entries } = stored.entries;
       setStored({ version: 1, entries });
     },
     [setStored, stored.entries],
