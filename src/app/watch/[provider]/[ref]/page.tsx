@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { WatchExperience } from '@/components/player/WatchExperience';
-import { WatchLoadError } from '@/components/player/WatchLoadError';
 import { DirectionalTransition } from '@/components/transitions/DirectionalTransition';
+import { LoadError } from '@/components/ui/LoadError';
 import { decodeBase64Url } from '@/lib/base64url';
 import { asAppError } from '@/lib/errors';
 import { toMedia } from '@/services/normalize';
@@ -42,7 +42,7 @@ export default async function WatchPage({ params, searchParams }: Props) {
     return (
       <Shell>
         <DirectionalTransition>
-          <WatchLoadError />
+          <LoadError />
         </DirectionalTransition>
       </Shell>
     );

@@ -1,15 +1,17 @@
-import { Check, Film, Loader2, Play } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Check, Film, Loader2, Play, Star } from 'lucide-react';
 import Image from 'next/image';
 import { memo, useMemo, ViewTransition } from 'react';
-import { SPRING } from '@/components/motion/transitions';
 import { posterTransitionName } from '@/components/transitions/names';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useT } from '@/lib/i18n';
-import { imageUrl } from '@/lib/media/images';
+import { encodeBase64Url } from '@/lib/base64url';
 import { useLibrary } from '@/lib/storage';
-import type { Media } from '@/types';
+import type { Media } from '@/types/media';
+
+function imgUrl(src: string | null | undefined): string {
+  if (!src) return '';
+  if (src.startsWith('/')) return src;
+  return `/api/image/${encodeBase64Url(src)}`;
+}
 
 interface TitleHeaderProps {
   item: Media;
@@ -21,18 +23,14 @@ interface TitleHeaderProps {
 function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeaderProps) {
   const library = useLibrary(item.providerId);
   const saved = library.has(item.ref);
-  const t = useT();
 
-  const posterSrc = useMemo(() => imageUrl(item.posterUrl ?? ''), [item.posterUrl]);
-  const posterAlt = useMemo(
-    () => t('home.posterAlt', { title: item.displayTitle }),
-    [item.displayTitle, t],
-  );
+  const posterSrc = useMemo(() => imgUrl(item.posterUrl ?? ''), [item.posterUrl]);
+  const posterAlt = useMemo(() => `${item.displayTitle} poster`, [item.displayTitle]);
 
   return (
     <section aria-labelledby="title-heading">
       <div className="flex gap-4 sm:gap-6">
-        <div className="relative aspect-2/3 w-28 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary sm:w-36 lg:w-44">
+        <div className="relative aspect-2/3 w-28 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:w-36 lg:w-44">
           {item.posterUrl ? (
             <ViewTransition
               name={posterTransitionName(item.providerId, item.ref)}
@@ -59,24 +57,25 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+          <p className="font-mono text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">
             {item.providerId}
           </p>
           <h1
             id="title-heading"
-            className="mt-1.5 text-xl font-semibold tracking-tight text-balance sm:text-3xl"
+            className="mt-1.5 font-heading text-3xl tracking-[-0.01em] text-balance sm:text-4xl"
           >
             {item.displayTitle}
           </h1>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <Badge variant="glass">
-              {item.kind === 'series' ? t('kind.series') : t('kind.movie')}
-            </Badge>
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.18em] uppercase transition-colors border border-border bg-muted text-secondary-foreground">
+              {item.kind === 'series' ? 'Series' : 'Movie'}
+            </span>
             {item.rating ? (
-              <Badge variant="glass" className="text-primary">
-                ★ {item.rating}
-              </Badge>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.18em] uppercase transition-colors border border-border bg-muted text-secondary-foreground">
+                <Star className="size-3 fill-primary text-primary" aria-hidden="true" />
+                {item.rating}
+              </span>
             ) : null}
           </div>
         </div>
@@ -84,7 +83,7 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
 
       {item.synopsis ? (
         <p
-          className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground"
+          className="mt-4 max-w-[65ch] text-sm leading-relaxed text-muted-foreground text-pretty"
           id="title-synopsis"
         >
           {item.synopsis}
@@ -101,37 +100,27 @@ function TitleHeaderInner({ item, canPlay, loadingSources, onPlay }: TitleHeader
           {loadingSources ? (
             <>
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              <span className="sr-only">{t('title.loadingSources')}</span>
+              <span className="sr-only">{'Loading sources…'}</span>
             </>
           ) : (
             <>
               <Play className="size-4 fill-current" aria-hidden="true" />
-              {t('title.playNow')}
+              {'Play now'}
             </>
           )}
         </Button>
-        {/* Save toggle — check pops in/out on tap (interaction), no entrance. */}
         <Button
-          variant="glass"
+          variant="outline"
           onClick={() => library.toggle(item)}
           aria-pressed={saved}
           className="h-11 justify-center rounded-lg transition-all duration-200 active:scale-[0.97] sm:justify-start"
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {saved ? (
-              <motion.span
-                key="saved"
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                transition={SPRING}
-                className="flex items-center"
-              >
-                <Check className="text-primary" aria-hidden="true" />
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
-          {saved ? t('title.saved') : t('title.save')}
+          {saved ? (
+            <span key="saved" className="flex items-center">
+              <Check className="text-primary" aria-hidden="true" />
+            </span>
+          ) : null}
+          {saved ? 'Saved' : 'Save'}
         </Button>
       </div>
     </section>

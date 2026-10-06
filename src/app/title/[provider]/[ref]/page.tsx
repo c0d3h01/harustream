@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import { Suspense, ViewTransition } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { TitleExperience } from '@/components/title/TitleExperience';
-import { TitleLoadError } from '@/components/title/TitleLoadError';
 import { DirectionalTransition } from '@/components/transitions/DirectionalTransition';
+import { LoadError } from '@/components/ui/LoadError';
 import { decodeBase64Url } from '@/lib/base64url';
 import { asAppError } from '@/lib/errors';
 import { featured } from '@/services/catalog';
@@ -38,7 +38,7 @@ export default async function TitlePage({ params }: Props) {
     return (
       <Shell>
         <DirectionalTransition>
-          <TitleLoadError />
+          <LoadError />
         </DirectionalTransition>
       </Shell>
     );
