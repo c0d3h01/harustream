@@ -45,9 +45,11 @@ hop leaves the provider's origin.
 - `providers/urls.ts` — base URL, name, order, `upstreamHosts` (source of truth)
 - `providers/registry.ts` — maps ids to modules
 
-**Contract** (`providers/_shared/types.ts`): every method takes `ctx` and returns
-`Raw*` shapes; `services/normalize.ts` turns those into `SearchResult`, `Media`,
-`Episode`. Providers never import each other and never import app types.
+**Contract** (`providers/_shared/types.ts`): every method takes plain args
+(`{ query, page, signal? }` and the like, no `ctx`) and returns zod-inferred
+`Raw*` shapes (`z.input` of the `validations/provider` schemas);
+`services/normalize.ts` turns those into `SearchResult`, `Media`, `Episode`.
+Providers never import each other and never import app types.
 
 Full provider guide: `providers/README.md`.
 

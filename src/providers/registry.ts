@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/errors';
 import type { ProviderModule } from './_shared';
 import { anikoto } from './anikoto';
 import { providerOrder } from './labels';
@@ -10,13 +11,15 @@ const providerModules: Record<string, ProviderModule> = {
 };
 
 export const providerRegistry: Record<string, ProviderModule> = Object.fromEntries(
-  providerOrder.filter((id) => id in providerModules).map((id) => [id, providerModules[id]]),
+  providerOrder
+    .filter((id) => Object.hasOwn(providerModules, id))
+    .map((id) => [id, providerModules[id]]),
 );
 
 export function getProvider(id: string): ProviderModule {
-  const provider = providerRegistry[id];
-  if (!provider) throw new Error(`Unknown provider: ${id}`);
-  return provider;
+  if (!Object.hasOwn(providerRegistry, id))
+    throw new AppError('NOT_FOUND', `Unknown provider: ${id}`);
+  return providerRegistry[id];
 }
 
 export function listProviders(): ProviderModule[] {

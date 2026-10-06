@@ -8,6 +8,7 @@ export function providerName(providerId: string): string {
 }
 
 export function providerBaseUrl(providerId: string): string {
+  if (!Object.hasOwn(providerUrls, providerId)) throw new Error(`Unknown provider: ${providerId}`);
   return providerUrls[providerId].url;
 }
 
