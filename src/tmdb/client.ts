@@ -1,4 +1,3 @@
-import 'server-only';
 import { z } from 'zod';
 import { TtlCache } from '@/lib/cache';
 import { envInt } from '@/lib/env';

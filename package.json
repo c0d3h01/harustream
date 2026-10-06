@@ -10,9 +10,9 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/run-audit.mjs",
-    "test:watch": "vitest",
-    "test:providers": "RUN_LIVE=1 vitest run tests/live"
+    "test": "vitest run tests/unit",
+    "test:watch": "vitest tests/unit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
@@ -23,12 +23,11 @@
     "next": "16.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "server-only": "^0.0.1",
-    "tailwind-merge": "^3.6.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
