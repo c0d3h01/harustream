@@ -15,6 +15,7 @@ node_modules
 .vscode
 .pnpm-store/
 !.env.example
+.vitest
 
 # Nix
 result
@@ -25,9 +26,9 @@ result-*
 .vercel/
 
 # Agent scratch
-design/
 .omo
 .impeccable/
-docs/superpowers/
+.superpowers
+docs/superpowers
 .agents/skills/
-opencode.json
+test-results/

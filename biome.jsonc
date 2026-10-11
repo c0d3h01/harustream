@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/.agents", "!**/.next", "!**/next-env.d.ts"]
+    "includes": ["**", "!**/.agents", "!**/.next", "!**/next-env.d.ts", "!**/external"]
   },
   "formatter": {
     "enabled": true,
@@ -31,15 +31,8 @@
         "noDebugger": "error"
       },
       "performance": {
-        "noAccumulatingSpread": "error",
-        "noBarrelFile": "off",
-        "noReExportAll": "off"
-      },
-      "security": {
-        "noDangerouslySetInnerHtml": "off",
-        "noDangerouslySetInnerHtmlWithChildren": "off"
-      },
-      "nursery": {}
+        "noAccumulatingSpread": "error"
+      }
     }
   },
   "assist": {
