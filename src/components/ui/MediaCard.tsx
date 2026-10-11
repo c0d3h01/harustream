@@ -1,7 +1,6 @@
 import { Film, Play, Star, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ViewTransition } from 'react';
 import { imgUrl } from '@/lib/media';
 
 export interface MediaCardData {
@@ -9,7 +8,6 @@ export interface MediaCardData {
   title: string;
   href: string;
   posterUrl?: string;
-  transitionName?: string;
   year?: string;
   rating?: number;
   progress?: number;
@@ -19,10 +17,9 @@ export interface MediaCardData {
 interface MediaCardProps {
   card: MediaCardData;
   priority?: boolean;
-  sharePoster?: boolean;
 }
 
-export function MediaCard({ card, priority = false, sharePoster = false }: MediaCardProps) {
+export function MediaCard({ card, priority = false }: MediaCardProps) {
   const poster = imgUrl(card.posterUrl);
   const rating = card.rating ?? 0;
 
@@ -51,17 +48,7 @@ export function MediaCard({ card, priority = false, sharePoster = false }: Media
         className="group block min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-card shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.5)] motion-reduce:transition-none">
-          {sharePoster ? (
-            <ViewTransition
-              name={card.transitionName ?? `media-poster-${card.key}`}
-              share="morph"
-              default="none"
-            >
-              {posterImage}
-            </ViewTransition>
-          ) : (
-            posterImage
-          )}
+          {posterImage}
           {card.year || rating > 0 ? (
             <div className="absolute inset-x-0 bottom-0 translate-y-1 bg-linear-to-t from-black/85 via-black/40 to-transparent px-2.5 pt-8 pb-2 opacity-0 transition duration-300 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 motion-reduce:translate-y-0 motion-reduce:transition-none [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-hover:opacity-100">
               <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] text-white/70">

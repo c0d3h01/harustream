@@ -5,7 +5,7 @@ import { TmdbSearchResults } from '@/components/tmdb/TmdbSearchResults';
 import { DirectionalTransition } from '@/components/transitions/DirectionalTransition';
 import { ConfigNotice } from '@/components/ui/ConfigNotice';
 import { asAppError } from '@/lib/errors';
-import { getRail } from '@/tmdb/catalog';
+import { search } from '@/tmdb/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ type Props = { searchParams: Promise<{ q?: string }> };
 
 async function Results({ query }: { query: string }) {
   try {
-    const cards = query ? await getRail('movie', 'trending') : [];
+    const cards = query ? await search(query) : [];
     return <TmdbSearchResults query={query} cards={cards} />;
   } catch (error) {
     if (asAppError(error).code === 'CONFIG') return <ConfigNotice />;

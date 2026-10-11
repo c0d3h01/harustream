@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useEffect, useRef, useState, ViewTransition } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { MediaCard } from '@/components/ui/MediaCard';
@@ -103,26 +103,27 @@ export function ContinueWatchingRail() {
             : watchHref(provider, item.ref, item.episodeRef || undefined);
 
           return (
-            <ViewTransition key={`${provider}:${item.ref}:${item.episodeRef}`}>
-              <div className="cw-card w-35 shrink-0 snap-start sm:w-44 lg:w-50.5">
-                <MediaCard
-                  card={{
-                    key: `${provider}:${item.ref}:${item.episodeRef}`,
-                    title: item.tmdbTitle ?? item.title ?? 'Untitled',
-                    href,
-                    posterUrl: (tmdb ? item.tmdbPoster : undefined) ?? item.poster,
-                    progress: percentage,
-                    onRemove: () => {
-                      startTransition(() => {
-                        const scope = scopes.find((entry) => entry.provider === item.provider);
-                        scope?.store.clear(item.provider, item.ref, item.episodeRef);
-                      });
-                    },
-                  }}
-                  priority={index < 4}
-                />
-              </div>
-            </ViewTransition>
+            <div
+              key={`${provider}:${item.ref}:${item.episodeRef}`}
+              className="cw-card w-35 shrink-0 snap-start sm:w-44 lg:w-50.5"
+            >
+              <MediaCard
+                card={{
+                  key: `${provider}:${item.ref}:${item.episodeRef}`,
+                  title: item.tmdbTitle ?? item.title ?? 'Untitled',
+                  href,
+                  posterUrl: (tmdb ? item.tmdbPoster : undefined) ?? item.poster,
+                  progress: percentage,
+                  onRemove: () => {
+                    startTransition(() => {
+                      const scope = scopes.find((entry) => entry.provider === item.provider);
+                      scope?.store.clear(item.provider, item.ref, item.episodeRef);
+                    });
+                  },
+                }}
+                priority={index < 4}
+              />
+            </div>
           );
         })}
       </div>

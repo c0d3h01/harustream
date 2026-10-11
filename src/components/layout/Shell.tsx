@@ -1,28 +1,29 @@
-'use client';
-
+import { Search } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { localeHref, useLocale } from '@/lib/i18n';
 import { HeaderSearch } from './HeaderSearch';
+import { NavLinks } from './NavLinks';
 import { SiteNav } from './SiteNav';
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { locale } = useLocale();
   return (
     <>
-      <div className="min-h-screen bg-background">
-        {/* Fluid island — persistent chrome, isolated from page slides via
-            `viewTransitionName: site-header` (see globals.css). Stays fixed
-            while page content slides underneath on nav-forward/nav-back. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:outline-none"
+      >
+        Skip to content
+      </a>
+      <div className="min-h-screen w-full overflow-x-clip bg-background">
         <header
-          className="sticky top-0 z-40 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8 lg:px-12"
+          className="site-header sticky top-0 z-40"
           style={{ viewTransitionName: 'site-header' }}
         >
-          <div className="glass-header glass-specular mx-auto flex h-14 w-full max-w-[1440px] items-center gap-3 rounded-full px-3 sm:h-16 sm:px-5 lg:px-6">
+          <div className="content-gutter flex h-14 items-center gap-4 sm:h-16 lg:gap-6">
             <Link
-              href={localeHref(locale, '/')}
-              className="group inline-flex shrink-0 items-center gap-2.5 rounded-full transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              href="/"
+              className="group inline-flex shrink-0 items-center gap-2.5 rounded-md transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Image
                 src="/favicon/icon.png"
@@ -35,14 +36,22 @@ export function Shell({ children }: { children: ReactNode }) {
                 haru<span className="text-primary">stream</span>
               </span>
             </Link>
-            <div className="ml-auto flex min-w-0 flex-1 justify-end sm:flex-none">
+
+            <NavLinks />
+
+            <div className="ml-auto hidden min-w-0 md:block md:w-full md:max-w-xs">
               <HeaderSearch />
             </div>
+            <Link
+              href="/search"
+              aria-label={'Search titles'}
+              className="ml-auto grid size-10 shrink-0 place-items-center rounded-md text-foreground transition-colors hover:bg-muted active:scale-95 md:hidden"
+            >
+              <Search className="size-5" aria-hidden="true" />
+            </Link>
           </div>
         </header>
-        {/* Lifted above the fixed ambient hero backdrop (z-0) so page
-            content always paints over the page-wide blur tint. */}
-        <main className="relative z-[1] mx-auto min-h-screen w-full max-w-[1480px] px-3 pb-28 sm:px-8 lg:px-12">
+        <main id="main-content" className="relative z-page min-h-dvh w-full pb-24 md:pb-0">
           {children}
         </main>
       </div>

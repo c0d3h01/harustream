@@ -1,25 +1,15 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { SPRING } from '@/components/motion/transitions';
-import { useT } from '@/lib/i18n';
 
 export function SearchBox({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const t = useT();
   const [query, setQuery] = useState(initialQuery);
-  // The query we last wrote to the URL ourselves. When the server echoes it
-  // back (initialQuery matches pushedRef) we MUST NOT copy it into state:
-  // echoing clobbers everything typed since the push — the "input freezes
-  // and undoes itself" bug. Only adopt values that arrived externally
-  // (back/forward navigation, header-search submits).
   const pushedRef = useRef(initialQuery);
 
-  // Adopt external URL changes only.
   useEffect(() => {
     if (initialQuery === pushedRef.current) return;
     pushedRef.current = initialQuery;
@@ -56,7 +46,7 @@ export function SearchBox({ initialQuery }: { initialQuery: string }) {
         className="relative"
       >
         <label htmlFor="title-search" className="sr-only">
-          {t('search.searchLabel')}
+          {'Search movies and series'}
         </label>
         <Search
           className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground"
@@ -67,30 +57,22 @@ export function SearchBox({ initialQuery }: { initialQuery: string }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t('search.searchPlaceholder')}
+          placeholder={'Search movies, shows, and anime'}
           autoComplete="off"
+          maxLength={200}
           enterKeyHint="search"
-          className="glass-input h-14 w-full rounded-2xl px-12 pr-12 text-base outline-none transition-all duration-200 placeholder:text-muted-foreground hover:border-[var(--glass-border-strong)] focus:border-primary focus:ring-2 focus:ring-primary/20 active:scale-[0.995] [&::-webkit-search-cancel-button]:hidden"
+          className="h-14 w-full rounded-lg border border-border bg-card pr-12 pl-12 text-base outline-none transition-all duration-200 placeholder:text-muted-foreground hover:border-input focus:border-input focus:ring-2 focus:ring-ring/25 [&::-webkit-search-cancel-button]:hidden"
         />
-        {/* Clear appears/disappears on typing — pop in/out, tap shrinks. */}
-        <AnimatePresence>
-          {query && (
-            <motion.button
-              key="clear"
-              type="button"
-              onClick={() => applyQuery('')}
-              aria-label={t('search.clearSearch')}
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.6 }}
-              whileTap={{ scale: 0.8 }}
-              transition={SPRING}
-              className="absolute top-1/2 right-3 grid size-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </motion.button>
-          )}
-        </AnimatePresence>
+        {query ? (
+          <button
+            type="button"
+            onClick={() => applyQuery('')}
+            aria-label={'Clear search'}
+            className="absolute top-1/2 right-3 grid size-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
       </form>
     </search>
   );

@@ -1,5 +1,4 @@
-import type { ButtonHTMLAttributes, ReactElement } from 'react';
-import { cloneElement, isValidElement } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -20,37 +19,33 @@ const sizes: Record<string, string> = {
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants;
   size?: keyof typeof sizes;
-  /** Polymorphic render target (e.g. Next Link); cloned with button props. */
-  render?: ReactElement;
-  /** View-transition types forwarded to the render target (e.g. Next Link). */
-  transitionTypes?: string[];
 }
 
-function Button({
-  className,
+function buttonClassName({
   variant = 'default',
   size = 'default',
-  render,
-  transitionTypes,
-  ...props
-}: ButtonProps) {
-  const merged = cn(
+  className,
+}: {
+  variant?: keyof typeof variants;
+  size?: keyof typeof sizes;
+  className?: string;
+} = {}): string {
+  return cn(
     "group/button inline-flex shrink-0 cursor-pointer items-center justify-center border border-transparent text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
     variants[variant],
     sizes[size],
     className,
   );
-  if (render) {
-    if (isValidElement(render)) {
-      return cloneElement(render, {
-        ...(render.props as object),
-        ...props,
-        ...(transitionTypes ? { transitionTypes } : null),
-        className: cn((render.props as { className?: string }).className, merged),
-      } as object);
-    }
-  }
-  return <button data-slot="button" className={merged} {...props} />;
 }
 
-export { Button };
+function Button({ className, variant = 'default', size = 'default', ...props }: ButtonProps) {
+  return (
+    <button
+      data-slot="button"
+      className={buttonClassName({ variant, size, className })}
+      {...props}
+    />
+  );
+}
+
+export { Button, buttonClassName };

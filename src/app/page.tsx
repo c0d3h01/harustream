@@ -45,13 +45,20 @@ async function HomeRails() {
   return <TmdbRails sections={sections} />;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 export default async function Home() {
   let slides: HeroSlide[] = [];
   try {
     const trending = await getRail('movie', 'trending');
     const top = trending.slice(0, 5);
     const details = await Promise.all(
-      top.map((entry) => getDetails('movie', entry.tmdbId).catch(() => null)),
+      top.map((entry) => withTimeout(getDetails('movie', entry.tmdbId), 1500).catch(() => null)),
     );
     slides = top.map((card, i) => ({ card, detail: details[i] ?? null }));
   } catch (error) {

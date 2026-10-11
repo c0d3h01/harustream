@@ -1,23 +1,6 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
-@custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -30,12 +13,15 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* Muted pastel accents — tags, badges, status chips (skill palette). */
+  --color-pastel-red: var(--pastel-red);
+  --color-pastel-red-fg: var(--pastel-red-fg);
+  --color-pastel-green: var(--pastel-green);
+  --color-pastel-green-fg: var(--pastel-green-fg);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -44,104 +30,74 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Geist — self-hosted via the geist package in [lang]/layout.tsx (exposed
-     as --font-geist-sans / --font-geist-mono). GeistSans is the app-wide
-     grotesk; GeistMono is reserved for accents (eyebrows, labels, meta). */
+  /* Z-index scale — player chrome layers above page, error above all. */
+  --z-index-page: 1;
+  --z-index-drawer: 70;
+  --z-index-controls: 90;
+  --z-index-scrubber: 95;
+  --z-index-chrome: 100;
+  --z-index-alert: 110;
+
+  /* Geist is loaded via next/font/google in layout.tsx (exposed as
+     --font-geist-sans / --font-geist-mono). Anton comes from next/font/google
+     as --font-anton — the fansub encode-cover display face: single weight,
+     condensed caps. Anton is reserved for encode titles (hero, page titles,
+     section headers); Geist is the body grotesk; Geist Mono for encode specs,
+     eyebrows, labels, meta. */
   --font-sans:
     var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --font-mono:
-    var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, Monaco, "Cascadia Mono",
-    monospace;
-  --font-heading: var(--font-sans);
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, "Cascadia Mono", monospace;
+  --font-heading: var(--font-anton);
 }
 
-/* Liquid glass — single dark translucent theme matching the dock. */
+/* Encoded monochrome — near-black viewing room, encode-gray surfaces, hairline
+   borders, one OSD-gold accent. Flattened encode world; the grain utility and
+   hero overlays carry the film surface. */
 :root {
   color-scheme: dark;
-  --radius: 1rem;
+  --radius: 0.625rem;
 
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.98 0 0);
+  /* Encode void — cool near-black, not pure #000. */
+  --background: #0b0c0f;
+  --foreground: #ececf1;
 
-  /* Solid dark base — Tailwind opacity modifiers (bg-card/40) need
-     an opaque starting color to produce visible translucent fills. */
-  --card: oklch(0.16 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.18 0 0);
-  --popover-foreground: oklch(0.98 0 0);
+  --card: #131417;
+  --card-foreground: #ececf1;
 
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.12 0 0);
+  /* OSD gold — the encode spec accent. Gold buttons take near-black ink. */
+  --primary: #e6b34c;
+  --primary-foreground: #0b0c0f;
 
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.65 0 0);
+  --secondary: #1c1e23;
+  --secondary-foreground: #d9dae0;
+  --muted: #17181d;
+  --muted-foreground: #8b8e98;
 
-  --accent: oklch(0.25 0 0);
-  --accent-foreground: oklch(0.98 0 0);
+  --accent: #1e2026;
+  --accent-foreground: #ececf1;
 
-  --destructive: oklch(0.65 0.2 25);
+  --destructive: #c0392f;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.98 0 0);
+  --border: #26282f;
+  --input: #2e3038;
+  --ring: #e6b34c;
 
-  --sidebar: oklch(0.14 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.98 0 0);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.98 0 0);
-
-  /* ── Liquid Glass · SINGLE SOURCE OF TRUTH ─────────────────────
-     Tweak ONLY these vars to retune glass app-wide. Every .glass-*
-     utility reads from here, so one edit propagates
-     to header island, dock, cards, chips, inputs, sheets, player, etc.
-     Matches the reference pill: dark translucent + heavy blur + hairline
-     + top highlight + deep soft shadow + saturation lift for the
-     "liquid" refraction feel. */
-  --glass-tint: var(--card);
-  --glass-opacity: 46%;
-  --glass-opacity-strong: 62%;
-  --glass-opacity-subtle: 25%;
-  --glass-opacity-chip: 20%;
-  --glass-blur: 40px;
-  --glass-blur-sm: 20px;
-  /* Fixed-chrome blur (header island + dock). This surface re-rasterizes on
-     EVERY scroll frame because page content slides under it — keep it low.
-     One knob: raise for richer frost, lower if scroll janks. */
-  --glass-blur-chrome: 24px;
-  --glass-blur-lg: 56px;
-  --glass-saturation: 165%;
-  --glass-border: oklch(1 0 0 / 14%);
-  --glass-border-strong: oklch(1 0 0 / 14%);
-  --glass-border-subtle: oklch(1 0 0 / 7%);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --glass-highlight-strong:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
-  --glass-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
-  --glass-shadow-lg: 0 24px 64px -16px rgba(0, 0, 0, 0.65), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
-  --glass-sheen: linear-gradient(
-    115deg,
-    rgba(255, 255, 255, 0.09) 0%,
-    rgba(255, 255, 255, 0.02) 28%,
-    transparent 45%
-  );
-  /* ── Hero signature palette ────────────────────────────────── */
-  --hero-bg: oklch(0.1 0.05 260);
-  --hero-primary: oklch(0.96 0.03 340);
-  --hero-accent: oklch(0.42 0.3 45);
-  --hero-foreground: oklch(0.94 0.02 260);
-  --hero-muted: oklch(0.5 0.08 260);
+  /* Encode chips — dark chip backgrounds with bright legible text on them.
+     Pair bg + fg tokens only (dark chip, bright label). */
+  --pastel-red: #2e1415;
+  --pastel-red-fg: #ff8a7e;
+  --pastel-green: #14241b;
+  --pastel-green-fg: #86e0a8;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   /* Remove the double-tap zoom delay on interactive elements. `manipulation`
      still allows panning and pinch-zoom, so scrollers are unaffected. */
@@ -154,6 +110,8 @@
   }
   html {
     background: var(--background);
+    max-width: 100%;
+    overflow-x: clip;
     /* No `scroll-behavior: smooth` by design: the only programmatic scroll
        (player episode list) passes `behavior: 'instant'` explicitly, and
        global smooth scrolling fights Next.js route-transition scroll
@@ -164,235 +122,109 @@
   }
   body {
     @apply bg-background text-foreground;
+    max-width: 100%;
+    overflow-x: clip;
     background-image:
       radial-gradient(
-        circle at 80% -10%,
-        color-mix(in oklch, var(--primary) 12%, transparent),
-        transparent 34rem
+        circle at 78% -10%,
+        color-mix(in oklch, var(--primary) 7%, transparent),
+        transparent 36rem
+      ),
+      radial-gradient(
+        circle at 8% 110%,
+        color-mix(in oklch, var(--primary) 4%, transparent),
+        transparent 28rem
       ),
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--background) 92%, var(--primary)),
-        var(--background) 28rem
+        color-mix(in oklch, var(--background) 97%, var(--primary)),
+        var(--background) 30rem
       );
-    /* The gradient scrolls with the content. `background-attachment: fixed`
-       is deliberately NOT used here: fixed backgrounds make Chrome/Android
-       re-rasterize the entire page background on every scroll frame, which
-       tanks frame rate. Scrolling the background as part of the body layer is
-       compositor-cheap and keeps the top-of-page glow we want. */
-    /* Disable the iOS tap flash without locking gestures. We deliberately
-       don't set overflow-x on the document: the rail scroller is the only
-       horizontal-scroll surface and it has its own overflow-x-auto. */
+    /* Background scrolls with content — fixed backgrounds re-rasterize on
+       every scroll frame in Chrome/Android, tanking frame rate. */
     -webkit-tap-highlight-color: transparent;
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 35%, transparent);
+    background: color-mix(in oklch, var(--primary) 14%, transparent);
     color: var(--foreground);
   }
-
-  /* ---------------------------------------------------------------
-     Hero scroll-linked parallax (Chrome/Edge only; graceful no-op
-     in Safari/Firefox — content renders without the scroll effect).
-     ---------------------------------------------------------------- */
-  @supports (animation-timeline: scroll()) {
-    .hero-root .hero-inner {
-      animation: hero-scroll-exit linear both;
-      animation-timeline: scroll();
-      animation-range: 0% 60%;
-    }
-    .hero-root .hero-backdrop {
-      animation: hero-backdrop-zoom linear both;
-      animation-timeline: scroll();
-      animation-range: 0% 60%;
-    }
-    @keyframes hero-scroll-exit {
-      to {
-        opacity: 0;
-        transform: translateY(-12%);
-      }
-    }
-    @keyframes hero-backdrop-zoom {
-      to {
-        transform: scale(1.12);
-      }
-    }
+  /* Global overflow guards — long titles/URLs must wrap, media must never
+     force a horizontal scrollbar. Page shells still own their gutters. */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .hero-root .hero-inner,
-    .hero-root .hero-backdrop {
-      animation: none;
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+  @supports not (overflow: clip) {
+    html,
+    body {
+      overflow-x: hidden;
     }
   }
 }
 
 @layer utilities {
-  /* ── Liquid Glass · two tiers, one token plane ───────────────────
-     LIVE (backdrop-filter): fixed chrome only — header island, dock,
-     floating panels, overlays, toasts, inputs. Bounded instance count,
-     out-of-flow, so per-frame backdrop cost stays flat on scroll.
-     STATIC (translucent fill, NO backdrop-filter): everything that
-     scrolls with the page — cards, chips, alerts, empty states. Static
-     fills never re-rasterize, so vertical scroll stays at 60fps.
-     Keep scrolling surfaces in the static tier. */
-
-  /* TrailerEmbed cover box — the YouTube API swaps the host div for an
-     iframe with fixed width/height attributes; force it to fill the
-     width-driven 16:9 geometry so the banner is perfectly covered. */
-  .trailer-frame > iframe {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    display: block;
-  }
-  /* Card hover tooltip mount pop (`motion-safe:animate-*` in the
-     component, so reduced-motion users never see it). */
-  @keyframes tooltip-in {
-    from {
-      opacity: 0;
-      transform: scale(0.96) translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  .glass {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
-    background-image: var(--glass-sheen);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
-    isolation: isolate;
-  }
-  .glass-strong {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-strong), transparent);
-    background-image: var(--glass-sheen);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-    border: 1px solid var(--glass-border-strong);
-    box-shadow: var(--glass-highlight-strong), var(--glass-shadow-lg);
-    isolation: isolate;
-  }
-  /* Semantic live aliases — header island + bottom dock. Same engine. */
-  .glass-header,
-  .glass-dock {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
-    background-image: var(--glass-sheen);
-    backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-saturation));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
-    isolation: isolate;
-  }
-  .glass-panel {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-strong), transparent);
-    backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturation));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight-strong), var(--glass-shadow-lg);
-    isolation: isolate;
-  }
-  .glass-overlay {
-    background: color-mix(in oklch, black 62%, transparent);
-    backdrop-filter: blur(var(--glass-blur-sm)) saturate(140%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(140%);
-    border: 1px solid var(--glass-border-subtle);
-    isolation: isolate;
-  }
-  .glass-input {
-    background: color-mix(in oklch, var(--glass-tint) 55%, transparent);
-    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
-    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturation));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight);
-  }
-  /* ── Static tier: scrolling content. No backdrop-filter by design. ── */
-  .glass-card {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity), transparent);
-    background-image: var(--glass-sheen);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
-  }
-  /* Lighter nested glass. */
-  .glass-subtle {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-subtle), transparent);
-    border: 1px solid var(--glass-border-subtle);
-    box-shadow: var(--glass-highlight);
-  }
-  .glass-chip {
-    background: color-mix(in oklch, var(--glass-tint) var(--glass-opacity-chip), transparent);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight);
-  }
-  .glass-interactive {
+  /* ── Hero slide content rise ───────────────────────────────────
+     TmdbHero toggles data-active on the current slide; inner content
+     rises in on activation, settles out on deactivation. */
+  .hero-slide .hero-content {
+    opacity: 0;
+    transform: translateY(16px);
     transition:
-      border-color 0.2s ease,
-      box-shadow 0.25s ease,
-      background-color 0.2s ease;
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .glass-interactive:hover {
-    border-color: var(--glass-border-strong);
+  .hero-slide[data-active="true"] .hero-content {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.12s;
   }
-  /* Specular edge — chrome only (header/dock). Needs position:relative for
-     the ::before ring; never apply to scrolling cards (extra layer each). */
-  .glass-specular {
-    position: relative;
-    isolation: isolate;
-  }
-  .glass-specular::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.22),
-      rgba(255, 255, 255, 0.03) 30%,
-      transparent 55%,
-      rgba(255, 255, 255, 0.06)
-    );
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-  /* Fallback: no backdrop-filter → live tier degrades to its static fill. */
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass,
-    .glass-strong,
-    .glass-header,
-    .glass-dock,
-    .glass-panel,
-    .glass-overlay,
-    .glass-input {
-      background-image: none;
+  @media (prefers-reduced-motion: reduce) {
+    .hero-slide .hero-content {
+      opacity: 1;
+      transform: none;
+      transition: none;
     }
+  }
+
+  /* ── Sticky site header (subtle navbar blur only — flattened to
+     hairline + solid tint under reduced-transparency). */
+  .site-header {
+    background: color-mix(in oklch, var(--background) 84%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
   }
   @media (prefers-reduced-transparency: reduce) {
-    .glass,
-    .glass-strong,
-    .glass-header,
-    .glass-dock,
-    .glass-card,
-    .glass-panel,
-    .glass-overlay,
-    .glass-input {
+    .site-header {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-      background: var(--glass-tint);
-      background-image: none;
+      background: var(--background);
     }
   }
+
+  /* ── Player video chrome ───────────────────────────────────────
+     The video viewport is always dark (video-overflow convention) even
+     on the light editorial surface; chrome floats over the picture. */
+  .video-chrome {
+    background: rgba(12, 12, 14, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .video-chrome {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(12, 12, 14, 0.92);
+    }
+  }
+
   /* Hide scrollbar inside horizontal rail scrollers. */
   .scrollbar-none {
     scrollbar-width: none;
@@ -400,6 +232,26 @@
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+  /* Full-screen content gutters — single source for side insets.
+     Heroes bleed to 100vw; every managed content block (rail headers,
+     detail sections, search/library grids) uses this so left edges
+     align down the whole page. */
+  .content-gutter {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1600px;
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .content-gutter {
+      padding-inline: 2.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .content-gutter {
+      padding-inline: 4rem;
+    }
   }
   /* Visible but thin scrollbar for lists that need scroll affordance */
   .scrollbar-thin {
@@ -422,48 +274,151 @@
     min-block-size: 44px;
     min-inline-size: 44px;
   }
-}
-
-@layer utilities {
   /* Optimization for horizontal scrolling rails */
   .contain-paint {
     contain: layout paint;
   }
+  /* Film grain — breaks digital flatness on hero backdrops. Static,
+     pointer-events-free, and cheap: a tiled SVG noise layer. */
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  /* Bottom-only artwork melt — banner picture stays fully clear; only the
+     bottom border dissolves into the page. Artwork layers only. */
+  .backdrop-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 62%, transparent);
+    mask-image: linear-gradient(to bottom, black 62%, transparent);
+  }
+}
 
-  /* Slow ambient drift for decorative glow orbs. */
-  .animate-orb {
-    animation: orb-drift 11s ease-in-out infinite;
-  }
-  @keyframes orb-drift {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    50% {
-      transform: translate3d(0, -16px, 0) scale(1.07);
-    }
-  }
+/* ── View transitions ──────────────────────────────────────────────
+   Class hooks for React <ViewTransition> (enter/exit/share names used
+   across pages: nav-forward/nav-back, slide-up/slide-down, fade-in/
+   fade-out, morph). Without these the browser falls back to a plain
+   cross-fade and directional slides never slide. */
+:root {
+  --duration-exit: 150ms;
+  --duration-enter: 210ms;
+  --duration-move: 400ms;
+}
 
-  /* Fade the far edges of a horizontal scroller so content "dips out". */
-  .mask-fade-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 1rem,
-      black calc(100% - 1rem),
-      transparent
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 1rem,
-      black calc(100% - 1rem),
-      transparent
-    );
+@keyframes vt-fade {
+  from {
+    opacity: 0;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .animate-orb {
-      animation: none;
-    }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vt-slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+@keyframes vt-slide-y {
+  from {
+    transform: translateY(var(--slide-y-offset, 10px));
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes vt-via-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+::view-transition-old(.fade-out) {
+  animation: var(--duration-exit) ease-in vt-fade reverse;
+}
+::view-transition-new(.fade-in) {
+  animation: var(--duration-enter) ease-out var(--duration-exit) both vt-fade;
+}
+
+::view-transition-old(.slide-down) {
+  animation:
+    var(--duration-exit) ease-out both vt-fade reverse,
+    var(--duration-exit) ease-out both vt-slide-y reverse;
+}
+::view-transition-new(.slide-up) {
+  animation:
+    var(--duration-enter) ease-in var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in both vt-slide-y;
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-exit) ease-in both vt-fade reverse,
+    var(--duration-move) ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in-out both vt-slide;
+}
+
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-exit) ease-in both vt-fade reverse,
+    var(--duration-move) ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in-out both vt-slide;
+}
+
+::view-transition-group(.morph) {
+  animation-duration: var(--duration-move);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: vt-via-blur;
+}
+
+/* Clicks pass through while snapshots animate. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Live root — unnamed content swaps instantly and stays interactive;
+   named/classed groups still animate above it. */
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* Persistent chrome — both use backdrop blur, so hide the old snapshot
+   to avoid a blur flash and freeze the new one in place. */
+::view-transition-old(site-header),
+::view-transition-old(site-dock) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-dock) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
