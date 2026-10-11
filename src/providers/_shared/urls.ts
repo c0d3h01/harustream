@@ -1,10 +1,9 @@
-import { providerName as softProviderName } from '../labels';
 import { providerUrls } from '../urls';
 
 /** Fail-loud name lookup: throws on registry mismatches instead of echoing the id. */
 export function providerName(providerId: string): string {
   if (!Object.hasOwn(providerUrls, providerId)) throw new Error(`Unknown provider: ${providerId}`);
-  return softProviderName(providerId);
+  return providerUrls[providerId].name;
 }
 
 export function providerBaseUrl(providerId: string): string {

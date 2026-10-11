@@ -1,21 +1,10 @@
+import { createHash } from 'node:crypto';
 import type { SubtitleFormat } from '@/lib/streaming/types';
 import type { RawEpisodeLink, RawInfo, RawPost, RawStream } from '@/providers/_shared';
-import type {
-  Episode,
-  Media,
-  MediaGroup,
-  MediaGroupItem,
-  SearchResult,
-  StreamFormat,
-} from '@/types';
+import type { Episode, Media, MediaGroup, SearchResult, StreamFormat } from '@/types/media';
 
 function stableId(value: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
 export function idFor(providerId: string, ref: string): string {
@@ -34,43 +23,28 @@ export function displayTitle(rawTitle: string): string {
   return title.replace(/\s{2,}/g, ' ').trim() || rawTitle.trim();
 }
 
-export function toSearchResult(
-  raw: RawPost,
-  providerId: string,
-  providerName: string,
-): SearchResult {
-  return {
-    id: idFor(providerId, raw.link),
+export function mapPosts(raw: RawPost[], providerId: string, providerName: string): SearchResult[] {
+  return raw.map((post) => ({
+    id: idFor(providerId, post.link),
     providerId,
     providerName,
-    title: raw.title,
-    displayTitle: displayTitle(raw.title),
-    posterUrl: raw.image || undefined,
-    ref: raw.link,
-  };
-}
-
-function groupItem(
-  providerId: string,
-  source: NonNullable<NonNullable<RawInfo['linkList']>[number]['directLinks']>[number],
-): MediaGroupItem {
-  return {
-    id: idFor(providerId, source.link),
-    label: source.title,
-    ref: source.link,
-    kind: source.type,
-    description: source.description,
-    thumbnailUrl: source.image,
-  };
+    title: post.title,
+    displayTitle: displayTitle(post.title),
+    posterUrl: post.image || undefined,
+    ref: post.link,
+  }));
 }
 
 export function toMedia(raw: RawInfo, providerId: string, ref: string): Media {
   const groups: MediaGroup[] = raw.linkList.map((link, index) => {
-    const items = (link.directLinks ?? []).map((source) => groupItem(providerId, source));
+    const items = (link.directLinks ?? []).map((source) => ({
+      id: idFor(providerId, source.link),
+      label: source.title,
+      ref: source.link,
+    }));
     return {
       id: `${idFor(providerId, ref)}:group:${index}`,
       label: link.title,
-      quality: link.quality || undefined,
       kind: link.episodesLink ? 'episodes' : 'direct',
       ref: link.episodesLink,
       items,
@@ -88,28 +62,15 @@ export function toMedia(raw: RawInfo, providerId: string, ref: string): Media {
     imdbId: raw.imdbId || undefined,
     rating: raw.rating || undefined,
     tags: raw.tags ?? [],
-    webUrl: raw.webUrl,
     groups,
   };
 }
 
-export function toEpisode(raw: RawEpisodeLink, providerId: string, season?: number): Episode {
-  const seasonNumber = raw.title.match(/\bS(?:eason)?\s*0*(\d+)/i)?.[1];
-  const episodeNumber = raw.title.match(/\bE(?:pisode|p)?\s*0*(\d+)/i)?.[1];
-  const fallbackNumber = raw.title.match(/(?:episode|ep|e)\s*\.?\s*(\d+)/i)?.[1];
-  const number = episodeNumber
-    ? Number(episodeNumber)
-    : fallbackNumber
-      ? Number(fallbackNumber)
-      : undefined;
+export function toEpisode(raw: RawEpisodeLink, providerId: string): Episode {
   return {
     id: idFor(providerId, raw.link),
     title: raw.title,
-    season: seasonNumber ? Number(seasonNumber) : season,
-    number,
     ref: raw.link,
-    description: raw.description,
-    thumbnailUrl: raw.image,
     skip: raw.skip,
   };
 }
@@ -132,9 +93,7 @@ function subtitleFormat(type: SubtitleFormat | string): SubtitleFormat {
   return 'vtt';
 }
 
-/** A subtitle track before its proxy href is minted (Node-only step, done
- *  in services/sources.ts where the signing secret lives). */
-export interface RawSubtitleTrack {
+interface RawSubtitleTrack {
   id: string;
   label: string;
   language: string;
@@ -142,39 +101,18 @@ export interface RawSubtitleTrack {
   upstreamUrl: string;
 }
 
-/** A stream variant before its proxy href is minted. Carries the raw
- *  upstream URL server-side only — normalize.ts never builds a client-
- *  facing href, that's `services/sources.ts`'s job once it has the token
- *  secret available. */
 export interface RawVariant {
-  mediaId: string;
   providerId: string;
   variantId: string;
   format: StreamFormat;
   quality?: string;
   label: string;
-  headers?: Record<string, string>;
   skip?: RawStream['skip'];
   upstreamUrl: string;
   subtitles: RawSubtitleTrack[];
 }
 
-// Provider CDNs don't just re-sign the query string on every resolution —
-// several (vega's hubcloud/filepress, anikoto's vidtube/megaplay) mint a
-// fresh session token INSIDE the URL path itself. There is no query/path
-// split that survives that across providers, so URL-based identity is
-// fundamentally unsound: `variantId` must come from what the provider
-// declares about a stream (format + quality + server label), not from its
-// URL. This is naturally stable across re-scrapes as long as the
-// provider's own server list is unchanged; `orderVariants` disambiguates
-// same-label duplicates within one list via their stable sort position. It
-// does not need a providerId prefix — `providerId` is carried as its own
-// field on `RawVariant`/`StreamVariant`.
-function variantIdFor(format: StreamFormat, quality: string | undefined, server: string): string {
-  return stableId(`${format}:${quality ?? ''}:${server.trim().toLowerCase()}`);
-}
-
-export function toRawVariant(raw: RawStream, providerId: string, mediaId: string): RawVariant {
+export function toRawVariant(raw: RawStream, providerId: string): RawVariant {
   const subtitles: RawSubtitleTrack[] = (raw.subtitles ?? []).map((subtitle) => ({
     id: idFor(providerId, subtitle.uri),
     label: subtitle.title,
@@ -184,15 +122,13 @@ export function toRawVariant(raw: RawStream, providerId: string, mediaId: string
   }));
   const format = formatOf(raw.type, raw.link);
   return {
-    mediaId,
     providerId,
-    variantId: variantIdFor(format, raw.quality, raw.server),
+    variantId: stableId(`${format}:${raw.quality ?? ''}:${raw.server.trim().toLowerCase()}`),
     label: raw.server,
     format,
     quality: raw.quality,
-    headers: raw.headers,
-    subtitles,
     skip: raw.skip,
+    subtitles,
     upstreamUrl: raw.link,
   };
 }
@@ -200,18 +136,11 @@ export function toRawVariant(raw: RawStream, providerId: string, mediaId: string
 export function orderVariants(variants: RawVariant[]): RawVariant[] {
   const rank = (format: StreamFormat): number => (format === 'hls' ? 0 : format === 'mpd' ? 1 : 2);
   const sorted = [...variants].sort((left, right) => {
-    // Adaptive formats lead: one manifest covers all renditions, so first
-    // paint and failover stay on a single proxied URL.
     if (rank(left.format) !== rank(right.format)) return rank(left.format) - rank(right.format);
     return (
       (Number(right.quality?.replace('p', '')) || 0) - (Number(left.quality?.replace('p', '')) || 0)
     );
   });
-  // variantIds collide when a provider lists two options under the same
-  // label/quality/format (e.g. Torrentio's shared 'Torrentio' server name).
-  // Disambiguate by this stable sort position — deterministic because Array
-  // sort is stable and the provider's own emission order doesn't change
-  // between resolutions of the same content.
   const seen = new Map<string, number>();
   return sorted.map((variant) => {
     const occurrence = seen.get(variant.variantId) ?? 0;

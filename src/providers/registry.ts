@@ -1,9 +1,8 @@
 import { AppError } from '@/lib/errors';
 import type { ProviderModule } from './_shared';
 import { anikoto } from './anikoto';
-import { providerOrder } from './labels';
 import { movieBoxWeb } from './movieBoxWeb';
-import { providerUrls } from './urls';
+import { providerOrder, providerUrls } from './urls';
 
 const providerModules: Record<string, ProviderModule> = {
   movieBoxWeb,
