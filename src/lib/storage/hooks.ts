@@ -6,12 +6,12 @@ import {
   DEFAULT_LIBRARY,
   DEFAULT_PROGRESS,
   DEFAULT_SETTINGS,
-  librarySchema,
-  progressSchema,
+  parseLibrary,
+  parseProgress,
+  parseSettings,
   readStorage,
   type StoredProgressEntry,
   type StoredSettings,
-  settingsSchema,
   storageKey,
   type TmdbContext,
   writeStorage,
@@ -19,7 +19,7 @@ import {
 
 function useStoredValue<T>(
   key: string,
-  schema: Parameters<typeof readStorage<T>>[1],
+  schema: (raw: unknown) => T | null,
   fallback: T,
 ): [T, (next: T | ((current: T) => T)) => void] {
   const [value, setValue] = useState(fallback);
@@ -47,7 +47,7 @@ function useStoredValue<T>(
 export function useSettings() {
   const [settings, setSettings] = useStoredValue(
     storageKey('settings'),
-    settingsSchema,
+    parseSettings,
     DEFAULT_SETTINGS,
   );
   const update = useCallback(
@@ -61,7 +61,7 @@ export function useSettings() {
 export function useLibrary(scope?: string) {
   const [stored, setStored] = useStoredValue(
     storageKey('library', scope),
-    librarySchema,
+    parseLibrary,
     DEFAULT_LIBRARY,
   );
   const items = stored.items;
@@ -106,7 +106,7 @@ function progressKey(providerId: string, ref: string, episodeRef: string): strin
 export function useProgress(scope?: string) {
   const [stored, setStored] = useStoredValue(
     storageKey('progress', scope),
-    progressSchema,
+    parseProgress,
     DEFAULT_PROGRESS,
   );
   const get = useCallback(

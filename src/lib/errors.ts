@@ -10,26 +10,15 @@ export type ErrorCode =
   | 'UPSTREAM'
   | 'CONFIG';
 
-const statusByCode: Record<ErrorCode, number> = {
-  BAD_REQUEST: 400,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  PROVIDER_ERROR: 502,
-  PROVIDER_TIMEOUT: 504,
-  INVALID_RESPONSE: 502,
-  UPSTREAM: 502,
-  CONFIG: 500,
-};
-
-const safeMessageByCode: Record<ErrorCode, string> = {
-  BAD_REQUEST: 'Invalid request',
-  FORBIDDEN: 'Request not allowed',
-  NOT_FOUND: 'Resource not found',
-  PROVIDER_ERROR: 'Provider unavailable',
-  PROVIDER_TIMEOUT: 'Provider request timed out',
-  INVALID_RESPONSE: 'Provider returned invalid data',
-  UPSTREAM: 'Upstream service unavailable',
-  CONFIG: 'Server configuration error',
+const errorMeta: Record<ErrorCode, { status: number; message: string }> = {
+  BAD_REQUEST: { status: 400, message: 'Invalid request' },
+  FORBIDDEN: { status: 403, message: 'Request not allowed' },
+  NOT_FOUND: { status: 404, message: 'Resource not found' },
+  PROVIDER_ERROR: { status: 502, message: 'Provider unavailable' },
+  PROVIDER_TIMEOUT: { status: 504, message: 'Provider request timed out' },
+  INVALID_RESPONSE: { status: 502, message: 'Provider returned invalid data' },
+  UPSTREAM: { status: 502, message: 'Upstream service unavailable' },
+  CONFIG: { status: 500, message: 'Server configuration error' },
 };
 
 const errorLogger = scopeLogger('errors');
@@ -48,7 +37,7 @@ export class AppError extends Error {
     super(message);
     this.name = 'AppError';
     this.code = code;
-    this.status = options.status ?? statusByCode[code];
+    this.status = options.status ?? errorMeta[code].status;
     this.provider = options.provider;
     this.cause = options.cause;
   }
@@ -67,13 +56,6 @@ export class ProviderTimeoutError extends AppError {
       provider,
     });
     this.name = 'ProviderTimeoutError';
-  }
-}
-
-export class ProviderUnsupportedError extends AppError {
-  constructor(message: string) {
-    super('PROVIDER_ERROR', message);
-    this.name = 'ProviderUnsupportedError';
   }
 }
 
@@ -99,7 +81,7 @@ export function errorResponseBody(error: unknown, requestId: string) {
     'API request failed',
   );
   return {
-    error: safeMessageByCode[appError.code],
+    error: errorMeta[appError.code].message,
     code: appError.code,
     requestId,
   };

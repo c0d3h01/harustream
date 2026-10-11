@@ -1,89 +1,180 @@
-import { z } from 'zod';
-import type { SearchResult } from '@/types';
+const STORAGE_VERSION = 1;
+const STORAGE_NAMESPACE = 'harustream';
 
-export const STORAGE_VERSION = 1;
-export const STORAGE_NAMESPACE = 'harustream';
+export interface TmdbContext {
+  tmdbKind?: 'movie' | 'tv';
+  tmdbId?: number;
+  tmdbTitle?: string;
+  tmdbPoster?: string;
+}
 
-export const VALID_THEMES = ['glass'] as const;
-export type ValidTheme = (typeof VALID_THEMES)[number];
-export const DEFAULT_THEME: ValidTheme = 'glass';
+export interface StoredSettings {
+  version: 1;
+  autoAdvance: boolean;
+  provider?: string;
+}
 
-export const settingsSchema = z.object({
-  version: z.literal(STORAGE_VERSION),
-  defaultPlaybackRate: z.number().finite(),
-  autoAdvance: z.boolean(),
-  excludedQualities: z.array(z.string()),
-  provider: z.string(),
-  theme: z.enum(VALID_THEMES),
-});
+export interface LibraryItem extends TmdbContext {
+  id: string;
+  providerId: string;
+  providerName: string;
+  title: string;
+  displayTitle: string;
+  posterUrl?: string;
+  ref: string;
+}
 
-/** Optional TMDB context so TMDB-sourced saves keep their artwork and can
- *  link back to TMDB detail even when the playback provider changes. */
-export const tmdbContextSchema = z.object({
-  tmdbKind: z.enum(['movie', 'tv']).optional(),
-  tmdbId: z.number().int().positive().optional(),
-  tmdbTitle: z.string().optional(),
-  tmdbPoster: z.string().optional(),
-});
+interface StoredLibrary {
+  version: 1;
+  items: LibraryItem[];
+}
 
-export type TmdbContext = z.infer<typeof tmdbContextSchema>;
+export interface StoredProgressEntry extends TmdbContext {
+  position: number;
+  duration: number;
+  updatedAt: number;
+  title?: string;
+  poster?: string;
+  type?: string;
+  episodeTitle?: string;
+  provider: string;
+}
 
-export const libraryItemSchema = z.object({
-  id: z.string(),
-  providerId: z.string(),
-  providerName: z.string(),
-  title: z.string(),
-  displayTitle: z.string(),
-  posterUrl: z.string().optional(),
-  ref: z.string(),
-  tmdbKind: z.enum(['movie', 'tv']).optional(),
-  tmdbId: z.number().int().positive().optional(),
-  tmdbTitle: z.string().optional(),
-  tmdbPoster: z.string().optional(),
-});
+interface StoredProgress {
+  version: 1;
+  entries: Record<string, StoredProgressEntry>;
+}
 
-export const librarySchema = z.object({
-  version: z.literal(STORAGE_VERSION),
-  items: z.array(libraryItemSchema),
-});
+function isRecord(raw: unknown): raw is Record<string, unknown> {
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+}
 
-export const progressEntrySchema = z.object({
-  position: z.number().finite().nonnegative(),
-  duration: z.number().finite().positive(),
-  updatedAt: z.number().int().positive(),
-  title: z.string().optional(),
-  poster: z.string().optional(),
-  type: z.string().optional(),
-  episodeTitle: z.string().optional(),
-  provider: z.string().optional(),
-  tmdbKind: z.enum(['movie', 'tv']).optional(),
-  tmdbId: z.number().int().positive().optional(),
-  tmdbTitle: z.string().optional(),
-  tmdbPoster: z.string().optional(),
-});
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
 
-export const progressSchema = z.object({
-  version: z.literal(STORAGE_VERSION),
-  entries: z.record(progressEntrySchema),
-});
+function parseTmdbContext(raw: Record<string, unknown>): TmdbContext | null {
+  const { tmdbKind, tmdbId, tmdbTitle, tmdbPoster } = raw;
+  if (tmdbKind !== undefined && tmdbKind !== 'movie' && tmdbKind !== 'tv') {
+    return null;
+  }
+  if (
+    tmdbId !== undefined &&
+    (typeof tmdbId !== 'number' || !Number.isInteger(tmdbId) || tmdbId <= 0)
+  ) {
+    return null;
+  }
+  if (!isOptionalString(tmdbTitle) || !isOptionalString(tmdbPoster)) {
+    return null;
+  }
+  const out: TmdbContext = {};
+  if (tmdbKind === 'movie' || tmdbKind === 'tv') out.tmdbKind = tmdbKind;
+  if (typeof tmdbId === 'number') out.tmdbId = tmdbId;
+  if (typeof tmdbTitle === 'string') out.tmdbTitle = tmdbTitle;
+  if (typeof tmdbPoster === 'string') out.tmdbPoster = tmdbPoster;
+  return out;
+}
 
-export type StoredProgressEntry = z.infer<typeof progressEntrySchema>;
-export type StoredSettings = z.infer<typeof settingsSchema>;
-export type StoredLibrary = z.infer<typeof librarySchema>;
-export type StoredProgress = z.infer<typeof progressSchema>;
-export type LibraryMedia = Pick<
-  SearchResult,
-  'id' | 'providerId' | 'providerName' | 'title' | 'posterUrl' | 'ref'
-> &
-  TmdbContext;
+export function parseSettings(raw: unknown): StoredSettings | null {
+  if (!isRecord(raw)) return null;
+  if (raw.version !== STORAGE_VERSION) return null;
+  if (typeof raw.autoAdvance !== 'boolean') return null;
+  if (!isOptionalString(raw.provider)) return null;
+  const out: StoredSettings = { version: STORAGE_VERSION, autoAdvance: raw.autoAdvance };
+  if (typeof raw.provider === 'string') out.provider = raw.provider;
+  return out;
+}
+
+function parseLibraryItem(raw: unknown): LibraryItem | null {
+  if (!isRecord(raw)) return null;
+  const { id, providerId, providerName, title, displayTitle, posterUrl, ref } = raw;
+  if (
+    typeof id !== 'string' ||
+    typeof providerId !== 'string' ||
+    typeof providerName !== 'string' ||
+    typeof title !== 'string' ||
+    typeof displayTitle !== 'string' ||
+    typeof ref !== 'string'
+  ) {
+    return null;
+  }
+  if (!isOptionalString(posterUrl)) return null;
+  const tmdb = parseTmdbContext(raw);
+  if (!tmdb) return null;
+  const out: LibraryItem = {
+    id,
+    providerId,
+    providerName,
+    title,
+    displayTitle,
+    ref,
+    ...tmdb,
+  };
+  if (typeof posterUrl === 'string') out.posterUrl = posterUrl;
+  return out;
+}
+
+export function parseLibrary(raw: unknown): StoredLibrary | null {
+  if (!isRecord(raw)) return null;
+  if (raw.version !== STORAGE_VERSION) return null;
+  if (!Array.isArray(raw.items)) return null;
+  const items: LibraryItem[] = [];
+  for (const entry of raw.items) {
+    const parsed = parseLibraryItem(entry);
+    if (!parsed) return null;
+    items.push(parsed);
+  }
+  return { version: STORAGE_VERSION, items };
+}
+
+function parseProgressEntry(raw: unknown): StoredProgressEntry | null {
+  if (!isRecord(raw)) return null;
+  const { position, duration, updatedAt, title, poster, type, episodeTitle, provider } = raw;
+  if (typeof position !== 'number' || !Number.isFinite(position) || position < 0) return null;
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) return null;
+  if (typeof updatedAt !== 'number' || !Number.isInteger(updatedAt) || updatedAt <= 0) return null;
+  if (typeof provider !== 'string' || provider.length < 1) return null;
+  if (
+    !isOptionalString(title) ||
+    !isOptionalString(poster) ||
+    !isOptionalString(type) ||
+    !isOptionalString(episodeTitle)
+  ) {
+    return null;
+  }
+  const tmdb = parseTmdbContext(raw);
+  if (!tmdb) return null;
+  const out: StoredProgressEntry = {
+    ...tmdb,
+    position,
+    duration,
+    updatedAt,
+    provider,
+  };
+  if (typeof title === 'string') out.title = title;
+  if (typeof poster === 'string') out.poster = poster;
+  if (typeof type === 'string') out.type = type;
+  if (typeof episodeTitle === 'string') out.episodeTitle = episodeTitle;
+  return out;
+}
+
+export function parseProgress(raw: unknown): StoredProgress | null {
+  if (!isRecord(raw)) return null;
+  if (raw.version !== STORAGE_VERSION) return null;
+  if (!isRecord(raw.entries)) return null;
+  const entries: Record<string, StoredProgressEntry> = {};
+  for (const [key, value] of Object.entries(raw.entries)) {
+    const parsed = parseProgressEntry(value);
+    if (!parsed) return null;
+    entries[key] = parsed;
+  }
+  return { version: STORAGE_VERSION, entries };
+}
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   version: STORAGE_VERSION,
-  defaultPlaybackRate: 1,
   autoAdvance: true,
-  excludedQualities: [],
-  provider: 'movieBoxWeb',
-  theme: DEFAULT_THEME,
+  provider: undefined,
 };
 export const DEFAULT_LIBRARY: StoredLibrary = { version: STORAGE_VERSION, items: [] };
 export const DEFAULT_PROGRESS: StoredProgress = { version: STORAGE_VERSION, entries: {} };
@@ -94,7 +185,7 @@ export function storageKey(kind: string, scope?: string): string {
 
 export function readStorage<T>(
   key: string,
-  schema: z.ZodType<T>,
+  parse: (raw: unknown) => T | null,
   fallback: T,
   storage: Storage | undefined = typeof window === 'undefined' ? undefined : window.localStorage,
 ): T {
@@ -102,7 +193,7 @@ export function readStorage<T>(
   try {
     const raw = storage.getItem(key);
     if (!raw) return fallback;
-    return schema.parse(JSON.parse(raw));
+    return parse(JSON.parse(raw)) ?? fallback;
   } catch {
     return fallback;
   }
@@ -115,7 +206,5 @@ export function writeStorage<T>(
 ): void {
   try {
     storage?.setItem(key, JSON.stringify(value));
-  } catch {
-    // Persistence is best effort when browser storage is unavailable.
-  }
+  } catch {}
 }

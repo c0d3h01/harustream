@@ -1,7 +1,3 @@
-// Subtitle format conversion. Browsers only render WebVTT natively, so
-// anything a provider serves as SRT or TTML is converted at the proxy
-// boundary before it reaches the <video> element's <track>.
-
 function ttmlTime(value: string): number {
   const parts = value.trim().split(':').map(Number);
   if (parts.some((part) => !Number.isFinite(part))) return 0;
