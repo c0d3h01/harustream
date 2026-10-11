@@ -1,12 +1,9 @@
-'use client';
+import { useId } from 'react';
 
-import { useId, ViewTransition } from 'react';
-
-import { RailScroller } from '@/components/ui/rail';
-import { SectionHeader } from '@/components/ui/SectionHeader';
-import { useT } from '@/lib/i18n';
+import { MediaCard } from '@/components/ui/MediaCard';
+import { tmdbPath } from '@/lib/routes';
 import type { TmdbCard } from '@/tmdb/catalog';
-import { TmdbMediaCard } from './TmdbMediaCard';
+import { tmdbImageUrl } from '@/tmdb/images';
 
 export interface TmdbSection {
   key: string;
@@ -15,48 +12,61 @@ export interface TmdbSection {
   items: TmdbCard[];
 }
 
-/** TMDB rails — same list-identity pattern as the catalog rails: bare outer
- *  VT per card glides on updates, inner poster morph is first-occurrence-wins
- *  across every section (trending + popular can overlap). */
 export function TmdbRails({ sections }: { sections: TmdbSection[] }) {
   const baseId = useId();
-  const t = useT();
-  const seen = new Set<string>();
   return (
-    <div className="home-rails mt-10 flex flex-col gap-16 sm:mt-14 sm:gap-20">
+    <div className="home-rails mt-10 flex min-w-0 flex-col gap-16 sm:mt-14 sm:gap-20">
       {sections.map((section, sectionIndex) => {
         const headingId = `${baseId}-tmdb-${sectionIndex}`;
         if (section.items.length === 0) return null;
         return (
-          <section key={section.key} aria-labelledby={headingId}>
-            <SectionHeader
-              eyebrow={section.eyebrow}
-              heading={section.heading}
-              headingId={headingId}
-              trailing={
+          <section key={section.key} aria-labelledby={headingId} className="min-w-0 scroll-mt-20">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                {section.eyebrow ? (
+                  <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.22em] text-muted-foreground uppercase">
+                    {section.eyebrow}
+                  </p>
+                ) : null}
+                <h2
+                  id={headingId}
+                  className="font-heading text-[1.75rem] leading-tight tracking-[-0.01em] text-balance"
+                >
+                  {section.heading}
+                </h2>
+              </div>
+              <div className="shrink-0">
                 <span className="pb-0.5 text-xs text-muted-foreground">
-                  {t('home.titlesCount', { count: section.items.length })}
+                  {`${section.items.length} titles`}
                 </span>
-              }
-            />
-            <RailScroller>
+              </div>
+            </div>
+            <div className="scrollbar-none flex min-w-0 snap-x snap-proximity gap-3 overflow-x-auto px-0.5 py-1 sm:gap-4 contain-paint [content-visibility:auto] [contain-intrinsic-size:auto_250px]">
               {section.items.map((item, index) => {
                 const dedupeKey = `${item.kind}:${item.tmdbId}`;
-                const firstSeen = !seen.has(dedupeKey);
-                seen.add(dedupeKey);
                 return (
-                  <ViewTransition key={dedupeKey}>
-                    <div data-rail-card className="w-34.5 shrink-0 snap-start sm:w-44 lg:w-50.5">
-                      <TmdbMediaCard
-                        card={item}
-                        priority={sectionIndex === 0 && index < 4}
-                        sharePoster={firstSeen}
-                      />
-                    </div>
-                  </ViewTransition>
+                  <div
+                    key={dedupeKey}
+                    data-rail-card
+                    className="w-35 shrink-0 snap-start sm:w-44 lg:w-50.5"
+                  >
+                    <MediaCard
+                      card={{
+                        key: dedupeKey,
+                        title: item.title,
+                        href: tmdbPath(item.kind, item.tmdbId),
+                        posterUrl: item.posterPath
+                          ? tmdbImageUrl(item.posterPath, 'w342')
+                          : undefined,
+                        year: item.year,
+                        rating: item.rating,
+                      }}
+                      priority={sectionIndex === 0 && index < 4}
+                    />
+                  </div>
                 );
               })}
-            </RailScroller>
+            </div>
           </section>
         );
       })}

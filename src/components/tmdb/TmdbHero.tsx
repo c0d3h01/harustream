@@ -4,21 +4,15 @@ import { Calendar, Check, Plus, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { encodeBase64Url } from '@/lib/base64url';
+import { buttonClassName } from '@/components/ui/button';
+import { imgUrl } from '@/lib/media';
 import { tmdbPath } from '@/lib/routes';
 import { useLibrary } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import type { TmdbCard, TmdbDetail } from '@/tmdb/catalog';
 import { tmdbImageUrl } from '@/tmdb/images';
+import { SourcePicker } from '../sources/SourcePicker';
 import { tmdbSaveItem } from './saveItem';
-import { TmdbSourcePicker } from './TmdbSourcePicker';
-
-function imgUrl(src: string | null | undefined): string {
-  if (!src) return '';
-  if (src.startsWith('/')) return src;
-  return `/api/image/${encodeBase64Url(src)}`;
-}
 
 export interface HeroSlide {
   card: TmdbCard;
@@ -82,6 +76,7 @@ export function TmdbHero({ slides }: TmdbHeroProps) {
             src={imgUrl(tmdbImageUrl(active.card.backdropPath, 'w780') ?? active.card.backdropPath)}
             alt=""
             fill
+            priority
             sizes="100vw"
             className="scale-125 object-cover opacity-40 blur-[90px] saturate-[1.3]"
           />
@@ -214,21 +209,23 @@ function HeroSlideView({
             </p>
           )}
 
-          <div className="hero-ctas mt-7 flex flex-wrap items-center gap-3">
-            <TmdbSourcePicker
-              kind={card.kind}
-              tmdbId={card.tmdbId}
-              title={card.title}
-              originalTitle={card.originalTitle}
-              year={card.year}
-              fallbackPosterUrl={
-                card.posterPath ? tmdbImageUrl(card.posterPath, 'w342') : undefined
-              }
-              presentation="popover"
-            />
-            <HeroSaveButton card={card} />
-            <HeroMoreInfo card={card} />
-          </div>
+          {active ? (
+            <div className="hero-ctas mt-7 flex flex-wrap items-center gap-3">
+              <SourcePicker
+                kind={card.kind}
+                tmdbId={card.tmdbId}
+                title={card.title}
+                originalTitle={card.originalTitle}
+                year={card.year}
+                fallbackPosterUrl={
+                  card.posterPath ? tmdbImageUrl(card.posterPath, 'w342') : undefined
+                }
+                presentation="popover"
+              />
+              <HeroSaveButton card={card} />
+              <HeroMoreInfo card={card} />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -271,13 +268,16 @@ function HeroEyebrow() {
 
 function HeroMoreInfo({ card }: { card: TmdbCard }) {
   return (
-    <Button
-      render={<Link href={tmdbPath(card.kind, card.tmdbId)} />}
+    <Link
+      href={tmdbPath(card.kind, card.tmdbId)}
       transitionTypes={['nav-forward']}
-      variant="outline"
-      className="h-12 gap-2.5 rounded-lg bg-background/75 px-6 text-[0.95rem] font-semibold backdrop-blur-sm"
+      className={buttonClassName({
+        variant: 'outline',
+        className:
+          'h-12 gap-2.5 rounded-lg bg-background/75 px-6 text-[0.95rem] font-semibold backdrop-blur-sm',
+      })}
     >
       {'More info'}
-    </Button>
+    </Link>
   );
 }
