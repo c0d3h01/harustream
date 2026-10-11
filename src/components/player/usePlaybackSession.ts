@@ -1,198 +1,306 @@
 'use client';
 
-// Orchestrates episode + variant resolution for one watch session. There is
-// no automatic source queue here — the previous implementation's
-// `SourceQueue` kept a module-level, cross-user "failed sources" map and
-// silently advanced to the next provider/quality on error. Both are gone:
-// `failedVariantIds` is component-instance state (one playback session,
-// never shared), and it only ever informs the SourceSelector's UI — nothing
-// reads it to pick a variant automatically. Switching is always the user
-// clicking a row in the SourceSelector.
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { episodes as fetchEpisodes, sources as fetchSources } from '@/lib/api/client';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { useProgress, useSettings } from '@/lib/storage';
-import type { Episode, Media, StreamVariant } from '@/types';
-import type { PlayerErrorInfo } from './types';
+import type { StreamVariant } from '@/lib/streaming/types';
+import type { Episode, Media } from '@/types/media';
 
-export interface PlaybackSession {
-  activeEpisode: Episode | undefined;
-  variant: StreamVariant | undefined;
-  episodes: Episode[];
-  allVariants: readonly StreamVariant[];
-  failedVariantIds: ReadonlySet<string>;
+interface PlaybackProgress {
+  get: (ref: string, episodeRef?: string) => { position: number; duration: number } | undefined;
+  save: (ref: string, episodeRef: string, position: number, duration: number) => void;
+}
+
+interface PlaybackSession {
   loading: boolean;
   error: string | null;
-  progress: ReturnType<typeof useProgress>;
-  variantFailed: (variantId: string, error: PlayerErrorInfo) => void;
-  ended: () => void;
+  variant: StreamVariant | null;
+  allVariants: StreamVariant[];
+  failedVariantIds: Set<string>;
+  activeEpisode: Episode | null;
+  episodes: Episode[];
+  progress: PlaybackProgress;
   retry: () => void;
   selectEpisode: (episode: Episode) => void;
   selectVariant: (variantId: string) => void;
+  variantFailed: (variantId: string) => void;
+  ended: () => void;
+}
+
+type SessionAction =
+  | { type: 'load-start' }
+  | { type: 'load-episodes'; episodes: Episode[]; activeRef?: string }
+  | { type: 'load-variants'; variants: StreamVariant[] }
+  | { type: 'load-error'; message: string }
+  | { type: 'select-episode'; episode: Episode }
+  | { type: 'select-variant'; variantId: string }
+  | { type: 'variant-failed'; variantId: string }
+  | { type: 'retry' };
+
+interface SessionState {
+  loading: boolean;
+  error: string | null;
+  episodes: Episode[];
+  activeEpisode: Episode | null;
+  allVariants: StreamVariant[];
+  failedVariantIds: Set<string>;
+  selectedVariantId: string | null;
+  generation: number;
+}
+
+function initialState(): SessionState {
+  return {
+    loading: true,
+    error: null,
+    episodes: [],
+    activeEpisode: null,
+    allVariants: [],
+    failedVariantIds: new Set(),
+    selectedVariantId: null,
+    generation: 0,
+  };
+}
+
+function pickVariant(state: SessionState): StreamVariant | null {
+  if (state.selectedVariantId) {
+    const found = state.allVariants.find((v) => v.variantId === state.selectedVariantId);
+    if (found && !state.failedVariantIds.has(found.variantId)) return found;
+  }
+  return state.allVariants.find((v) => !state.failedVariantIds.has(v.variantId)) ?? null;
+}
+
+function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+  switch (action.type) {
+    case 'load-start':
+      return { ...state, loading: true, error: null };
+    case 'load-episodes': {
+      const activeEpisode = action.activeRef
+        ? (action.episodes.find((ep) => ep.ref === action.activeRef) ?? action.episodes[0] ?? null)
+        : (action.episodes[0] ?? null);
+      return { ...state, episodes: action.episodes, activeEpisode };
+    }
+    case 'load-variants':
+      return {
+        ...state,
+        loading: false,
+        allVariants: action.variants,
+        failedVariantIds: new Set(),
+        selectedVariantId: null,
+      };
+    case 'load-error':
+      return { ...state, loading: false, error: action.message };
+    case 'select-episode':
+      return {
+        ...state,
+        activeEpisode: action.episode,
+        loading: true,
+        error: null,
+        allVariants: [],
+        failedVariantIds: new Set(),
+        selectedVariantId: null,
+        generation: state.generation + 1,
+      };
+    case 'select-variant':
+      return { ...state, selectedVariantId: action.variantId };
+    case 'variant-failed':
+      return {
+        ...state,
+        failedVariantIds: new Set([...state.failedVariantIds, action.variantId]),
+      };
+    case 'retry':
+      return {
+        ...state,
+        loading: true,
+        error: null,
+        failedVariantIds: new Set(),
+        selectedVariantId: null,
+        generation: state.generation + 1,
+      };
+    default:
+      return state;
+  }
+}
+
+async function fetchEpisodes(item: Media, signal: AbortSignal): Promise<Episode[]> {
+  const response = await fetch(
+    `/api/episodes?provider=${encodeURIComponent(item.providerId)}&ref=${encodeURIComponent(item.ref)}`,
+    { signal },
+  );
+  if (!response.ok) throw new Error('Failed to load episodes');
+  return response.json();
+}
+
+async function fetchVariants(
+  providerId: string,
+  ref: string,
+  kind: string,
+  signal: AbortSignal,
+): Promise<StreamVariant[]> {
+  const response = await fetch(
+    `/api/sources?provider=${encodeURIComponent(providerId)}&ref=${encodeURIComponent(ref)}&kind=${encodeURIComponent(kind)}`,
+    { signal },
+  );
+  if (!response.ok) throw new Error('No playable source found');
+  return response.json();
 }
 
 export function usePlaybackSession(
   item: Media,
-  initialEpisodeRef?: string,
-  onEpisodeChange?: (episode: Episode) => void,
+  initialEpisodeRef: string | undefined,
+  onEpisodeChange: (episode: Episode) => void,
 ): PlaybackSession {
-  const progress = useProgress(item.providerId);
+  const [state, dispatch] = useReducer(sessionReducer, undefined, initialState);
+  const mountedRef = useRef(true);
   const { settings } = useSettings();
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [activeEpisode, setActiveEpisode] = useState<Episode>();
-  const [allVariants, setAllVariants] = useState<readonly StreamVariant[]>([]);
-  const [activeVariantId, setActiveVariantId] = useState<string>();
-  const [failedVariantIds, setFailedVariantIds] = useState<ReadonlySet<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const generationRef = useRef(0);
-  const [variantsNonce, setVariantsNonce] = useState(0);
+  const progressStore = useProgress();
+  const autoAdvance = settings.autoAdvance;
 
-  const providerId = item.providerId;
-  const itemRef = item.ref;
-  const itemKind = item.kind;
-  const groups = item.groups;
-
+  // Fetch episodes on mount
   useEffect(() => {
+    mountedRef.current = true;
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    if (itemKind === 'movie') {
-      const target = groups.flatMap((group) => group.items)[0];
-      setEpisodes([]);
-      setActiveEpisode(
-        target ? { id: target.id, title: target.label, ref: target.ref } : undefined,
-      );
-      setLoading(false);
-      return () => controller.abort();
-    }
-    const directGroup = groups.find((group) => group.kind === 'direct' && group.items.length);
-    if (directGroup) {
-      const directEpisodes = directGroup.items.map((entry) => ({
-        id: entry.id,
-        title: entry.label,
-        ref: entry.ref,
-      }));
-      setEpisodes(directEpisodes);
-      setActiveEpisode(
-        directEpisodes.find((episode) => episode.ref === initialEpisodeRef) ?? directEpisodes[0],
-      );
-      setLoading(false);
-      return () => controller.abort();
-    }
-    const episodeGroup = groups.find((group) => group.kind === 'episodes' && group.ref);
-    if (!episodeGroup?.ref) {
-      setEpisodes([]);
-      setActiveEpisode(undefined);
-      setLoading(false);
-      return () => controller.abort();
-    }
-    fetchEpisodes(providerId, episodeGroup.ref, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setEpisodes(result);
-        setActiveEpisode(result.find((episode) => episode.ref === initialEpisodeRef) ?? result[0]);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : 'Episodes could not be loaded');
+
+    // For movies, create a single synthetic episode from the item
+    if (item.kind === 'movie') {
+      const first = item.groups.flatMap((g) => g.items)[0];
+      const episode: Episode = first
+        ? { id: first.id, title: first.label, ref: first.ref }
+        : { id: item.id, title: item.title, ref: item.ref };
+      dispatch({ type: 'load-episodes', episodes: [episode], activeRef: initialEpisodeRef });
+    } else {
+      // For series, resolve episodes from groups or fetch
+      const direct = item.groups.find((g) => g.kind === 'direct' && g.items.length > 0);
+      if (direct) {
+        const episodes = direct.items.map((entry) => ({
+          id: entry.id,
+          title: entry.label,
+          ref: entry.ref,
+        }));
+        dispatch({ type: 'load-episodes', episodes, activeRef: initialEpisodeRef });
+      } else {
+        const group = item.groups.find((g) => g.kind === 'episodes' && g.ref);
+        if (group?.ref) {
+          void (async () => {
+            try {
+              const episodes = await fetchEpisodes(item, controller.signal);
+              if (mountedRef.current) {
+                dispatch({ type: 'load-episodes', episodes, activeRef: initialEpisodeRef });
+              }
+            } catch {
+              if (mountedRef.current) {
+                dispatch({
+                  type: 'load-episodes',
+                  episodes: [{ id: item.id, title: item.title, ref: item.ref }],
+                  activeRef: initialEpisodeRef,
+                });
+              }
+            }
+          })();
+        } else {
+          dispatch({
+            type: 'load-episodes',
+            episodes: [{ id: item.id, title: item.title, ref: item.ref }],
+            activeRef: initialEpisodeRef,
+          });
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [initialEpisodeRef, providerId, itemKind, groups]);
+      }
+    }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retry() bumps variantsNonce to force a re-fetch
+    return () => {
+      mountedRef.current = false;
+      controller.abort();
+    };
+  }, [item, initialEpisodeRef]);
+
+  // Fetch variants when activeEpisode changes
+  const activeEpisode = state.activeEpisode;
+  const _generation = state.generation;
   useEffect(() => {
-    if (!activeEpisode?.ref) return;
-    const episodeRef = activeEpisode.ref;
-    const controller = new AbortController();
-    const generation = ++generationRef.current;
-    setLoading(true);
-    setError(null);
-    setAllVariants([]);
-    setActiveVariantId(undefined);
-    setFailedVariantIds(new Set());
-    fetchSources(providerId, episodeRef, itemKind, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted || generation !== generationRef.current) return;
-        setAllVariants(result);
-        setActiveVariantId(result[0]?.variantId);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted && generation === generationRef.current) {
-          setError(reason instanceof Error ? reason.message : 'Sources could not be loaded');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted && generation === generationRef.current) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [activeEpisode?.ref, providerId, itemKind, variantsNonce]);
-
-  // Warm the variant cache for the next episode so auto-advance starts fast.
-  useEffect(() => {
-    if (itemKind === 'movie' || !settings.autoAdvance || episodes.length < 2) return;
-    const index = activeEpisode ? episodes.findIndex((entry) => entry.id === activeEpisode.id) : -1;
-    const next = index >= 0 ? episodes[index + 1] : undefined;
-    if (!next?.ref) return;
-    const controller = new AbortController();
-    fetchSources(providerId, next.ref, itemKind, controller.signal).catch(() => {});
-    return () => controller.abort();
-  }, [activeEpisode, episodes, itemKind, providerId, settings.autoAdvance]);
-
-  const variantFailed = useCallback((variantId: string, _error: PlayerErrorInfo) => {
-    setFailedVariantIds((prev) => {
-      if (prev.has(variantId)) return prev;
-      const next = new Set(prev);
-      next.add(variantId);
-      return next;
-    });
-  }, []);
-
-  const retry = useCallback(() => {
-    setError(null);
-    setFailedVariantIds(new Set());
-    setAllVariants([]);
-    setActiveVariantId(undefined);
-    setVariantsNonce((nonce) => nonce + 1);
-  }, []);
-
-  const ended = useCallback(() => {
     if (!activeEpisode) return;
-    progress.clear(itemRef, activeEpisode.ref);
-    const index = episodes.findIndex((entry) => entry.id === activeEpisode.id);
-    const next = settings.autoAdvance ? episodes[index + 1] : undefined;
-    if (next) {
-      setActiveEpisode(next);
-      onEpisodeChange?.(next);
-    }
-  }, [activeEpisode, episodes, itemRef, onEpisodeChange, progress.clear, settings.autoAdvance]);
+    const controller = new AbortController();
+    dispatch({ type: 'load-start' });
+
+    void (async () => {
+      try {
+        const variants = await fetchVariants(
+          item.providerId,
+          activeEpisode.ref,
+          item.kind,
+          controller.signal,
+        );
+        if (mountedRef.current) {
+          dispatch({ type: 'load-variants', variants });
+        }
+      } catch (error) {
+        if (mountedRef.current && !controller.signal.aborted) {
+          dispatch({
+            type: 'load-error',
+            message: error instanceof Error ? error.message : 'No playable source found',
+          });
+        }
+      }
+    })();
+
+    return () => controller.abort();
+    // generation triggers re-fetch on retry and episode change
+  }, [item.providerId, item.kind, activeEpisode]);
+
+  const variant = useMemo(() => pickVariant(state), [state]);
 
   const selectEpisode = useCallback(
     (episode: Episode) => {
-      setActiveEpisode(episode);
-      onEpisodeChange?.(episode);
+      dispatch({ type: 'select-episode', episode });
+      onEpisodeChange(episode);
     },
     [onEpisodeChange],
   );
 
-  const selectVariant = useCallback((variantId: string) => setActiveVariantId(variantId), []);
+  const selectVariant = useCallback((variantId: string) => {
+    dispatch({ type: 'select-variant', variantId });
+  }, []);
+
+  const variantFailed = useCallback((variantId: string) => {
+    dispatch({ type: 'variant-failed', variantId });
+  }, []);
+
+  const retry = useCallback(() => {
+    dispatch({ type: 'retry' });
+  }, []);
+
+  const ended = useCallback(() => {
+    if (!autoAdvance || !activeEpisode) return;
+    const idx = state.episodes.findIndex((ep) => ep.id === activeEpisode.id);
+    if (idx >= 0 && idx < state.episodes.length - 1) {
+      const next = state.episodes[idx + 1];
+      selectEpisode(next);
+    }
+  }, [autoAdvance, activeEpisode, state.episodes, selectEpisode]);
+
+  const progress: PlaybackProgress = useMemo(
+    () => ({
+      get: (ref: string, episodeRef = '') => progressStore.get(item.providerId, ref, episodeRef),
+      save: (ref: string, episodeRef: string, position: number, duration: number) =>
+        progressStore.save(item.providerId, ref, episodeRef, position, duration, {
+          title: item.displayTitle,
+          poster: item.posterUrl,
+          type: item.kind,
+        }),
+    }),
+    [item.providerId, item.displayTitle, item.posterUrl, item.kind, progressStore],
+  );
 
   return {
-    activeEpisode,
-    variant: allVariants.find((entry) => entry.variantId === activeVariantId),
-    episodes,
-    allVariants,
-    failedVariantIds,
-    loading,
-    error,
+    loading: state.loading,
+    error: state.error,
+    variant,
+    allVariants: state.allVariants,
+    failedVariantIds: state.failedVariantIds,
+    activeEpisode: state.activeEpisode,
+    episodes: state.episodes,
     progress,
-    variantFailed,
-    ended,
     retry,
     selectEpisode,
     selectVariant,
+    variantFailed,
+    ended,
   };
 }

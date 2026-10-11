@@ -1,10 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { localeHref, useLocale, useT } from '@/lib/i18n';
-import { encodeRef } from '@/lib/refs';
-import type { Episode, Media } from '@/types';
+import { useCallback, useEffect, useState } from 'react';
+import { encodeBase64Url } from '@/lib/base64url';
+import type { Episode, Media } from '@/types/media';
 import { EpisodeSelector } from './EpisodeSelector';
 import { PlayerEngine } from './PlayerEngine';
 import { SourceSelector } from './SourceSelector';
@@ -22,8 +21,6 @@ export function WatchExperience({
   tmdbContext?: { kind: string; id: number };
 }) {
   const router = useRouter();
-  const t = useT();
-  const { locale } = useLocale();
   const [panel, setPanel] = useState<Panel>(null);
 
   const updateEpisodeUrl = useCallback(
@@ -34,15 +31,21 @@ export function WatchExperience({
         params.set('tmdbId', String(tmdbContext.id));
       }
       router.replace(
-        localeHref(
-          locale,
-          `/watch/${encodeURIComponent(item.providerId)}/${encodeRef(item.ref)}?${params.toString()}`,
-        ),
+        `/watch/${encodeURIComponent(item.providerId)}/${encodeBase64Url(item.ref)}?${params.toString()}`,
       );
     },
-    [item.providerId, item.ref, locale, router, tmdbContext],
+    [item.providerId, item.ref, router, tmdbContext],
   );
   const session = usePlaybackSession(item, initialEpisodeRef, updateEpisodeUrl);
+
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPanel(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panel]);
 
   if (session.loading && !session.variant) {
     return (
@@ -57,34 +60,36 @@ export function WatchExperience({
             className="size-10 animate-spin rounded-full border-2 border-white/20 border-t-white sm:size-12"
             aria-hidden="true"
           />
-          <span>{t('watch.findingSource')}</span>
+          <span>{'Finding a playable source…'}</span>
         </div>
       </div>
     );
   }
-  if (session.error && !session.variant) {
+  if (!session.variant && (session.error ?? !session.loading)) {
     return (
       <div
         className="fixed inset-0 z-50 grid place-items-center bg-black px-6 text-center text-white"
         role="alert"
       >
         <div>
-          <p className="text-lg font-semibold">{t('watch.unavailable')}</p>
-          <p className="mt-2 text-sm text-white/70">{session.error}</p>
+          <p className="text-lg font-semibold">{'Playback unavailable'}</p>
+          <p className="mt-2 text-sm text-white/70">
+            {session.error ?? 'Playback could not load.'}
+          </p>
           <div className="mt-5 flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={session.retry}
               className="touch-target rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition-transform duration-150 hover:scale-[1.03] active:scale-95"
             >
-              {t('watch.tryAgain')}
+              {'Try again'}
             </button>
             <button
               type="button"
               onClick={() => router.back()}
               className="rounded-lg bg-white/15 px-4 py-2 text-sm touch-target transition-transform duration-150 hover:bg-white/20 active:scale-95"
             >
-              {t('watch.backToTitle')}
+              {'Back to title'}
             </button>
           </div>
         </div>

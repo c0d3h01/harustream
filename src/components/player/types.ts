@@ -1,7 +1,4 @@
-// Explicit playback lifecycle state machine. `PlayerStatus` is the only
-// thing components read to decide what to render — no component infers
-// state from side channels (a loading boolean here, an error string there).
-import type { StreamVariant } from '@/types';
+import type { StreamVariant } from '@/lib/streaming/types';
 
 export type PlayerStatus =
   | 'idle'
@@ -42,9 +39,9 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
     case 'loading':
       return { status: 'loading' };
     case 'ready':
-      // 'ready' is HTMLMediaElement's canplay firing — keep whichever of
-      // playing/paused already holds rather than assuming either.
-      return state.status === 'playing' ? state : { status: 'paused' };
+      return state.status === 'playing' || state.status === 'buffering'
+        ? state
+        : { status: 'paused' };
     case 'playing':
       return { status: 'playing' };
     case 'paused':
@@ -54,17 +51,12 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
     case 'stalled':
       return { status: 'stalled' };
     case 'error':
-      return { status: 'error', error: action.error };
+      return state.status === 'error' ? state : { status: 'error', error: action.error };
     default:
       return state;
   }
 }
 
-/** Everything one engine adapter (native/hls/dash) needs to attach to a
- *  `<video>` element for one variant, and the single cleanup function it
- *  must return. Attach/cleanup never overlap — `usePlayerEngine` always
- *  runs the previous engine's cleanup, flushes the element, and resets
- *  state before calling the next engine's attach. */
 export interface EngineAttachArgs {
   video: HTMLVideoElement;
   variant: StreamVariant;

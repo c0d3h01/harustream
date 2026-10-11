@@ -3,15 +3,9 @@ import Image from 'next/image';
 import { memo, useMemo, ViewTransition } from 'react';
 import { posterTransitionName } from '@/components/transitions/names';
 import { Button } from '@/components/ui/button';
-import { encodeBase64Url } from '@/lib/base64url';
+import { imgUrl } from '@/lib/media';
 import { useLibrary } from '@/lib/storage';
 import type { Media } from '@/types/media';
-
-function imgUrl(src: string | null | undefined): string {
-  if (!src) return '';
-  if (src.startsWith('/')) return src;
-  return `/api/image/${encodeBase64Url(src)}`;
-}
 
 interface TitleHeaderProps {
   item: Media;

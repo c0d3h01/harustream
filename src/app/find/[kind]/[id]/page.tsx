@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
-import { CandidateList } from '@/components/tmdb/CandidateList';
+import { CandidateList } from '@/components/sources/CandidateList';
 import { DirectionalTransition } from '@/components/transitions/DirectionalTransition';
 import { ConfigNotice } from '@/components/ui/ConfigNotice';
 import { asAppError } from '@/lib/errors';

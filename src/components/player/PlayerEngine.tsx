@@ -2,11 +2,10 @@
 
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useT } from '@/lib/i18n';
-import type { Episode, Media, StreamVariant } from '@/types';
+import type { StreamVariant } from '@/lib/streaming/types';
+import type { Episode, Media } from '@/types/media';
 import { Controls } from './Controls';
 import { PlayerError } from './PlayerError';
-import type { PlayerErrorInfo } from './types';
 import { usePlayerEngine } from './usePlayerEngine';
 
 export interface PlayerEngineProps {
@@ -20,7 +19,7 @@ export interface PlayerEngineProps {
     get: (ref: string, episodeRef?: string) => { position: number; duration: number } | undefined;
     save: (ref: string, episodeRef: string, position: number, duration: number) => void;
   };
-  onVariantFailed: (variantId: string, error: PlayerErrorInfo) => void;
+  onVariantFailed: (variantId: string) => void;
   onEnded: () => void;
   onPrevEpisode: () => void;
   onNextEpisode: () => void;
@@ -54,17 +53,21 @@ export function PlayerEngine({
   onRetry,
   onClose,
 }: PlayerEngineProps) {
-  const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const resumedRef = useRef(false);
   const endedRef = useRef(false);
   const lastSaveRef = useRef(0);
-  const state = usePlayerEngine(videoRef, variant);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+  const state = usePlayerEngine(videoEl, variant);
   const [stalledTooLong, setStalledTooLong] = useState(false);
+  const [now, setNow] = useState(0);
 
-  // Reset per-variant one-shot guards whenever the variant identity changes.
-  // `variant` is a trigger-only dependency — the effect body doesn't read it.
+  // Sync ref → state so usePlayerEngine re-runs when the element mounts.
+  useEffect(() => {
+    setVideoEl(videoRef.current);
+  }, []);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: variant is intentionally trigger-only
   useEffect(() => {
     resumedRef.current = false;
@@ -73,8 +76,8 @@ export function PlayerEngine({
   }, [variant]);
 
   useEffect(() => {
-    if (state.status === 'error' && state.error) onVariantFailed(variant.variantId, state.error);
-  }, [state, variant.variantId, onVariantFailed]);
+    if (state.status === 'error') onVariantFailed(variant.variantId);
+  }, [state.status, variant.variantId, onVariantFailed]);
 
   useEffect(() => {
     if (state.status !== 'stalled') {
@@ -99,9 +102,10 @@ export function PlayerEngine({
       }
     };
     const onTimeUpdate = () => {
-      const now = Date.now();
-      if (now - lastSaveRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
-      lastSaveRef.current = now;
+      setNow(video.currentTime);
+      const nowMs = Date.now();
+      if (nowMs - lastSaveRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
+      lastSaveRef.current = nowMs;
       if (Number.isFinite(video.duration)) {
         progress.save(item.ref, activeEpisode.ref, video.currentTime, video.duration);
       }
@@ -111,16 +115,23 @@ export function PlayerEngine({
       endedRef.current = true;
       onEnded();
     };
+    const onSeeked = () => {
+      endedRef.current = false;
+    };
 
     video.addEventListener('loadedmetadata', onLoadedMetadata);
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('ended', onEndedEvent);
+    video.addEventListener('seeked', onSeeked);
     return () => {
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('ended', onEndedEvent);
+      video.removeEventListener('seeked', onSeeked);
     };
   }, [item.ref, activeEpisode.ref, progress, onEnded]);
+
+  const activeSkip = variant.skip?.find((entry) => now >= entry.from && now < entry.to);
 
   return (
     <div
@@ -134,7 +145,7 @@ export function PlayerEngine({
         playsInline
         autoPlay
         crossOrigin="anonymous"
-        aria-label={t('title.playerAria', { title: item.displayTitle })}
+        aria-label={`Video player for ${item.displayTitle}`}
       >
         {variant.subtitles.map((subtitle) => (
           <track
@@ -160,13 +171,28 @@ export function PlayerEngine({
       ) : null}
 
       {stalledTooLong ? (
-        <div className="absolute inset-x-0 bottom-24 z-[95] flex justify-center px-4">
+        <div className="absolute inset-x-0 bottom-24 z-scrubber flex justify-center px-4">
           <button
             type="button"
             onClick={onToggleSources}
-            className="glass-overlay rounded-full px-4 py-2 text-xs font-semibold text-white transition-transform active:scale-95"
+            className="video-chrome rounded-full px-4 py-2 text-xs font-semibold text-white transition-transform active:scale-95"
           >
-            {t('player.stalledHint')}
+            {'Still stuck? Switch source'}
+          </button>
+        </div>
+      ) : null}
+
+      {activeSkip ? (
+        <div className="absolute inset-x-0 bottom-24 z-scrubber flex justify-end px-4">
+          <button
+            type="button"
+            onClick={() => {
+              const video = videoRef.current;
+              if (video) video.currentTime = activeSkip.to;
+            }}
+            className="video-chrome rounded-full px-4 py-2 text-xs font-semibold text-white transition-transform active:scale-95"
+          >
+            {activeSkip.title || 'Skip intro'}
           </button>
         </div>
       ) : null}
@@ -178,6 +204,7 @@ export function PlayerEngine({
           onRetry={onRetry}
           onOpenSources={onToggleSources}
           onClose={onClose}
+          downloadHref={variant.playbackHref}
         />
       ) : null}
 
@@ -185,8 +212,8 @@ export function PlayerEngine({
         <button
           type="button"
           onClick={onClose}
-          className="glass-overlay glass-interactive absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-[100] rounded-xl p-2.5 text-white/80 shadow-lg transition-colors hover:text-white"
-          aria-label="Go back"
+          className="video-chrome absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-chrome rounded-lg p-2.5 text-white/80 transition-colors hover:text-white"
+          aria-label={'Go back'}
         >
           <ArrowLeft size={18} />
         </button>

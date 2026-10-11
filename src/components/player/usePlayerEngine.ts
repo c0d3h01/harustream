@@ -1,16 +1,7 @@
 'use client';
 
-// Owns the media element's lifecycle. The teardown contract this hook
-// enforces is the direct fix for the previous player's cross-source bleed:
-// switching variants or unmounting always runs, in this order — abort the
-// in-flight attach, run the active engine's own cleanup, flush the
-// element's buffered state (`removeAttribute('src')` + `load()`, which
-// releases hls.js/dash.js's MSE `SourceBuffer`s too, since their cleanup
-// runs first), then reset state. Only after all of that does the next
-// variant's engine ever attach — no attach ever overlaps a previous one's
-// teardown.
 import { useEffect, useReducer, useRef } from 'react';
-import type { StreamVariant } from '@/types';
+import type { StreamVariant } from '@/lib/streaming/types';
 import { dashEngine } from './engines/dashEngine';
 import { hlsEngine } from './engines/hlsEngine';
 import { nativeEngine, supportsNativeHls } from './engines/nativeEngine';
@@ -22,34 +13,38 @@ function engineFor(variant: StreamVariant, video: HTMLVideoElement): Engine {
   return nativeEngine;
 }
 
+/**
+ * `video` is the element itself, not a ref: a ref is populated without
+ * re-rendering, so an effect keyed on it never re-runs when React mounts or
+ * replaces the node. That left the source cleared and never re-attached, and the
+ * time display stuck at 0:00.
+ */
 export function usePlayerEngine(
-  videoRef: React.RefObject<HTMLVideoElement | null>,
+  video: HTMLVideoElement | null,
   variant: StreamVariant | undefined,
 ) {
   const [state, dispatch] = useReducer(playerReducer, { status: 'idle' });
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    const video = videoRef.current;
     if (!video) return;
 
     cleanupRef.current?.();
     cleanupRef.current = null;
-    video.removeAttribute('src');
-    video.load();
     dispatch({ type: 'reset' });
 
-    if (!variant?.playbackHref) return;
-    // MKV (Matroska) has no native <video> support in any browser —
-    // without this guard the element stalls forever on loading instead
-    // of surfacing the existing unsupported-format error UI.
-    if (variant.format === 'mkv') {
+    // Never clear a working source: only replace it when there is a replacement.
+    if (variant?.format === 'mkv') {
       dispatch({
         type: 'error',
         error: { kind: 'unsupported', message: 'MKV cannot play directly in browsers' },
       });
       return;
     }
+    if (!variant?.playbackHref) return;
+
+    video.removeAttribute('src');
+    video.load();
     dispatch({ type: 'loading' });
 
     const controller = new AbortController();
@@ -82,10 +77,9 @@ export function usePlayerEngine(
       cleanupRef.current?.();
       cleanupRef.current = null;
     };
-  }, [variant, videoRef]);
+  }, [video, variant]);
 
   useEffect(() => {
-    const video = videoRef.current;
     if (!video) return;
     const onPlaying = () => dispatch({ type: 'playing' });
     const onPause = () => dispatch({ type: 'paused' });
@@ -108,7 +102,7 @@ export function usePlayerEngine(
       video.removeEventListener('stalled', onStalled);
       video.removeEventListener('error', onVideoError);
     };
-  }, [videoRef]);
+  }, [video]);
 
   return state;
 }

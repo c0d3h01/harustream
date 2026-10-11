@@ -1,9 +1,5 @@
 'use client';
 
-// Playback controls bar. Reads/writes the `<video>` element directly via
-// its ref — this is the one place in the player tree that touches the
-// element's imperative API (currentTime, volume, textTracks, fullscreen);
-// everything else reacts to `PlayerStatus` from `usePlayerEngine`.
 import {
   Captions,
   ChevronLeft,
@@ -14,11 +10,11 @@ import {
   Pause,
   Play,
   Server,
+  Upload,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useT } from '@/lib/i18n';
 import type { PlayerStatus } from './types';
 
 function formatTime(seconds: number): string {
@@ -56,7 +52,6 @@ function useVideoTime(videoRef: React.RefObject<HTMLVideoElement | null>) {
 
 export interface ControlsProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  /** Fullscreen target — the whole player viewport, not just this bar. */
   viewportRef: React.RefObject<HTMLElement | null>;
   status: PlayerStatus;
   hasPrevEpisode: boolean;
@@ -86,7 +81,6 @@ export function Controls({
   episodesOpen,
   sourcesOpen,
 }: ControlsProps) {
-  const t = useT();
   const { current, duration, buffered } = useVideoTime(videoRef);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -158,11 +152,35 @@ export function Controls({
     }
   }, [videoRef, captionsOn]);
 
+  const addExternalSubs = useCallback(
+    (file: File) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const url = URL.createObjectURL(file);
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = file.name;
+      track.srclang = 'en';
+      track.src = url;
+      video.appendChild(track);
+      track.addEventListener('load', () => {
+        for (const textTrack of Array.from(video.textTracks)) {
+          textTrack.mode =
+            textTrack.kind === 'subtitles' && textTrack.label === file.name
+              ? 'showing'
+              : textTrack.mode;
+        }
+      });
+      setCaptionsOn(true);
+    },
+    [videoRef],
+  );
+
   const isPlaying = status === 'playing';
 
   return (
     <div className="pointer-events-none absolute inset-0">
-      <div className="glass-overlay pointer-events-auto absolute inset-x-0 bottom-0 z-[90] flex flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
+      <div className="video-chrome pointer-events-auto absolute inset-x-0 bottom-0 z-controls flex flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
         <input
           type="range"
           min={0}
@@ -170,7 +188,7 @@ export function Controls({
           step={0.1}
           value={Math.min(current, duration || 0)}
           onChange={(event) => seek(Number(event.target.value))}
-          aria-label={t('player.seek')}
+          aria-label={'Seek'}
           className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
           style={{
             backgroundImage: `linear-gradient(to right, white ${((current / (duration || 1)) * 100).toFixed(2)}%, rgba(255,255,255,0.35) ${((buffered / (duration || 1)) * 100).toFixed(2)}%, rgba(255,255,255,0.15) ${((buffered / (duration || 1)) * 100).toFixed(2)}%)`,
@@ -180,7 +198,7 @@ export function Controls({
           <button
             type="button"
             onClick={togglePlay}
-            aria-label={isPlaying ? t('player.pause') : t('player.play')}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
             className="rounded-full p-2 transition-colors hover:bg-white/10"
           >
             {isPlaying ? (
@@ -194,7 +212,7 @@ export function Controls({
             <button
               type="button"
               onClick={onPrevEpisode}
-              aria-label={t('player.episodePicker')}
+              aria-label={'Previous episode'}
               className="rounded-full p-2 transition-colors hover:bg-white/10"
             >
               <ChevronLeft size={18} />
@@ -204,33 +222,31 @@ export function Controls({
             <button
               type="button"
               onClick={onNextEpisode}
-              aria-label={t('player.episodePicker')}
+              aria-label={'Next episode'}
               className="rounded-full p-2 transition-colors hover:bg-white/10"
             >
               <ChevronRight size={18} />
             </button>
           ) : null}
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={muted || volume === 0 ? t('player.play') : t('player.pause')}
-              className="rounded-full p-2 transition-colors hover:bg-white/10"
-            >
-              {muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={muted ? 0 : volume}
-              onChange={(event) => changeVolume(Number(event.target.value))}
-              aria-label="Volume"
-              className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/25 accent-white"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={muted || volume === 0 ? 'Unmute' : 'Mute'}
+            className="rounded-full p-2 transition-colors hover:bg-white/10"
+          >
+            {muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={(event) => changeVolume(Number(event.target.value))}
+            aria-label={'Volume'}
+            className="hidden h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/25 accent-white sm:block"
+          />
 
           <span className="tabular-nums text-xs font-medium text-white/80">
             {formatTime(current)} / {formatTime(duration)}
@@ -241,17 +257,31 @@ export function Controls({
               type="button"
               onClick={toggleCaptions}
               aria-pressed={captionsOn}
-              aria-label={t('player.subtitlesPicker')}
+              aria-label={'Subtitles'}
               className={`rounded-full p-2 transition-colors hover:bg-white/10 ${captionsOn ? 'text-white' : 'text-white/50'}`}
             >
               <Captions size={18} />
             </button>
+            <label className="hidden cursor-pointer rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white sm:block">
+              <span className="sr-only">{'Upload subtitles (.vtt)'}</span>
+              <Upload size={18} aria-hidden="true" />
+              <input
+                type="file"
+                accept=".vtt,text/vtt"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) addExternalSubs(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
             {showEpisodesButton ? (
               <button
                 type="button"
                 onClick={onToggleEpisodes}
                 aria-expanded={episodesOpen}
-                aria-label={t('player.episodePicker')}
+                aria-label={'Episode'}
                 className={`rounded-full p-2 transition-colors hover:bg-white/10 ${episodesOpen ? 'text-white' : 'text-white/70'}`}
               >
                 <Layers size={18} />
@@ -262,7 +292,7 @@ export function Controls({
                 type="button"
                 onClick={onToggleSources}
                 aria-expanded={sourcesOpen}
-                aria-label={t('player.sourcePicker')}
+                aria-label={'Source'}
                 className={`rounded-full p-2 transition-colors hover:bg-white/10 ${sourcesOpen ? 'text-white' : 'text-white/70'}`}
               >
                 <Server size={18} />
@@ -271,7 +301,7 @@ export function Controls({
             <button
               type="button"
               onClick={toggleFullscreen}
-              aria-label={t('player.fullscreen')}
+              aria-label={'Fullscreen'}
               className="rounded-full p-2 transition-colors hover:bg-white/10"
             >
               {fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
